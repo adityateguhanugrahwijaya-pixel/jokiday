@@ -6,8 +6,9 @@ import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { LedgerService } from "@/server/ledger/ledger.service";
 import { formatRupiah, formatDate, formatTime } from "@/lib/format";
-import { Wallet, ShieldAlert, ArrowDownLeft, ArrowUpRight, ShieldCheck, AlertCircle } from "lucide-react";
+import { Wallet, ShieldAlert, ArrowDownLeft, ArrowUpRight, ShieldCheck, AlertCircle, Building2, Smartphone, CheckCircle2 } from "lucide-react";
 import { WithdrawalModalButton } from "./WithdrawalModalButton";
+import { PayoutAccountCard } from "./PayoutAccountCard";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -21,6 +22,7 @@ export default async function WalletPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
+    include: { designerProfile: true },
   });
 
   if (!user) {
@@ -191,6 +193,12 @@ export default async function WalletPage() {
   });
   const escrowHeldBalance = activeOrders.reduce((sum, o) => sum + o.designerNet, 0);
 
+  const withdrawals = await prisma.withdrawal.findMany({
+    where: { userId: designerId },
+    orderBy: { createdAt: "desc" },
+    take: 15,
+  });
+
   const ledgerEntries = await prisma.ledgerEntry.findMany({
     where: {
       OR: [
@@ -215,8 +223,22 @@ export default async function WalletPage() {
             </p>
           </div>
 
-          <WithdrawalModalButton availableBalance={availableBalance} />
+          <WithdrawalModalButton
+            availableBalance={availableBalance}
+            savedBankName={user.designerProfile?.payoutBank}
+            savedAccountNumber={user.designerProfile?.payoutAccount}
+            savedAccountHolder={user.designerProfile?.payoutHolderName}
+            userDisplayName={user.displayName}
+          />
         </div>
+
+        {/* Informasi Rekening Pencairan Saldo */}
+        <PayoutAccountCard
+          initialBank={user.designerProfile?.payoutBank}
+          initialAccount={user.designerProfile?.payoutAccount}
+          initialHolder={user.designerProfile?.payoutHolderName}
+          userDisplayName={user.displayName}
+        />
 
         {/* Tiga Kartu Angka Saldo */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
@@ -264,6 +286,111 @@ export default async function WalletPage() {
               Kombinasi saldo aktif dan proyek yang sedang berjalan.
             </p>
           </Card>
+        </div>
+
+        {/* Riwayat Penarikan Dana */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-text">
+              Riwayat Penarikan Dana
+            </h2>
+            <span className="text-xs text-text-muted">
+              Pencairan ke rekening bank & e-wallet
+            </span>
+          </div>
+
+          {withdrawals.length === 0 ? (
+            <div className="bg-surface border border-border rounded-lg p-8 text-center text-text-muted text-sm">
+              Belum ada riwayat penarikan saldo. Klik tombol Tarik Saldo untuk mengajukan pencairan pendapatan Anda.
+            </div>
+          ) : (
+            <div className="bg-surface border border-border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-neutral-soft border-b border-border text-xs text-text-muted uppercase tracking-wider">
+                      <th className="py-3 px-4 font-semibold">Tanggal & Waktu</th>
+                      <th className="py-3 px-4 font-semibold">Tujuan Rekening / E-Wallet</th>
+                      <th className="py-3 px-4 font-semibold">Status</th>
+                      <th className="py-3 px-4 font-semibold text-right">Nominal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-sm">
+                    {withdrawals.map((w) => {
+                      let dest: Record<string, string> = {};
+                      try {
+                        dest = JSON.parse(w.destination || "{}");
+                      } catch {
+                        dest = {};
+                      }
+
+                      const isSuccess = w.status === "SUCCESS";
+                      const isPending = w.status === "REQUESTED";
+                      const isFailed = w.status === "FAILED";
+
+                      return (
+                        <tr
+                          key={w.id}
+                          className="hover:bg-background transition-colors"
+                        >
+                          <td className="py-3.5 px-4 text-xs text-text-muted">
+                            {formatDate(w.createdAt)} {formatTime(w.createdAt)}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="font-semibold text-text text-sm">
+                              {dest.bankName || (w.method === "EWALLET" ? "E-Wallet" : "Transfer Bank")}
+                              {dest.accountNumber ? ` • ${dest.accountNumber}` : ""}
+                            </div>
+                            <div className="text-xs text-text-muted">
+                              a.n. {dest.accountHolder || user.displayName}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="space-y-1">
+                              <Badge
+                                variant={
+                                  isSuccess
+                                    ? "success"
+                                    : isPending
+                                    ? "warning"
+                                    : isFailed
+                                    ? "danger"
+                                    : "neutral"
+                                }
+                              >
+                                {isSuccess
+                                  ? "Berhasil Ditransfer"
+                                  : isPending
+                                  ? "Menunggu Proses Admin"
+                                  : isFailed
+                                  ? "Ditolak"
+                                  : "Diproses"}
+                              </Badge>
+                              {w.reviewedBy === "SYSTEM_AUTO_VERIFIED" && (
+                                <span className="block text-[10px] text-text-muted font-mono">
+                                  Auto-Approved (Terverifikasi)
+                                </span>
+                              )}
+                              {w.rejectionReason && (
+                                <span className="block text-[11px] text-danger">
+                                  Alasan: {w.rejectionReason}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <span className="font-money font-bold text-text text-base">
+                              {formatRupiah(w.amount)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tabel Riwayat Transaksi */}

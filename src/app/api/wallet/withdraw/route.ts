@@ -66,6 +66,26 @@ export async function POST(req: NextRequest) {
     const idempotencyKey = `withdrawal-${withdrawalId}`;
 
     await prisma.$transaction(async (tx) => {
+      // Simpan informasi rekening default desainer jika diminta
+      if (body.saveAsDefault && cleanDestination.bankName && cleanDestination.accountNumber) {
+        await tx.designerProfile.upsert({
+          where: { userId: user.id },
+          update: {
+            payoutBank: cleanDestination.bankName,
+            payoutAccount: cleanDestination.accountNumber,
+            payoutHolderName: cleanDestination.accountHolder || user.displayName,
+          },
+          create: {
+            userId: user.id,
+            bio: "Desainer kreatif di JokiDay",
+            categories: JSON.stringify(["logo"]),
+            payoutBank: cleanDestination.bankName,
+            payoutAccount: cleanDestination.accountNumber,
+            payoutHolderName: cleanDestination.accountHolder || user.displayName,
+          },
+        });
+      }
+
       // 1. Kunci saldo: Debit WALLET_AVAILABLE -> Kredit WITHDRAWAL_PENDING
       await LedgerService.recordWithdrawalRequested(
         user.id,

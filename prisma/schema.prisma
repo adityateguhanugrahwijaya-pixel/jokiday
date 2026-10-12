@@ -63,6 +63,9 @@ model DesignerProfile {
   ktpNumber      String?  @map("ktp_number")
   phone          String?  @map("phone")
   portfolioUrl   String?  @map("portfolio_url")
+  payoutBank     String?  @map("payout_bank")
+  payoutAccount  String?  @map("payout_account")
+  payoutHolderName String? @map("payout_holder_name")
 
   user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   posts    Post[]
