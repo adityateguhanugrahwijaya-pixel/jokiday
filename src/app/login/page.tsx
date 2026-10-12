@@ -4,7 +4,7 @@ import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { AlertCircle, KeyRound } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 function LoginFormContent() {
   const router = useRouter();
@@ -37,12 +37,6 @@ function LoginFormContent() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const fillDemoAccount = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword("password123");
-    setErrorMsg("");
   };
 
   return (
@@ -93,39 +87,6 @@ function LoginFormContent() {
           Masuk
         </Button>
       </form>
-
-      <div className="p-3 bg-background border border-border rounded-lg space-y-2 text-xs">
-        <div className="flex items-center gap-1.5 font-bold text-text">
-          <KeyRound className="w-3.5 h-3.5 text-primary" />
-          <span>Akun Demo Bawaan:</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            onClick={() => fillDemoAccount("admin@jokiday.com")}
-            className="p-1.5 rounded bg-surface hover:bg-border/40 border border-border text-center text-text font-medium transition-colors"
-          >
-            Admin
-          </button>
-          <button
-            type="button"
-            onClick={() => fillDemoAccount("budi.designer@jokiday.com")}
-            className="p-1.5 rounded bg-surface hover:bg-border/40 border border-border text-center text-text font-medium transition-colors"
-          >
-            Desainer
-          </button>
-          <button
-            type="button"
-            onClick={() => fillDemoAccount("ani.customer@jokiday.com")}
-            className="p-1.5 rounded bg-surface hover:bg-border/40 border border-border text-center text-text font-medium transition-colors"
-          >
-            Pelanggan
-          </button>
-        </div>
-        <p className="text-[11px] text-text-muted text-center">
-          Kata sandi semua akun demo: <span className="font-mono text-text">password123</span>
-        </p>
-      </div>
 
       <p className="text-center text-xs text-text-muted">
         Belum punya akun?{" "}
