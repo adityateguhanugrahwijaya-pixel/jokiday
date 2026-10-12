@@ -25,7 +25,7 @@ function LoginFormContent() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password: password.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Email atau kata sandi salah");
@@ -33,7 +33,11 @@ function LoginFormContent() {
       const target = redirectTarget || (data.user?.isAdmin ? "/admin/invites" : data.user?.activeRole === "DESIGNER" ? "/dashboard" : "/");
       window.location.href = target;
     } catch (err: any) {
-      setErrorMsg(err.message);
+      if (err.name === "TypeError" && (err.message?.includes("fetch") || err.message?.includes("Failed"))) {
+        setErrorMsg("Koneksi internet bermasalah atau terputus (Failed to fetch). Silakan periksa koneksi jaringan Anda lalu coba lagi.");
+      } else {
+        setErrorMsg(err.message || "Email atau kata sandi salah");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -51,15 +55,16 @@ function LoginFormContent() {
       <form onSubmit={handleLogin} className="space-y-4 text-sm">
         <div>
           <label className="block font-semibold text-text mb-1">
-            Alamat Email
+            Alamat Email atau Username
           </label>
           <input
-            type="email"
-            placeholder="nama@email.com"
+            type="text"
+            placeholder="nama@email.com atau admin"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full h-11 px-3 bg-background border border-border rounded-md text-text focus:outline-none focus:ring-2 focus:ring-primary"
             required
+            autoComplete="username"
           />
         </div>
 

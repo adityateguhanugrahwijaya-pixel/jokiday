@@ -64,8 +64,15 @@ export class AuthService {
   }
 
   static async login(email: string, password: string) {
-    const cleanEmail = (email || "").toLowerCase().trim();
-    if (!cleanEmail || !password) {
+    let cleanEmail = (email || "").toLowerCase().trim();
+    if (cleanEmail === "admin" || cleanEmail === "administrator") {
+      cleanEmail = "admin@jokiday.com";
+    } else if (cleanEmail === "aditya") {
+      cleanEmail = "aditya.teguhanugrahwijaya@gmail.com";
+    }
+
+    const cleanPassword = (password || "").trim();
+    if (!cleanEmail || !cleanPassword) {
       throw new UnauthorizedError("Email atau password salah");
     }
 
@@ -76,7 +83,10 @@ export class AuthService {
       throw new UnauthorizedError("Email atau password salah");
     }
 
-    const isValid = await verifyPassword(password, user.passwordHash);
+    let isValid = await verifyPassword(cleanPassword, user.passwordHash);
+    if (!isValid && password !== cleanPassword) {
+      isValid = await verifyPassword(password, user.passwordHash);
+    }
     if (!isValid) {
       throw new UnauthorizedError("Email atau password salah");
     }
