@@ -90,4 +90,44 @@ export class ImageKitService {
       );
     });
   }
+
+  /**
+   * Upload watermarked portfolio post image to ImageKit CDN.
+   * Serves public feed images with high speed and permanent cloud storage.
+   */
+  static async uploadPortfolioPost(
+    designerId: string,
+    watermarkedBuffer: Buffer,
+    fileName: string
+  ): Promise<{ url: string; fileId: string }> {
+    const ik = getImageKit();
+
+    return new Promise((resolve, reject) => {
+      ik.upload(
+        {
+          file: watermarkedBuffer.toString("base64"),
+          fileName,
+          folder: "/jokiday/portfolio",
+          useUniqueFileName: true,
+          tags: ["portfolio", `designer_${designerId}`],
+        },
+        (err, result) => {
+          if (err || !result) {
+            return reject(
+              new AppError(
+                `Gagal mengunggah karya ke ImageKit CDN: ${err?.message || "Unknown error"}`,
+                "IMAGEKIT_UPLOAD_FAILED",
+                502
+              )
+            );
+          }
+
+          resolve({
+            url: result.url,
+            fileId: result.fileId,
+          });
+        }
+      );
+    });
+  }
 }

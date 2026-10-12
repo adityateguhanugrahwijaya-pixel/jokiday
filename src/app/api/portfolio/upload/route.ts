@@ -4,8 +4,7 @@ import { AuthService } from "@/server/auth/auth.service";
 import { WatermarkService } from "@/server/media/watermark.service";
 import { handleApiError, ValidationError, NotFoundError, UnauthorizedError, ForbiddenError } from "@/lib/errors";
 import { sanitizeInput } from "@/lib/security";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { ImageKitService } from "@/server/storage/imagekit.service";
 import crypto from "node:crypto";
 
 export async function POST(req: NextRequest) {
@@ -67,14 +66,14 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    // Simpan file preview ber-watermark ke storage publik
+    // Upload file preview ber-watermark ke ImageKit CDN
     const fileId = crypto.randomUUID();
     const fileName = `wm_${fileId}.jpg`;
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "previews");
-    await fs.mkdir(uploadsDir, { recursive: true });
-    await fs.writeFile(path.join(uploadsDir, fileName), watermarkedBuffer);
-
-    const previewUrl = `/uploads/previews/${fileName}`;
+    const { url: previewUrl } = await ImageKitService.uploadPortfolioPost(
+      designer.id,
+      watermarkedBuffer,
+      fileName
+    );
 
     // Simpan record ke database
     const post = await prisma.$transaction(async (tx) => {
