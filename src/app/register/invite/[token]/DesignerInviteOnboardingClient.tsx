@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { ShieldCheck, UserCheck, AlertCircle, ArrowRight, Lock, Mail, User, Phone, CreditCard, ExternalLink, FileText } from "lucide-react";
+import { ShieldCheck, UserCheck, AlertCircle, ArrowRight, Lock, Mail, User, Phone, CreditCard, ExternalLink, FileText, CheckCircle2 } from "lucide-react";
+import { validateNIK } from "@/lib/validation";
 
 export function DesignerInviteOnboardingClient({
   token,
@@ -62,8 +63,9 @@ export function DesignerInviteOnboardingClient({
     e.preventDefault();
     setErrorMsg("");
 
-    if (ktpNumber.trim().length !== 16 || !/^\d+$/.test(ktpNumber.trim())) {
-      setErrorMsg("Nomor Induk Kependudukan (NIK/KTP) wajib 16 digit angka");
+    const nikCheck = validateNIK(ktpNumber.trim());
+    if (!nikCheck.valid) {
+      setErrorMsg(nikCheck.reason);
       return;
     }
     if (phone.trim().length < 10) {
@@ -288,6 +290,11 @@ export function DesignerInviteOnboardingClient({
                     required
                   />
                 </div>
+                {ktpNumber.length === 16 && (
+                  <p className={`text-[11px] mt-1 font-medium ${validateNIK(ktpNumber).valid ? "text-emerald-600 dark:text-emerald-400" : "text-danger"}`}>
+                    {validateNIK(ktpNumber).reason}
+                  </p>
+                )}
               </div>
 
               <div>

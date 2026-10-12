@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword } from "@/lib/crypto";
 import { handleApiError, NotFoundError, ValidationError, ConflictError, UnauthorizedError } from "@/lib/errors";
 import { SignJWT } from "jose";
 import { SESSION_SECRET, sanitizeInput } from "@/lib/security";
+import { validateNIK } from "@/lib/validation";
 
 const COOKIE_NAME = "jokiday_session";
 
@@ -53,8 +54,9 @@ export async function POST(
     const cleanBio = sanitizeInput(bio).slice(0, 1000);
     const cleanPortfolioUrl = sanitizeInput(portfolioUrl).slice(0, 300);
 
-    if (!cleanKtp || cleanKtp.length < 16) {
-      throw new ValidationError("Nomor Induk Kependudukan (NIK/KTP) wajib 16 digit");
+    const nikCheck = validateNIK(cleanKtp);
+    if (!nikCheck.valid) {
+      throw new ValidationError(nikCheck.reason);
     }
     if (!cleanPhone || cleanPhone.length < 10) {
       throw new ValidationError("Nomor telepon/WhatsApp aktif wajib diisi minimal 10 digit");
