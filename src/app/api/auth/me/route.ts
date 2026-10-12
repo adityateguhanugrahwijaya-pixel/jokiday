@@ -18,6 +18,7 @@ export async function GET() {
       isCustomer: true,
       isDesigner: true,
       isAdmin: true,
+      avatarUrl: true,
     },
   });
 

@@ -36,6 +36,7 @@ interface AuthUser {
   isCustomer: boolean;
   isDesigner: boolean;
   isAdmin: boolean;
+  avatarUrl?: string | null;
 }
 
 export function Navbar({
@@ -375,8 +376,16 @@ export function Navbar({
                 className="flex items-center gap-2 p-1 rounded-md hover:bg-background transition-colors touch-target"
                 aria-expanded={showMenu}
               >
-                <div className="w-9 h-9 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center text-sm border border-primary/20">
-                  {currentDisplayName.slice(0, 1).toUpperCase()}
+                <div className="w-9 h-9 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center text-sm border border-primary/20 overflow-hidden shrink-0">
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={currentDisplayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    currentDisplayName.slice(0, 1).toUpperCase()
+                  )}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
                   <span className="text-xs font-bold text-text truncate max-w-[100px]">

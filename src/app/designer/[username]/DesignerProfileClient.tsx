@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatRupiah, formatDate } from "@/lib/format";
@@ -22,6 +22,8 @@ import {
   Sparkles,
   Info,
   Trash2,
+  Camera,
+  Loader2,
 } from "lucide-react";
 
 export interface ProfilePost {
@@ -77,6 +79,40 @@ export function DesignerProfileClient({
 
   const [posts, setPosts] = useState<ProfilePost[]>(initialPosts);
   const [packages, setPackages] = useState<ProfilePackage[]>(initialPackages);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(designer.avatarUrl);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Ukuran foto maksimal 5 MB.");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const res = await fetch("/api/user/avatar", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal mengunggah foto profil");
+
+      setCurrentAvatarUrl(data.avatarUrl);
+    } catch (err: any) {
+      alert(err.message || "Gagal mengunggah foto.");
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
 
   // Modal State
   const [selectedPost, setSelectedPost] = useState<ProfilePost | null>(null);
@@ -259,19 +295,44 @@ export function DesignerProfileClient({
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8">
           {/* Avatar Lingkaran Besar */}
           <div className="relative shrink-0">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1 bg-gradient-to-tr from-primary to-secondary">
-              <div className="w-full h-full rounded-full bg-surface flex items-center justify-center font-extrabold text-2xl sm:text-3xl text-primary overflow-hidden">
-                {designer.avatarUrl ? (
+            <div
+              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1 bg-gradient-to-tr from-primary to-secondary ${
+                isOwner ? "cursor-pointer group" : ""
+              }`}
+              onClick={isOwner ? () => avatarInputRef.current?.click() : undefined}
+            >
+              <div className="w-full h-full rounded-full bg-surface flex items-center justify-center font-extrabold text-2xl sm:text-3xl text-primary overflow-hidden relative">
+                {currentAvatarUrl ? (
                   <img
-                    src={designer.avatarUrl}
+                    src={currentAvatarUrl}
                     alt={designer.displayName}
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <span>{designer.displayName.slice(0, 1).toUpperCase()}</span>
                 )}
+                {isOwner && (
+                  <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-primary text-[10px] font-bold">
+                    <Camera className="w-5 h-5 mb-0.5" />
+                    <span>Ganti Foto</span>
+                  </div>
+                )}
+                {isUploadingAvatar && (
+                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                  </div>
+                )}
               </div>
             </div>
+            {isOwner && (
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+            )}
           </div>
 
           {/* Info Utama Desainer */}

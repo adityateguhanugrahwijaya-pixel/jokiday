@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { ProfileRoleClient } from "./ProfileRoleClient";
 import { ProfileDriveClient } from "./ProfileDriveClient";
+import { ProfileAvatarClient } from "./ProfileAvatarClient";
 import { Cloud, UserCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 
@@ -49,11 +50,12 @@ export default async function ProfilePage() {
 
         {/* Kartu Profil Utama */}
         <div className="bg-surface border border-border rounded-lg p-6 sm:p-8 space-y-6">
-          <div className="flex items-center gap-5">
-            <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-primary-soft text-primary font-extrabold text-2xl flex items-center justify-center border-2 border-primary/20 shrink-0">
-              {user?.displayName.slice(0, 1).toUpperCase() || "J"}
-            </div>
-            <div className="space-y-1">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+            <ProfileAvatarClient
+              currentAvatarUrl={user?.avatarUrl || null}
+              displayName={user?.displayName || "Pengguna"}
+            />
+            <div className="space-y-1 text-center sm:text-left">
               <h2 className="text-xl sm:text-2xl font-bold text-text">
                 {user?.displayName || "Pengguna JokiDay"}
               </h2>
