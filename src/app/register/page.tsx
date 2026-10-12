@@ -32,8 +32,7 @@ export default function RegisterPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Pendaftaran gagal");
 
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {

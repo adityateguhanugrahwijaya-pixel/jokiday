@@ -84,7 +84,7 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [pathname]);
 
   // Multi-tab synchronization: cegah peran kembali atau tertinggal saat ganti tab browser
   useEffect(() => {
@@ -387,14 +387,24 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
                   )}
 
                   {user.isAdmin && (
-                    <Link
-                      href="/admin/withdrawals"
-                      onClick={() => setShowMenu(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-secondary-text font-bold hover:bg-background transition-colors"
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      <span>Panel Admin Penarikan</span>
-                    </Link>
+                    <>
+                      <Link
+                        href="/admin/invites"
+                        onClick={() => setShowMenu(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-secondary-text font-bold hover:bg-background transition-colors"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>Panel Admin Undangan</span>
+                      </Link>
+                      <Link
+                        href="/admin/withdrawals"
+                        onClick={() => setShowMenu(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-secondary-text font-bold hover:bg-background transition-colors"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>Panel Admin Penarikan</span>
+                      </Link>
+                    </>
                   )}
 
                   <div className="border-t border-border mt-1 pt-1">
