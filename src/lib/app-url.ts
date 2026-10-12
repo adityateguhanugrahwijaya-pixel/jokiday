@@ -5,20 +5,25 @@
 export function getAppUrl(): string {
   const envUrl = process.env.APP_URL?.trim();
 
-  // Jika di Vercel dan APP_URL masih berisi localhost atau kosong, gunakan VERCEL_URL
-  if (process.env.VERCEL_URL && (!envUrl || envUrl.includes("localhost"))) {
-    return `https://${process.env.VERCEL_URL.replace(/\/$/, "")}`;
+  // Jika diset explicitly ke custom domain (bukan localhost)
+  if (envUrl && !envUrl.includes("localhost")) {
+    return envUrl.replace(/\/$/, "");
   }
 
-  if (envUrl) {
-    return envUrl.replace(/\/$/, "");
+  // Jika di Vercel dengan production URL
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.replace(/\/$/, "")}`;
   }
 
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL.replace(/\/$/, "")}`;
   }
 
-  return "http://localhost:3000";
+  if (process.env.NODE_ENV === "development") {
+    return envUrl || "http://localhost:3000";
+  }
+
+  return "https://jokiday.agentkikir.cloud";
 }
 
 /**

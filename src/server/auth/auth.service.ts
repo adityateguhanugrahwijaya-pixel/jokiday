@@ -4,6 +4,9 @@ import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { SESSION_SECRET, sanitizeInput } from "@/lib/security";
+import crypto from "node:crypto";
+import { EmailService } from "@/server/email/email.service";
+import { getAppUrl } from "@/lib/app-url";
 
 const COOKIE_NAME = "jokiday_session";
 
@@ -172,6 +175,135 @@ export class AuthService {
       .sign(SESSION_SECRET);
 
     return { activeRole: targetRole, token };
+  }
+
+  /**
+   * Mengajukan permintaan atur ulang kata sandi via email
+   */
+  static async requestPasswordReset(email: string) {
+    let cleanEmail = (email || "").toLowerCase().trim();
+    if (cleanEmail === "admin" || cleanEmail === "administrator") {
+      cleanEmail = "admin@jokiday.com";
+    }
+
+    if (!cleanEmail) {
+      throw new ValidationError("Alamat email wajib diisi");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+    });
+
+    // Keamanan: Jika email tidak terdaftar, tetap respons sukses agar tidak membocorkan data pengguna
+    if (!user) {
+      return {
+        success: true,
+        message: "Jika email tersebut terdaftar di JokiDay, tautan reset kata sandi telah dikirimkan ke kotak masuk Anda.",
+      };
+    }
+
+    // Buat token random 32 byte (64 karakter heksadesimal)
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // Masa aktif 30 menit
+
+    // Simpan token ke database dan bersihkan token kadaluarsa/belum terpakai sebelumnya
+    await prisma.$transaction([
+      prisma.passwordResetToken.deleteMany({
+        where: { userId: user.id, usedAt: null },
+      }),
+      prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+        },
+      }),
+    ]);
+
+    const appUrl = getAppUrl();
+    const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
+
+    // Kirim email transaksional via Resend
+    try {
+      await EmailService.sendPasswordResetEmail({
+        toEmail: user.email,
+        userName: user.displayName,
+        resetUrl,
+        expiresMinutes: 30,
+      });
+    } catch (err) {
+      console.error("[AuthService] Gagal mengirim email reset kata sandi:", err);
+    }
+
+    return {
+      success: true,
+      message: "Jika email tersebut terdaftar di JokiDay, tautan reset kata sandi telah dikirimkan ke kotak masuk Anda.",
+    };
+  }
+
+  /**
+   * Memvalidasi keabsahan token reset kata sandi
+   */
+  static async verifyResetToken(rawToken: string) {
+    if (!rawToken || typeof rawToken !== "string" || rawToken.trim().length < 32) {
+      throw new ValidationError("Tautan reset kata sandi tidak valid");
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(rawToken.trim()).digest("hex");
+    const record = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: {
+        user: {
+          select: { id: true, email: true, displayName: true },
+        },
+      },
+    });
+
+    if (!record || record.usedAt !== null) {
+      throw new ValidationError("Tautan reset kata sandi sudah pernah digunakan atau tidak valid");
+    }
+
+    if (new Date() > record.expiresAt) {
+      throw new ValidationError("Tautan reset kata sandi telah kedaluwarsa. Silakan ajukan permintaan baru.");
+    }
+
+    return {
+      valid: true,
+      email: record.user.email,
+      displayName: record.user.displayName,
+    };
+  }
+
+  /**
+   * Mengatur ulang kata sandi pengguna dengan token yang sah
+   */
+  static async resetPassword(rawToken: string, newPassword: string) {
+    const cleanPassword = (newPassword || "").trim();
+    if (!cleanPassword || cleanPassword.length < 8) {
+      throw new ValidationError("Kata sandi baru minimal 8 karakter");
+    }
+
+    const verification = await this.verifyResetToken(rawToken);
+    const tokenHash = crypto.createHash("sha256").update(rawToken.trim()).digest("hex");
+
+    const newPasswordHash = await hashPassword(cleanPassword);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { email: verification.email },
+        data: { passwordHash: newPasswordHash },
+      }),
+      prisma.passwordResetToken.update({
+        where: { tokenHash },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return {
+      success: true,
+      message: "Kata sandi Anda berhasil diperbarui. Silakan masuk menggunakan kata sandi baru.",
+    };
   }
 }
 

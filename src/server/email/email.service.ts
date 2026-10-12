@@ -216,4 +216,49 @@ export class EmailService {
       html,
     });
   }
+
+  /**
+   * Template email: Permintaan Reset Kata Sandi
+   */
+  static async sendPasswordResetEmail(data: {
+    toEmail: string;
+    userName: string;
+    resetUrl: string;
+    expiresMinutes?: number;
+  }) {
+    const minutes = data.expiresMinutes || 30;
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+        <div style="margin-bottom: 20px;">
+          <span style="font-size: 20px; font-weight: 800; color: #1d4ed8;">JokiDay</span>
+        </div>
+        <h2 style="font-size: 18px; color: #0b1f4a; margin-top: 0;">Permintaan Atur Ulang Kata Sandi</h2>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+          Halo <strong>${data.userName}</strong>, kami menerima permintaan untuk mengatur ulang kata sandi akun JokiDay Anda.
+        </p>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+          Silakan klik tombol di bawah ini untuk membuat kata sandi baru. Tautan ini hanya berlaku selama <strong>${minutes} menit</strong> demi keamanan akun Anda.
+        </p>
+        <div style="margin: 24px 0;">
+          <a href="${data.resetUrl}" style="background-color: #1d4ed8; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 6px; display: inline-block;">
+            Atur Ulang Kata Sandi
+          </a>
+        </div>
+        <p style="font-size: 12px; color: #64748b; line-height: 1.5;">
+          Atau salin tautan berikut ke browser Anda:<br/>
+          <a href="${data.resetUrl}" style="color: #1d4ed8; word-break: break-all;">${data.resetUrl}</a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="font-size: 11px; color: #94a3b8; margin: 0;">
+          Jika Anda tidak merasa melakukan permintaan ini, Anda dapat mengabaikan email ini dengan aman. Kata sandi Anda tidak akan berubah sampai Anda membuat kata sandi baru melalui tautan di atas.
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to: data.toEmail,
+      subject: "[JokiDay] Atur Ulang Kata Sandi Akun Anda",
+      html,
+    });
+  }
 }

@@ -5,6 +5,7 @@ import { LedgerService } from "@/server/ledger/ledger.service";
 import { redirect } from "next/navigation";
 import { CustomerDashboardView } from "./CustomerDashboardView";
 import { DesignerDashboardView } from "./DesignerDashboardView";
+import { AdminDashboardView } from "./AdminDashboardView";
 import { AppShell } from "@/components/layout/AppShell";
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
@@ -23,6 +24,72 @@ export default async function DashboardPage() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  // 0. DASHBOARD MODE ADMINISTRATOR
+  if (user.isAdmin) {
+    const [
+      totalUsers,
+      totalCustomers,
+      totalDesigners,
+      totalOrders,
+      activeOrders,
+      completedOrders,
+      pendingWithdrawals,
+      activeInvites,
+      pendingWithdrawalsList,
+      recentOrders,
+      recentInvites,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { isCustomer: true, isDesigner: false } }),
+      prisma.user.count({ where: { isDesigner: true } }),
+      prisma.order.count(),
+      prisma.order.count({
+        where: {
+          status: {
+            in: ["IN_PROGRESS", "AWAITING_APPROVAL", "REVISION", "DISPUTED"],
+          },
+        },
+      }),
+      prisma.order.count({ where: { status: "COMPLETED" } }),
+      prisma.withdrawal.count({ where: { status: "REQUESTED" } }),
+      prisma.designerInvite.count({ where: { status: "ACTIVE" } }),
+      prisma.withdrawal.findMany({
+        where: { status: "REQUESTED" },
+        include: { user: true },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      prisma.order.findMany({
+        include: { customer: true, designer: true, brief: true },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      prisma.designerInvite.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+    ]);
+
+    return (
+      <AdminDashboardView
+        displayName={user.displayName}
+        stats={{
+          totalUsers,
+          totalCustomers,
+          totalDesigners,
+          totalOrders,
+          activeOrders,
+          completedOrders,
+          pendingWithdrawals,
+          activeInvites,
+        }}
+        pendingWithdrawalsList={pendingWithdrawalsList}
+        recentOrders={recentOrders}
+        recentInvites={recentInvites}
+      />
+    );
   }
 
   const role = user.activeRole || "CUSTOMER";

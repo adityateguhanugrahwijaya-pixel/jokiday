@@ -30,7 +30,7 @@ function LoginFormContent() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Email atau kata sandi salah");
 
-      const target = redirectTarget || (data.user?.isAdmin ? "/admin/invites" : data.user?.activeRole === "DESIGNER" ? "/dashboard" : "/");
+      const target = redirectTarget || (data.user?.isAdmin ? "/dashboard" : data.user?.activeRole === "DESIGNER" ? "/dashboard" : "/");
       window.location.href = target;
     } catch (err: any) {
       if (err.name === "TypeError" && (err.message?.includes("fetch") || err.message?.includes("Failed"))) {
@@ -69,9 +69,17 @@ function LoginFormContent() {
         </div>
 
         <div>
-          <label className="block font-semibold text-text mb-1">
-            Kata Sandi
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block font-semibold text-text">
+              Kata Sandi
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-primary hover:underline font-medium"
+            >
+              Lupa kata sandi?
+            </Link>
+          </div>
           <input
             type="password"
             placeholder="Masukkan kata sandi"

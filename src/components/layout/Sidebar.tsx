@@ -12,14 +12,33 @@ import {
   User,
   Layers,
   MessageSquare,
+  ShieldCheck,
+  UserPlus,
 } from "lucide-react";
 
 export interface SidebarProps {
   role?: "CUSTOMER" | "DESIGNER";
+  isAdmin?: boolean;
 }
 
-export function Sidebar({ role = "CUSTOMER" }: SidebarProps) {
+export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
   const pathname = usePathname();
+  const [isAdminState, setIsAdminState] = React.useState(isAdmin ?? false);
+
+  React.useEffect(() => {
+    if (isAdmin !== undefined) {
+      setIsAdminState(isAdmin);
+      return;
+    }
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.authenticated && d.user?.isAdmin) {
+          setIsAdminState(true);
+        }
+      })
+      .catch(() => {});
+  }, [isAdmin]);
 
   const customerNav = [
     { label: "Beranda", href: "/", icon: Home },
@@ -64,6 +83,41 @@ export function Sidebar({ role = "CUSTOMER" }: SidebarProps) {
             </Link>
           );
         })}
+
+        {isAdminState && (
+          <div className="pt-4 mt-4 border-t border-border">
+            <p className="px-3 text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+              <span>Administrator</span>
+            </p>
+            <div className="space-y-1">
+              <Link
+                href="/admin/invites"
+                className={clsx(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-semibold transition-colors",
+                  pathname.startsWith("/admin/invites")
+                    ? "bg-secondary-soft text-secondary font-bold"
+                    : "text-text-muted hover:text-text hover:bg-background"
+                )}
+              >
+                <UserPlus className="w-4 h-4 shrink-0" />
+                <span>Undangan Desainer</span>
+              </Link>
+              <Link
+                href="/admin/withdrawals"
+                className={clsx(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-semibold transition-colors",
+                  pathname.startsWith("/admin/withdrawals")
+                    ? "bg-secondary-soft text-secondary font-bold"
+                    : "text-text-muted hover:text-text hover:bg-background"
+                )}
+              >
+                <Wallet className="w-4 h-4 shrink-0" />
+                <span>Penarikan Saldo</span>
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );
