@@ -67,8 +67,6 @@ export class AuthService {
     let cleanEmail = (email || "").toLowerCase().trim();
     if (cleanEmail === "admin" || cleanEmail === "administrator") {
       cleanEmail = "admin@jokiday.com";
-    } else if (cleanEmail === "aditya") {
-      cleanEmail = "aditya.teguhanugrahwijaya@gmail.com";
     }
 
     const cleanPassword = (password || "").trim();
