@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: #1D4ED8;
+    --primary-hover: #1E40AF;
+    --primary-soft: #E8EEFF;
+    --on-primary: #FFFFFF;
+    --secondary: #FF7A1A;
+    --secondary-hover: #E8650A;
+    --secondary-soft: #FFF0E3;
+    --secondary-text: #C2410C;
+    --on-secondary: #0B1F4A;
+    --background: #F5F8FF;
+    --surface: #FFFFFF;
+    --border: #D9E2F5;
+    --text: #0B1F4A;
+    --text-muted: #51617F;
+    --neutral-soft: #EEF1F7;
+    --success: #166534;
+    --success-soft: #E6F6EC;
+    --danger: #B91C1C;
+    --danger-soft: #FDECEC;
+  }
+
+  html {
+    background-color: var(--background);
+    color: var(--text);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Focus indicator strictly following R-32 and DESIGN.md */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* Tabular numbers for all money amounts */
+  .font-money {
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Base interactive minimum touch target for mobile (R-03 / antislop-layoutmobile) */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}

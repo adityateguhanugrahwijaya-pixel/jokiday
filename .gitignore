@@ -1,0 +1,62 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Next.js build output
+/.next/
+/out/
+/build
+/dist
+
+# Environment variables & secrets (CRITICAL: Never commit secrets)
+.env
+.env*.local
+!.env.example
+
+# Databases & local storage
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+prisma/*.db
+prisma/*.db-journal
+dev.db
+dev.db-journal
+
+# Logs & debugging
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS metadata
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary testing & scratch files
+test.txt
+scratch/
+tmp/
+temp/
+
+# TypeScript cache
+*.tsbuildinfo
