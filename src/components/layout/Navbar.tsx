@@ -20,6 +20,7 @@ import {
   Plus,
 } from "lucide-react";
 import { RoleSwitchModal } from "@/components/ui/RoleSwitchModal";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export interface NavbarProps {
   initialRole?: "CUSTOMER" | "DESIGNER";
@@ -282,7 +283,9 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
           {loading ? (
             <div className="w-9 h-9 rounded-full bg-border/40 animate-pulse" />
           ) : user ? (
-            <div className="relative">
+            <>
+              <NotificationBell />
+              <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
                 className="flex items-center gap-2 p-1 rounded-md hover:bg-background transition-colors touch-target"
@@ -409,6 +412,7 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
                 </div>
               )}
             </div>
+          </>
           ) : (
             <div className="flex items-center gap-2">
               <Link

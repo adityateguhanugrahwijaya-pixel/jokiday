@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { handleApiError, UnauthorizedError, ForbiddenError, ValidationError } from "@/lib/errors";
+import { EmailService } from "@/server/email/email.service";
 import { sanitizeInput } from "@/lib/security";
 import crypto from "node:crypto";
 
@@ -61,10 +62,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { inviteeName, note = "", expiresInDays = 7 } = body;
+    const { inviteeName, note = "", expiresInDays = 7, inviteeEmail } = body;
 
     const cleanInvitee = sanitizeInput(inviteeName || "").slice(0, 100);
     const cleanNote = sanitizeInput(note || "").slice(0, 500);
+    const cleanEmail = typeof inviteeEmail === "string" ? sanitizeInput(inviteeEmail).trim() : "";
 
     if (!cleanInvitee) {
       throw new ValidationError("Nama calon desainer wajib diisi");
@@ -89,15 +91,33 @@ export async function POST(req: NextRequest) {
     const protocol = req.headers.get("x-forwarded-proto") || "http";
     const inviteUrl = `${protocol}://${host}/register/invite/${token}`;
 
+    let emailSent = false;
+    if (cleanEmail) {
+      try {
+        await EmailService.sendInviteEmail({
+          toEmail: cleanEmail,
+          inviteeName: cleanInvitee,
+          inviteUrl,
+          expiresAt: invite.expiresAt.toISOString(),
+        });
+        emailSent = true;
+      } catch (emailErr) {
+        console.error("[EmailService] Gagal kirim undangan via email:", emailErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Tautan undangan desainer berhasil dibuat",
+      message: emailSent
+        ? `Tautan undangan berhasil dibuat dan dikirimkan ke email ${cleanEmail}`
+        : "Tautan undangan desainer berhasil dibuat",
       invite: {
         id: invite.id,
         token: invite.token,
         inviteeName: invite.inviteeName,
         inviteUrl,
         expiresAt: invite.expiresAt.toISOString(),
+        emailSent,
       },
     });
   } catch (err) {

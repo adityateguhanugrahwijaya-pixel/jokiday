@@ -3,6 +3,8 @@ import { getPaymentGateway } from "@/server/payment";
 import { prisma } from "@/lib/db";
 import { OrderStateMachine } from "@/server/orders/order.state-machine";
 import { LedgerService } from "@/server/ledger/ledger.service";
+import { EmailService } from "@/server/email/email.service";
+import { PushNotificationService } from "@/server/push/push.service";
 import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
@@ -86,6 +88,41 @@ export async function POST(req: NextRequest) {
           );
         }
       });
+
+      // Kirim notifikasi email ke desainer secara asynchronous tanpa memblokir respons webhook
+      (async () => {
+        try {
+          const fullOrder = await prisma.order.findUnique({
+            where: { id: payment.orderId },
+            include: {
+              designer: { select: { email: true, displayName: true } },
+              customer: { select: { displayName: true } },
+              brief: { select: { title: true } },
+            },
+          });
+          if (fullOrder?.designer?.email) {
+            await EmailService.sendOrderPaidNotification({
+              designerEmail: fullOrder.designer.email,
+              designerName: fullOrder.designer.displayName,
+              customerName: fullOrder.customer.displayName,
+              orderId: fullOrder.id,
+              briefTitle: fullOrder.brief.title,
+              price: fullOrder.price,
+              durationDays: fullOrder.durationDays,
+            });
+          }
+
+          // Kirim In-App dan Web Push Notification (VAPID)
+          await PushNotificationService.notifyUser(payment.order.designerId, {
+            type: "ORDER_PAID",
+            title: "Pesanan Baru Lunas (QRIS)!",
+            body: `Pembayaran untuk pesanan "${fullOrder?.brief.title || "Pesanan"}" telah berhasil diterima. Dana aman di Escrow JokiDay.`,
+            url: `/orders/${payment.orderId}`,
+          });
+        } catch (notifErr) {
+          logger.error("Gagal kirim notifikasi pembayaran ke desainer", notifErr);
+        }
+      })();
 
       logger.info(`Payment successfully processed for order ${payment.orderId}`);
     }

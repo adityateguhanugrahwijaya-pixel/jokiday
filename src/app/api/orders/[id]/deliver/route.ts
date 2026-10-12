@@ -4,6 +4,8 @@ import { AuthService } from "@/server/auth/auth.service";
 import { DriveService } from "@/server/drive/drive.service";
 import { WatermarkService } from "@/server/media/watermark.service";
 import { OrderStateMachine } from "@/server/orders/order.state-machine";
+import { EmailService } from "@/server/email/email.service";
+import { PushNotificationService } from "@/server/push/push.service";
 import { handleApiError, UnauthorizedError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { sanitizeInput } from "@/lib/security";
 import fs from "node:fs/promises";
@@ -174,6 +176,40 @@ export async function POST(
       { userId: session.userId, role: session.isAdmin ? "ADMIN" : "DESIGNER" },
       { note: cleanNote }
     );
+
+    // Kirim notifikasi email ke pelanggan secara asynchronous tanpa memblokir respons
+    (async () => {
+      try {
+        const orderWithCustomer = await prisma.order.findUnique({
+          where: { id: order.id },
+          include: {
+            customer: { select: { email: true, displayName: true } },
+            designer: { select: { displayName: true } },
+            brief: { select: { title: true } },
+          },
+        });
+        if (orderWithCustomer?.customer?.email) {
+          await EmailService.sendDeliveryNotification({
+            customerEmail: orderWithCustomer.customer.email,
+            customerName: orderWithCustomer.customer.displayName,
+            designerName: orderWithCustomer.designer.displayName,
+            orderId: orderWithCustomer.id,
+            briefTitle: orderWithCustomer.brief.title,
+            round: nextRound,
+          });
+        }
+
+        // Kirim In-App dan Web Push Notification (VAPID)
+        await PushNotificationService.notifyUser(order.customerId, {
+          type: "WORK_DELIVERED",
+          title: `Hasil Desain Putaran ${nextRound} Siap Ditinjau!`,
+          body: `Desainer ${orderWithCustomer?.designer?.displayName || "Desainer"} telah mengunggah hasil desain pesanan "${orderWithCustomer?.brief?.title}". Pratinjau terlindungi watermark.`,
+          url: `/orders/${order.id}`,
+        });
+      } catch (notifErr) {
+        console.error("[Notification] Gagal kirim notifikasi pengiriman ke pelanggan:", notifErr);
+      }
+    })();
 
     return NextResponse.json({
       success: true,

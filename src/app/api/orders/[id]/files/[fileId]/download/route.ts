@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { DriveService } from "@/server/drive/drive.service";
 import { handleApiError, UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/errors";
+import { verifySignedUrl } from "@/lib/signed-url";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +13,15 @@ export async function GET(
 ) {
   try {
     const session = await AuthService.getCurrentUser();
-    if (!session) {
-      throw new UnauthorizedError("Silakan masuk terlebih dahulu untuk mengunduh file");
+    const hasValidSignature = verifySignedUrl(
+      req.nextUrl.pathname,
+      req.nextUrl.searchParams
+    );
+
+    if (!session && !hasValidSignature) {
+      throw new UnauthorizedError(
+        "Tautan unduhan tidak valid atau sesi login Anda telah berakhir"
+      );
     }
 
     const order = await prisma.order.findUnique({
@@ -29,19 +37,26 @@ export async function GET(
       throw new NotFoundError("Pesanan tidak ditemukan");
     }
 
-    const isCustomer = order.customerId === session.userId;
-    const isDesigner = order.designerId === session.userId;
-    const isAdmin = Boolean(session.isAdmin);
+    if (session) {
+      const isCustomer = order.customerId === session.userId;
+      const isDesigner = order.designerId === session.userId;
+      const isAdmin = Boolean(session.isAdmin);
 
-    if (!isCustomer && !isDesigner && !isAdmin) {
-      throw new ForbiddenError("Kamu tidak memiliki hak akses pada file pesanan ini");
-    }
+      if (!isCustomer && !isDesigner && !isAdmin) {
+        throw new ForbiddenError("Kamu tidak memiliki hak akses pada file pesanan ini");
+      }
 
-    // Customer hanya boleh mengunduh file master jika status order COMPLETED
-    if (isCustomer && order.status !== "COMPLETED" && !isAdmin) {
-      throw new ForbiddenError(
-        "File master pesanan hanya dapat diunduh setelah pesanan berstatus Selesai (COMPLETED)"
-      );
+      // Customer hanya boleh mengunduh file master jika status order COMPLETED
+      if (isCustomer && order.status !== "COMPLETED" && !isAdmin) {
+        throw new ForbiddenError(
+          "File master pesanan hanya dapat diunduh setelah pesanan berstatus Selesai (COMPLETED)"
+        );
+      }
+    } else {
+      // Jika menggunakan Signed URL, pastikan order sudah berstatus COMPLETED
+      if (order.status !== "COMPLETED") {
+        throw new ForbiddenError("Pesanan belum berstatus selesai");
+      }
     }
 
     const deliveryFile = await prisma.deliveryFile.findFirst({

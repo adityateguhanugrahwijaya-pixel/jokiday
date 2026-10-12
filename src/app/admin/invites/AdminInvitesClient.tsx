@@ -36,6 +36,7 @@ export function AdminInvitesClient({
 }) {
   const [invites, setInvites] = useState<AdminInviteItem[]>(initialInvites);
   const [inviteeName, setInviteeName] = useState("");
+  const [inviteeEmail, setInviteeEmail] = useState("");
   const [note, setNote] = useState("");
   const [expiresInDays, setExpiresInDays] = useState(7);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,6 +59,7 @@ export function AdminInvitesClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           inviteeName: inviteeName.trim(),
+          inviteeEmail: inviteeEmail.trim(),
           note: note.trim(),
           expiresInDays,
         }),
@@ -68,6 +70,7 @@ export function AdminInvitesClient({
 
       setNewlyCreatedUrl(data.invite.inviteUrl);
       setInviteeName("");
+      setInviteeEmail("");
       setNote("");
 
       // Refresh data
@@ -178,10 +181,10 @@ export function AdminInvitesClient({
           </div>
         )}
 
-        <form onSubmit={handleCreateInvite} className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+        <form onSubmit={handleCreateInvite} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div>
             <label className="block font-semibold text-text mb-1">
-              Nama Calon Desainer
+              Nama Calon Desainer *
             </label>
             <input
               type="text"
@@ -190,6 +193,19 @@ export function AdminInvitesClient({
               placeholder="Contoh: Dewi Maharani"
               className="w-full h-10 px-3 bg-background border border-border rounded-md text-text focus:outline-none focus:ring-1 focus:ring-primary"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold text-text mb-1">
+              Email Desainer (Kirim Otomatis)
+            </label>
+            <input
+              type="email"
+              value={inviteeEmail}
+              onChange={(e) => setInviteeEmail(e.target.value)}
+              placeholder="Contoh: desainer@domain.com"
+              className="w-full h-10 px-3 bg-background border border-border rounded-md text-text focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -222,7 +238,7 @@ export function AdminInvitesClient({
             </select>
           </div>
 
-          <div className="sm:col-span-3 flex justify-end pt-2">
+          <div className="sm:col-span-2 lg:col-span-4 flex justify-end pt-2">
             <Button
               type="submit"
               variant="cta"

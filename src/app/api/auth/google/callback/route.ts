@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthService } from "@/server/auth/auth.service";
 import { prisma } from "@/lib/db";
 import { encryptToken } from "@/lib/crypto";
+import { getAppUrl } from "@/lib/app-url";
 import { DriveService } from "@/server/drive/drive.service";
 
 export const dynamic = "force-dynamic";
@@ -40,9 +41,12 @@ export async function GET(req: NextRequest) {
 
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-    const origin = req.nextUrl.origin;
-    const redirectUri =
-      process.env.GOOGLE_REDIRECT_URI || `${origin}/api/auth/google/callback`;
+    const appUrl = getAppUrl();
+    const origin = req.nextUrl.origin || appUrl;
+    let redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    if (!redirectUri || (redirectUri.includes("localhost") && !origin.includes("localhost"))) {
+      redirectUri = `${origin}/api/auth/google/callback`;
+    }
 
     // 1. Tukar authorization code dengan token Google
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {

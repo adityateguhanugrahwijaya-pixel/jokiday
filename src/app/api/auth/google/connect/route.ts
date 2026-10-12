@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthService } from "@/server/auth/auth.service";
+import { getAppUrl } from "@/lib/app-url";
 import crypto from "node:crypto";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +21,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(profileUrl);
     }
 
-    const origin = req.nextUrl.origin;
-    const redirectUri =
-      process.env.GOOGLE_REDIRECT_URI || `${origin}/api/auth/google/callback`;
+    const appUrl = getAppUrl();
+    const origin = req.nextUrl.origin || appUrl;
+    let redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    if (!redirectUri || (redirectUri.includes("localhost") && !origin.includes("localhost"))) {
+      redirectUri = `${origin}/api/auth/google/callback`;
+    }
 
     // Buat token state acak untuk proteksi CSRF
     const state = crypto.randomBytes(24).toString("hex");

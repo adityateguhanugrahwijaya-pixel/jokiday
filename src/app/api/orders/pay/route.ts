@@ -3,7 +3,11 @@ import { prisma } from "@/lib/db";
 import { getPaymentGateway } from "@/server/payment";
 import { LedgerService } from "@/server/ledger/ledger.service";
 import { OrderStateMachine } from "@/server/orders/order.state-machine";
-import { handleApiError, NotFoundError, ConflictError } from "@/lib/errors";
+import { handleApiError, NotFoundError, ConflictError, ValidationError } from "@/lib/errors";
+import { EmailService } from "@/server/email/email.service";
+import { PushNotificationService } from "@/server/push/push.service";
+import { RedisService } from "@/server/redis/redis.service";
+import { getAppUrl } from "@/lib/app-url";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +22,12 @@ export async function POST(req: NextRequest) {
     if (!order) throw new NotFoundError("Order tidak ditemukan");
     if (order.status !== "AWAITING_PAYMENT") {
       throw new ConflictError("Order ini sudah dibayar atau tidak dalam status menunggu pembayaran");
+    }
+
+    // Proteksi rate-limiting via RedisService (maks 10 request per menit)
+    const rateCheck = await RedisService.rateLimit(`order-pay:${order.customerId}`, 10, 60);
+    if (!rateCheck.allowed) {
+      throw new ValidationError("Terlalu banyak permintaan pembayaran. Silakan tunggu beberapa detik.");
     }
 
     // Cek saldo refund customer yang tersedia dari pembatalan / sengketa sebelumnya
@@ -59,6 +69,41 @@ export async function POST(req: NextRequest) {
         );
       });
 
+      // Kirim notifikasi email dan push notification ke desainer secara asynchronous
+      (async () => {
+        try {
+          const fullOrder = await prisma.order.findUnique({
+            where: { id: order.id },
+            include: {
+              designer: { select: { email: true, displayName: true } },
+              customer: { select: { displayName: true } },
+              brief: { select: { title: true } },
+            },
+          });
+          if (fullOrder?.designer?.email) {
+            await EmailService.sendOrderPaidNotification({
+              designerEmail: fullOrder.designer.email,
+              designerName: fullOrder.designer.displayName,
+              customerName: fullOrder.customer.displayName,
+              orderId: fullOrder.id,
+              briefTitle: fullOrder.brief.title,
+              price: fullOrder.price,
+              durationDays: fullOrder.durationDays,
+            });
+          }
+
+          // Kirim In-App dan Web Push Notification (VAPID)
+          await PushNotificationService.notifyUser(order.designerId, {
+            type: "ORDER_PAID",
+            title: "Pesanan Baru Lunas!",
+            body: `Pelanggan ${fullOrder?.customer.displayName || "Pelanggan"} telah melunasi pembayaran untuk pesanan "${fullOrder?.brief.title}". Escrow terlindungi.`,
+            url: `/orders/${order.id}`,
+          });
+        } catch (notifErr) {
+          console.error("[Notification] Gagal kirim notifikasi pembayaran lunas:", notifErr);
+        }
+      })();
+
       return NextResponse.json({
         paidDirectly: true,
         balanceUsed: balanceToUse,
@@ -69,12 +114,13 @@ export async function POST(req: NextRequest) {
 
     // Skenario B: Partial payment (Saldo refund + sisa tagihan QRIS WaroengPay)
     const gateway = getPaymentGateway();
+    const baseUrl = getAppUrl();
     const charge = await gateway.createCharge({
       orderId: order.id,
       amount: remainingToPay, // Tagihan QRIS hanya untuk sisa pembayaran
       description: `Escrow JokiDay (${order.brief.title})`,
-      redirectUrl: `${process.env.APP_URL || "http://localhost:3000"}/orders/${order.id}`,
-      callbackUrl: `${process.env.APP_URL || "http://localhost:3000"}/api/webhooks/waroengpay`,
+      redirectUrl: `${baseUrl}/orders/${order.id}`,
+      callbackUrl: `${baseUrl}/api/webhooks/waroengpay`,
     });
 
     // Simpan record payment dengan informasi potongan saldo
