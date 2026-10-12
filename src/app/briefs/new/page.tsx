@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { BriefForm } from "./BriefForm";
 
@@ -14,6 +15,9 @@ export default async function NewBriefPage({
   searchParams: { designerId?: string };
 }) {
   const session = await AuthService.getCurrentUser();
+  if (session?.isAdmin) {
+    redirect("/dashboard");
+  }
   let currentUser = null;
   if (session) {
     currentUser = await prisma.user.findUnique({

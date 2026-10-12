@@ -59,11 +59,28 @@ export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
     { label: "Profil Desainer", href: "/profile", icon: User },
   ];
 
-  const currentNav = role === "CUSTOMER" ? customerNav : designerNav;
+  const adminNav = [
+    { label: "Dashboard Admin", href: "/dashboard", icon: Layers },
+    { label: "Undangan Desainer", href: "/admin/invites", icon: UserPlus },
+    { label: "Penarikan Saldo", href: "/admin/withdrawals", icon: Wallet },
+    { label: "Monitoring Order", href: "/orders", icon: Clock },
+  ];
+
+  const currentNav = isAdminState
+    ? adminNav
+    : role === "CUSTOMER"
+    ? customerNav
+    : designerNav;
 
   return (
     <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-border bg-surface min-h-[calc(100vh-64px)] p-4">
       <div className="space-y-1.5 flex-1">
+        {isAdminState && (
+          <div className="px-3 py-2 mb-2 rounded-md bg-primary-soft/40 border border-primary/20 text-xs text-primary font-bold flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            <span>Panel Administrator</span>
+          </div>
+        )}
         {currentNav.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
@@ -83,41 +100,6 @@ export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
             </Link>
           );
         })}
-
-        {isAdminState && (
-          <div className="pt-4 mt-4 border-t border-border">
-            <p className="px-3 text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-              <span>Administrator</span>
-            </p>
-            <div className="space-y-1">
-              <Link
-                href="/admin/invites"
-                className={clsx(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-semibold transition-colors",
-                  pathname.startsWith("/admin/invites")
-                    ? "bg-secondary-soft text-secondary font-bold"
-                    : "text-text-muted hover:text-text hover:bg-background"
-                )}
-              >
-                <UserPlus className="w-4 h-4 shrink-0" />
-                <span>Undangan Desainer</span>
-              </Link>
-              <Link
-                href="/admin/withdrawals"
-                className={clsx(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-semibold transition-colors",
-                  pathname.startsWith("/admin/withdrawals")
-                    ? "bg-secondary-soft text-secondary font-bold"
-                    : "text-text-muted hover:text-text hover:bg-background"
-                )}
-              >
-                <Wallet className="w-4 h-4 shrink-0" />
-                <span>Penarikan Saldo</span>
-              </Link>
-            </div>
-          </div>
-        )}
       </div>
     </aside>
   );

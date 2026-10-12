@@ -185,7 +185,18 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
     { label: "Dompet", href: "/wallet", icon: Wallet },
   ];
 
-  const currentNav = role === "CUSTOMER" ? customerNav : designerNav;
+  const adminNav = [
+    { label: "Dashboard", href: "/dashboard", icon: Layers },
+    { label: "Undangan", href: "/admin/invites", icon: ShieldCheck },
+    { label: "Penarikan", href: "/admin/withdrawals", icon: Wallet },
+    { label: "Semua Order", href: "/orders", icon: Clock },
+  ];
+
+  const currentNav = user?.isAdmin
+    ? adminNav
+    : role === "CUSTOMER"
+    ? customerNav
+    : designerNav;
   const currentDisplayName = user ? user.displayName : displayName;
 
   return (
@@ -214,69 +225,125 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
 
           {/* Quick Links Desktop */}
           <nav className="hidden lg:flex items-center gap-1 text-sm font-semibold">
-            <Link
-              href="/"
-              className={clsx(
-                "px-3 py-1.5 rounded-md transition-colors",
-                pathname === "/" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
-              )}
-            >
-              Beranda
-            </Link>
-            <Link
-              href="/portfolio"
-              className={clsx(
-                "px-3 py-1.5 rounded-md transition-colors",
-                pathname === "/portfolio" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
-              )}
-            >
-              Feed Karya
-            </Link>
-            <Link
-              href="/market"
-              className={clsx(
-                "px-3 py-1.5 rounded-md transition-colors",
-                pathname === "/market" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
-              )}
-            >
-              Pasar Brief
-            </Link>
+            {user?.isAdmin ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className={clsx(
+                    "px-3 py-1.5 rounded-md transition-colors",
+                    pathname === "/dashboard" ? "text-primary bg-primary-soft font-bold" : "text-text-muted hover:text-text hover:bg-background"
+                  )}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/admin/invites"
+                  className={clsx(
+                    "px-3 py-1.5 rounded-md transition-colors",
+                    pathname.startsWith("/admin/invites") ? "text-secondary font-bold bg-secondary-soft" : "text-text-muted hover:text-text hover:bg-background"
+                  )}
+                >
+                  Undangan Desainer
+                </Link>
+                <Link
+                  href="/admin/withdrawals"
+                  className={clsx(
+                    "px-3 py-1.5 rounded-md transition-colors",
+                    pathname.startsWith("/admin/withdrawals") ? "text-secondary font-bold bg-secondary-soft" : "text-text-muted hover:text-text hover:bg-background"
+                  )}
+                >
+                  Penarikan Saldo
+                </Link>
+                <Link
+                  href="/orders"
+                  className={clsx(
+                    "px-3 py-1.5 rounded-md transition-colors",
+                    pathname.startsWith("/orders") ? "text-primary bg-primary-soft font-bold" : "text-text-muted hover:text-text hover:bg-background"
+                  )}
+                >
+                  Semua Order
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/"
+                  className={clsx(
+                    "px-3 py-1.5 rounded-md transition-colors",
+                    pathname === "/" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
+                  )}
+                >
+                  Beranda
+                </Link>
+                <Link
+                  href="/portfolio"
+                  className={clsx(
+                    "px-3 py-1.5 rounded-md transition-colors",
+                    pathname === "/portfolio" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
+                  )}
+                >
+                  Feed Karya
+                </Link>
+                <Link
+                  href="/market"
+                  className={clsx(
+                    "px-3 py-1.5 rounded-md transition-colors",
+                    pathname === "/market" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
+                  )}
+                >
+                  Pasar Brief
+                </Link>
+              </>
+            )}
           </nav>
         </div>
 
         {/* Action & Role Switcher */}
         <div className="flex items-center gap-3">
-          {/* Role switcher button jika login sebagai akun yang punya peran ganda atau sedang aktif */}
-          {user && (user.isCustomer && user.isDesigner) && (
-            <button
-              onClick={() => setIsSwitchModalOpen(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-background hover:bg-surface text-text transition-colors touch-target"
-              title="Ganti peran antara customer dan desainer"
+          {/* Admin CTA */}
+          {user?.isAdmin ? (
+            <Link
+              href="/admin/invites"
+              className="inline-flex items-center gap-1.5 justify-center h-10 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-sm rounded-md hover:bg-secondary-hover transition-colors touch-target shadow-sm"
             >
-              <ArrowRightLeft className="w-3.5 h-3.5 text-primary" />
-              <span>Mode: {role === "CUSTOMER" ? "Customer" : "Desainer"}</span>
-            </button>
-          )}
+              <Plus className="w-4 h-4" />
+              <span className="hidden xs:inline">Undang Desainer</span>
+            </Link>
+          ) : (
+            <>
+              {/* Role switcher button jika login sebagai akun yang punya peran ganda atau sedang aktif */}
+              {user && (user.isCustomer && user.isDesigner) && (
+                <button
+                  onClick={() => setIsSwitchModalOpen(true)}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-background hover:bg-surface text-text transition-colors touch-target"
+                  title="Ganti peran antara customer dan desainer"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5 text-primary" />
+                  <span>Mode: {role === "CUSTOMER" ? "Customer" : "Desainer"}</span>
+                </button>
+              )}
 
-          {/* New Order CTA atau Upload Portfolio CTA (Hanya jika sudah login) */}
-          {user && (
-            role === "CUSTOMER" ? (
-              <Link
-                href="/briefs/new"
-                className="inline-flex items-center gap-1.5 justify-center h-10 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-sm rounded-md hover:bg-secondary-hover transition-colors touch-target"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden xs:inline">Buat Brief</span>
-              </Link>
-            ) : user.isDesigner ? (
-              <Link
-                href="/portfolio"
-                className="inline-flex items-center gap-1.5 justify-center h-10 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-sm rounded-md hover:bg-secondary-hover transition-colors touch-target"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden xs:inline">Upload Karya</span>
-              </Link>
-            ) : null
+              {/* New Order CTA atau Upload Portfolio CTA (Hanya jika bukan admin) */}
+              {user && (
+                role === "CUSTOMER" ? (
+                  <Link
+                    href="/briefs/new"
+                    className="inline-flex items-center gap-1.5 justify-center h-10 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-sm rounded-md hover:bg-secondary-hover transition-colors touch-target"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden xs:inline">Buat Brief</span>
+                  </Link>
+                ) : user.isDesigner ? (
+                  <Link
+                    href="/portfolio"
+                    className="inline-flex items-center gap-1.5 justify-center h-10 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-sm rounded-md hover:bg-secondary-hover transition-colors touch-target"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden xs:inline">Upload Karya</span>
+                  </Link>
+                ) : null
+              )}
+            </>
           )}
 
           {/* User Auth Info / Login Link */}
@@ -319,91 +386,109 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
                     </div>
                   </div>
 
-                  <Link
-                    href="/profile"
-                    onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                  >
-                    <User className="w-4 h-4 text-text-muted" />
-                    <span>Profil Akun</span>
-                  </Link>
-
-                  <Link
-                    href="/orders"
-                    onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                  >
-                    <Clock className="w-4 h-4 text-text-muted" />
-                    <span>Daftar Order</span>
-                  </Link>
-
-                  <Link
-                    href="/chat"
-                    onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                  >
-                    <MessageSquare className="w-4 h-4 text-text-muted" />
-                    <span>Pesan & Diskusi</span>
-                  </Link>
-
-                  {user.isDesigner && (
+                  {user.isAdmin ? (
                     <>
                       <Link
-                        href="/portfolio"
+                        href="/dashboard"
                         onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors font-medium"
                       >
-                        <Layers className="w-4 h-4 text-text-muted" />
-                        <span>Karya & Portofolio</span>
+                        <Layers className="w-4 h-4 text-primary" />
+                        <span>Dashboard Administrator</span>
                       </Link>
-                      <Link
-                        href="/wallet"
-                        onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                      >
-                        <Wallet className="w-4 h-4 text-text-muted" />
-                        <span>Dompet & Saldo</span>
-                      </Link>
-                    </>
-                  )}
-
-                  {user.isCustomer && user.isDesigner && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMenu(false);
-                        setIsSwitchModalOpen(true);
-                      }}
-                      className="w-full flex items-center justify-between px-4 py-2 text-text hover:bg-background transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <ArrowRightLeft className="w-4 h-4 text-primary" />
-                        <span>Ganti Mode Akun</span>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary-soft text-primary">
-                        {role === "CUSTOMER" ? "Ke Desainer" : "Ke Customer"}
-                      </span>
-                    </button>
-                  )}
-
-                  {user.isAdmin && (
-                    <>
                       <Link
                         href="/admin/invites"
                         onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-secondary-text font-bold hover:bg-background transition-colors"
+                        className="flex items-center gap-2.5 px-4 py-2 text-secondary font-bold hover:bg-background transition-colors"
                       >
                         <ShieldCheck className="w-4 h-4" />
-                        <span>Panel Admin Undangan</span>
+                        <span>Panel Undangan Desainer</span>
                       </Link>
                       <Link
                         href="/admin/withdrawals"
                         onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-secondary-text font-bold hover:bg-background transition-colors"
+                        className="flex items-center gap-2.5 px-4 py-2 text-secondary font-bold hover:bg-background transition-colors"
                       >
-                        <ShieldCheck className="w-4 h-4" />
-                        <span>Panel Admin Penarikan</span>
+                        <Wallet className="w-4 h-4" />
+                        <span>Panel Penarikan Saldo</span>
                       </Link>
+                      <Link
+                        href="/orders"
+                        onClick={() => setShowMenu(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                      >
+                        <Clock className="w-4 h-4 text-text-muted" />
+                        <span>Monitoring Order</span>
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/profile"
+                        onClick={() => setShowMenu(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                      >
+                        <User className="w-4 h-4 text-text-muted" />
+                        <span>Profil Akun</span>
+                      </Link>
+
+                      <Link
+                        href="/orders"
+                        onClick={() => setShowMenu(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                      >
+                        <Clock className="w-4 h-4 text-text-muted" />
+                        <span>Daftar Order</span>
+                      </Link>
+
+                      <Link
+                        href="/chat"
+                        onClick={() => setShowMenu(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                      >
+                        <MessageSquare className="w-4 h-4 text-text-muted" />
+                        <span>Pesan & Diskusi</span>
+                      </Link>
+
+                      {user.isDesigner && (
+                        <>
+                          <Link
+                            href="/portfolio"
+                            onClick={() => setShowMenu(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                          >
+                            <Layers className="w-4 h-4 text-text-muted" />
+                            <span>Karya & Portofolio</span>
+                          </Link>
+                          <Link
+                            href="/wallet"
+                            onClick={() => setShowMenu(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                          >
+                            <Wallet className="w-4 h-4 text-text-muted" />
+                            <span>Dompet & Saldo</span>
+                          </Link>
+                        </>
+                      )}
+
+                      {user.isCustomer && user.isDesigner && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMenu(false);
+                            setIsSwitchModalOpen(true);
+                          }}
+                          className="w-full flex items-center justify-between px-4 py-2 text-text hover:bg-background transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <ArrowRightLeft className="w-4 h-4 text-primary" />
+                            <span>Ganti Mode Akun</span>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary-soft text-primary">
+                            {role === "CUSTOMER" ? "Ke Desainer" : "Ke Customer"}
+                          </span>
+                        </button>
+                      )}
                     </>
                   )}
 

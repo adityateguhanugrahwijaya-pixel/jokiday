@@ -44,12 +44,14 @@ interface OrdersViewClientProps {
   orders: OrderItem[];
   role: "CUSTOMER" | "DESIGNER";
   displayName: string;
+  isAdmin?: boolean;
 }
 
 export function OrdersViewClient({
   orders,
   role,
   displayName,
+  isAdmin,
 }: OrdersViewClientProps) {
   const [filterTab, setFilterTab] = useState<string>("ALL");
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
@@ -102,14 +104,20 @@ export function OrdersViewClient({
   const countCancelled = orders.filter((o) => o.status === "CANCELLED" || o.status === "REFUNDED").length;
 
   return (
-    <AppShell role={role} displayName={displayName}>
+    <AppShell role={role} displayName={displayName} isAdmin={isAdmin}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-text">
-            {role === "DESIGNER" ? "Kelola Pekerjaan Desain" : "Daftar Pesanan Saya"}
+            {isAdmin
+              ? "Monitoring Transaksi Platform"
+              : role === "DESIGNER"
+              ? "Kelola Pekerjaan Desain"
+              : "Daftar Pesanan Saya"}
           </h1>
           <p className="text-sm text-text-muted mt-1">
-            {role === "DESIGNER"
+            {isAdmin
+              ? "Pantau seluruh transaksi pesanan antara pelanggan dan desainer di seluruh platform JokiDay."
+              : role === "DESIGNER"
               ? "Pantau pesanan dari pelanggan, periksa status pembayaran, dan serahkan hasil desain tepat waktu."
               : "Pantau proses pengerjaan pesanan desain Anda, selesaikan pembayaran tagihan, dan unduh berkas final."}
           </p>

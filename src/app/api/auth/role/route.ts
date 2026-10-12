@@ -9,6 +9,10 @@ export async function POST(req: NextRequest) {
       throw new UnauthorizedError("Silakan masuk terlebih dahulu untuk mengganti peran");
     }
 
+    if (session.isAdmin) {
+      throw new ValidationError("Akun administrator tidak dapat beralih ke peran pelanggan atau desainer");
+    }
+
     const body = await req.json();
     const targetRole = body.targetRole || body.role;
 

@@ -19,10 +19,12 @@ export default async function OrdersPage() {
   const role = (currentUser?.activeRole as "CUSTOMER" | "DESIGNER") || "CUSTOMER";
 
   // Strict role separation:
+  // Admin memantau seluruh pesanan platform.
   // Mode Desainer hanya mengambil pekerjaan desainer.
   // Mode Pelanggan hanya mengambil pesanan belanja pelanggan.
-  const whereClause =
-    role === "DESIGNER"
+  const whereClause = currentUser?.isAdmin
+    ? {}
+    : role === "DESIGNER"
       ? { designerId: session.userId }
       : { customerId: session.userId };
 
@@ -41,6 +43,7 @@ export default async function OrdersPage() {
       orders={orders}
       role={role}
       displayName={currentUser?.displayName || "Pengguna"}
+      isAdmin={currentUser?.isAdmin}
     />
   );
 }

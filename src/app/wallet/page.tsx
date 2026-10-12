@@ -27,6 +27,10 @@ export default async function WalletPage() {
     redirect("/login");
   }
 
+  if (user.isAdmin) {
+    redirect("/admin/withdrawals");
+  }
+
   const role = user.activeRole || "CUSTOMER";
 
   // 1. TAMPILAN DOMPET PELANGGAN (CUSTOMER)
