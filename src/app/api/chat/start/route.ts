@@ -67,6 +67,29 @@ export async function POST(req: NextRequest) {
           },
         });
       }
+    } else if (cleanInitialMessage) {
+      // Jika thread konsultasi sudah ada, kirim pesan konsultasi baru jika belum pernah terkirim
+      const lastMsg = await prisma.message.findFirst({
+        where: { threadId: thread.id },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!lastMsg || lastMsg.body !== cleanInitialMessage) {
+        await prisma.message.create({
+          data: {
+            threadId: thread.id,
+            senderId: session.userId,
+            body: cleanInitialMessage,
+            type: "TEXT",
+          },
+        });
+        await prisma.chatThread.update({
+          where: { id: thread.id },
+          data: {
+            lastMessage: cleanInitialMessage,
+            lastMessageAt: new Date(),
+          },
+        });
+      }
     }
 
     return NextResponse.json({

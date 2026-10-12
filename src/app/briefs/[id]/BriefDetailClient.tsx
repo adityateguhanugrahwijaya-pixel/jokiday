@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { formatRupiah, formatDate } from "@/lib/format";
-import { CheckCircle2, Send, Tag, AlertCircle } from "lucide-react";
+import { CheckCircle2, Send, Tag, AlertCircle, MessageSquare } from "lucide-react";
 
 export function BriefDetailClient({
   brief,
@@ -64,30 +64,38 @@ export function BriefDetailClient({
     }
   };
 
-  const handleAcceptOffer = async (offerId: string) => {
-    if (!confirm("Apakah kamu yakin menerima penawaran ini? Kontrak akan dikunci dan order dibuat.")) {
-      return;
-    }
-
+  const handleChatDesigner = async (offer: any) => {
     setIsSubmitting(true);
     setErrorMsg("");
     try {
-      const res = await fetch("/api/offers/accept", {
+      const initialMsg = `Halo kak ${offer.designer.displayName}, saya tertarik dengan penawaran Anda untuk proyek "${brief.title}" seharga ${formatRupiah(offer.price)} (${offer.durationDays} hari kerja, kuota ${offer.revisionQuota}x revisi). Saya ingin berdiskusi terlebih dahulu mengenai pengerjaannya.`;
+
+      const res = await fetch("/api/chat/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          offerId,
-          customerId,
+          designerId: offer.designer.id,
+          initialMessage: initialMsg,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Gagal menerima penawaran");
+      if (!res.ok) throw new Error(data.error?.message || "Gagal membuka obrolan dengan desainer");
 
-      router.push(`/orders/${data.order.id}`);
+      const params = new URLSearchParams({
+        threadId: data.threadId,
+        offerId: offer.id,
+        briefId: brief.id,
+        briefTitle: brief.title,
+        offerPrice: String(offer.price),
+        durationDays: String(offer.durationDays),
+        revisionQuota: String(offer.revisionQuota),
+        designerName: offer.designer.displayName,
+      });
+
+      router.push(`/chat?${params.toString()}`);
     } catch (err: any) {
       setErrorMsg(err.message);
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -154,11 +162,11 @@ export function BriefDetailClient({
                       variant="cta"
                       size="sm"
                       isLoading={isSubmitting}
-                      onClick={() => handleAcceptOffer(offer.id)}
+                      onClick={() => handleChatDesigner(offer)}
                       className="flex items-center gap-1.5"
                     >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Terima Penawaran</span>
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Tanya & Chat Desainer</span>
                     </Button>
                   )}
                 </div>

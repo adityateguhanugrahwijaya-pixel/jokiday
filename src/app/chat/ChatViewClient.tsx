@@ -18,7 +18,23 @@ import {
   CheckCheck,
   AlertCircle,
   MessageSquare,
+  ShieldCheck,
+  Handshake,
+  X,
+  Sparkles,
 } from "lucide-react";
+
+export interface PendingOfferItem {
+  id: string;
+  briefId: string;
+  briefTitle: string;
+  price: number;
+  durationDays: number;
+  revisionQuota: number;
+  note: string;
+  designerId: string;
+  designerName: string;
+}
 
 export interface ThreadItem {
   id: string;
@@ -84,9 +100,19 @@ export function ChatViewClient({
   const targetDesignerId = searchParams?.get("designerId");
   const targetDesignerName = searchParams?.get("name");
 
+  // Query parameters konteks brief dan penawaran
+  const queryThreadId = searchParams?.get("threadId");
+  const queryOfferId = searchParams?.get("offerId");
+  const queryBriefId = searchParams?.get("briefId");
+  const queryBriefTitle = searchParams?.get("briefTitle");
+  const queryOfferPrice = searchParams?.get("offerPrice");
+  const queryDurationDays = searchParams?.get("durationDays");
+  const queryRevisionQuota = searchParams?.get("revisionQuota");
+  const queryDesignerName = searchParams?.get("designerName");
+
   const [threads, setThreads] = useState<ThreadItem[]>(initialThreads);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(
-    initialActiveThreadId || (initialThreads.length > 0 ? initialThreads[0].id : null)
+    queryThreadId || initialActiveThreadId || (initialThreads.length > 0 ? initialThreads[0].id : null)
   );
   const [messages, setMessages] = useState<ChatMessageItem[]>(initialMessages);
   const [messagesCache, setMessagesCache] = useState<Record<string, ChatMessageItem[]>>(() => {
@@ -100,6 +126,19 @@ export function ChatViewClient({
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // State untuk penawaran aktif dan pop up konfirmasi kesepakatan
+  const [pendingOffers, setPendingOffers] = useState<PendingOfferItem[]>([]);
+  const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
+  const [modalOfferId, setModalOfferId] = useState<string>("");
+  const [modalBriefId, setModalBriefId] = useState<string>("");
+  const [modalTitle, setModalTitle] = useState<string>("");
+  const [modalPrice, setModalPrice] = useState<string>("");
+  const [modalDuration, setModalDuration] = useState<string>("3");
+  const [modalRevisions, setModalRevisions] = useState<string>("2");
+  const [modalNotes, setModalNotes] = useState<string>("");
+  const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
+  const [isAcceptingOfferId, setIsAcceptingOfferId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -187,6 +226,13 @@ export function ChatViewClient({
     }
   }, [targetDesignerId, isLoadingThreads, role]);
 
+  // Sinkronkan activeThreadId jika pengguna diarahkan dengan ?threadId=...
+  useEffect(() => {
+    if (queryThreadId && queryThreadId !== activeThreadId) {
+      setActiveThreadId(queryThreadId);
+    }
+  }, [queryThreadId]);
+
   // 3. Live Polling Pesan di Thread Aktif setiap 1000ms (1 Detik)
   useEffect(() => {
     if (!activeThreadId) {
@@ -203,22 +249,27 @@ export function ChatViewClient({
         if (!res.ok) return;
 
         const data = await res.json();
-        if (isMounted && data.success && Array.isArray(data.messages)) {
-          setMessages((prev) => {
-            // Pertahankan pesan optimistik yang belum terkonfirmasi oleh server
-            const optimistics = prev.filter((p) => p.isOptimistic);
-            const serverIds = new Set(data.messages.map((m: any) => m.id));
-            const remainingOptimistics = optimistics.filter(
-              (opt) => !serverIds.has(opt.id)
-            );
-            const merged = [...data.messages, ...remainingOptimistics];
-            setMessagesCache((cache) => ({ ...cache, [activeThreadId]: merged }));
-            return merged;
-          });
+        if (isMounted && data.success) {
+          if (Array.isArray(data.pendingOffers)) {
+            setPendingOffers(data.pendingOffers);
+          }
+          if (Array.isArray(data.messages)) {
+            setMessages((prev) => {
+              // Pertahankan pesan optimistik yang belum terkonfirmasi oleh server
+              const optimistics = prev.filter((p) => p.isOptimistic);
+              const serverIds = new Set(data.messages.map((m: any) => m.id));
+              const remainingOptimistics = optimistics.filter(
+                (opt) => !serverIds.has(opt.id)
+              );
+              const merged = [...data.messages, ...remainingOptimistics];
+              setMessagesCache((cache) => ({ ...cache, [activeThreadId]: merged }));
+              return merged;
+            });
 
-          if (isFirstLoad) {
-            isFirstLoad = false;
-            setTimeout(() => scrollToBottom("auto"), 30);
+            if (isFirstLoad) {
+              isFirstLoad = false;
+              setTimeout(() => scrollToBottom("auto"), 30);
+            }
           }
         }
       } catch (err) {
@@ -239,6 +290,152 @@ export function ChatViewClient({
       clearInterval(messageInterval);
     };
   }, [activeThreadId]);
+
+  // Handler Buka Pop Up Konfirmasi Penawaran (Khusus Desainer)
+  const handleOpenOfferModal = (offer?: PendingOfferItem) => {
+    if (offer) {
+      setModalOfferId(offer.id);
+      setModalBriefId(offer.briefId);
+      setModalTitle(offer.briefTitle);
+      setModalPrice(String(offer.price));
+      setModalDuration(String(offer.durationDays));
+      setModalRevisions(String(offer.revisionQuota));
+      setModalNotes(offer.note || "");
+    } else if (pendingOffers.length > 0) {
+      const first = pendingOffers[0];
+      setModalOfferId(first.id);
+      setModalBriefId(first.briefId);
+      setModalTitle(first.briefTitle);
+      setModalPrice(String(first.price));
+      setModalDuration(String(first.durationDays));
+      setModalRevisions(String(first.revisionQuota));
+      setModalNotes(first.note || "");
+    } else {
+      setModalOfferId(queryOfferId || "");
+      setModalBriefId(queryBriefId || "");
+      setModalTitle(queryBriefTitle || "Kesepakatan Desain");
+      setModalPrice(queryOfferPrice || "50000");
+      setModalDuration(queryDurationDays || "3");
+      setModalRevisions(queryRevisionQuota || "2");
+      setModalNotes("");
+    }
+    setIsOfferModalOpen(true);
+  };
+
+  // Handler Kirim Konfirmasi Penawaran ke Ruang Obrolan
+  const handleSubmitOfferModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeThreadId || isSubmittingOffer) return;
+
+    const numPrice = Number(modalPrice);
+    const numDuration = Number(modalDuration);
+    const numRevisions = Number(modalRevisions);
+
+    if (!numPrice || numPrice <= 0 || !Number.isInteger(numPrice)) {
+      alert("Harga kesepakatan harus bilangan bulat positif dalam rupiah");
+      return;
+    }
+    if (!numDuration || numDuration <= 0) {
+      alert("Durasi pengerjaan minimal 1 hari kerja");
+      return;
+    }
+
+    setIsSubmittingOffer(true);
+    try {
+      const res = await fetch(`/api/chat/threads/${activeThreadId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "OFFER_CONFIRMATION",
+          offerData: {
+            offerId: modalOfferId || undefined,
+            briefId: modalBriefId || undefined,
+            title: modalTitle || "Kesepakatan Desain",
+            price: numPrice,
+            durationDays: numDuration,
+            revisionQuota: numRevisions,
+            notes: modalNotes,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal mengirim konfirmasi penawaran");
+
+      if (data.success && data.message) {
+        setMessages((prev) => [...prev, { ...data.message, isMe: true }]);
+        setTimeout(() => scrollToBottom("smooth"), 30);
+      }
+
+      setIsOfferModalOpen(false);
+    } catch (err: any) {
+      alert(err.message || "Gagal mengirim konfirmasi penawaran");
+    } finally {
+      setIsSubmittingOffer(false);
+    }
+  };
+
+  // Handler Pelanggan: Konfirmasi & Terima Tawaran Langsung dari Chat -> Direct Payment Gateway
+  const handleAcceptOfferFromChat = async (offerData: any) => {
+    if (
+      !confirm(
+        `Konfirmasi menerima penawaran "${offerData.title}" sebesar ${formatRupiah(
+          offerData.price
+        )}? Kontrak akan dikunci dan Anda akan diarahkan langsung ke checkout pembayaran.`
+      )
+    ) {
+      return;
+    }
+
+    setIsAcceptingOfferId(offerData.offerId);
+    setErrorMsg("");
+
+    try {
+      // 1. Terima penawaran desainer dan buat order
+      const acceptRes = await fetch("/api/offers/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          offerId: offerData.offerId,
+        }),
+      });
+
+      const acceptData = await acceptRes.json();
+      if (!acceptRes.ok) {
+        throw new Error(acceptData.error?.message || "Gagal menerima penawaran");
+      }
+
+      const order = acceptData.order;
+
+      // 2. Inisialisasi pembayaran order (WaroengPay QRIS checkout)
+      const payRes = await fetch("/api/orders/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          useBalance: false,
+        }),
+      });
+
+      const payData = await payRes.json();
+      if (!payRes.ok) {
+        // Fallback langsung ke detail order jika inisialisasi gateway gagal
+        router.push(`/orders/${order.id}`);
+        return;
+      }
+
+      // 3. Direct langsung ke Payment Gateway URL
+      if (payData.checkoutUrl) {
+        window.location.href = payData.checkoutUrl;
+      } else {
+        router.push(`/orders/${order.id}`);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Gagal memproses kesepakatan");
+      alert(err.message || "Gagal memproses kesepakatan");
+      setIsAcceptingOfferId(null);
+    }
+  };
 
   // 4. Kirim Pesan dengan Update Optimistik Cepat (Live & Zero Delay)
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -442,16 +639,65 @@ export function ChatViewClient({
                 </div>
               </div>
 
-              {activeThread.order && (
-                <Link
-                  href={`/orders/${activeThread.order.id}`}
-                  className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1 shrink-0"
-                >
-                  <span>Detail Order</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {role === "DESIGNER" && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleOpenOfferModal()}
+                    className="flex items-center gap-1.5 text-xs font-bold"
+                  >
+                    <Handshake className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Kirim Konfirmasi Tawaran</span>
+                    <span className="sm:hidden">Ajukan Deal</span>
+                  </Button>
+                )}
+
+                {activeThread.order && (
+                  <Link
+                    href={`/orders/${activeThread.order.id}`}
+                    className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1 shrink-0"
+                  >
+                    <span>Detail Order</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+              </div>
             </div>
+
+            {/* Banner Diskusi Penawaran Aktif */}
+            {pendingOffers.length > 0 && (
+              <div className="px-4 py-2.5 bg-primary/5 border-b border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-xs font-bold text-text truncate">
+                      {pendingOffers[0].briefTitle}
+                    </span>
+                    <span className="text-xs font-extrabold text-primary font-money">
+                      {formatRupiah(pendingOffers[0].price)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-text-muted truncate mt-0.5">
+                    {role === "DESIGNER"
+                      ? "Diskusikan detail dengan pelanggan, lalu ajukan kartu konfirmasi saat sepakat."
+                      : "Sedang dalam diskusi penawaran. Desainer dapat mengajukan kartu kesepakatan resmi di obrolan ini."}
+                  </p>
+                </div>
+
+                {role === "DESIGNER" && (
+                  <Button
+                    variant="cta"
+                    size="sm"
+                    onClick={() => handleOpenOfferModal(pendingOffers[0])}
+                    className="shrink-0 text-xs font-bold self-start sm:self-auto"
+                  >
+                    <Handshake className="w-3.5 h-3.5 mr-1" />
+                    <span>Ajukan Konfirmasi</span>
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Bubble Messages (Live Stream) */}
             <div
@@ -469,6 +715,126 @@ export function ChatViewClient({
                 </div>
               ) : (
                 messages.map((m) => {
+                  if (m.type === "OFFER_CONFIRMATION") {
+                    let offerData: any = null;
+                    try {
+                      offerData = JSON.parse(m.body);
+                    } catch {
+                      offerData = null;
+                    }
+
+                    if (!offerData) return null;
+
+                    const isOrderCreated = Boolean(
+                      activeThread.order &&
+                      activeThread.order.price === offerData.price
+                    );
+
+                    return (
+                      <div key={m.id} className="w-full flex justify-center py-2">
+                        <div className="w-full max-w-lg bg-surface border-2 border-primary/30 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+                          {/* Header Card */}
+                          <div className="flex items-center justify-between pb-3 border-b border-border">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
+                                <ShieldCheck className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-primary block">
+                                  Konfirmasi Kesepakatan Desain
+                                </span>
+                                <span className="text-xs text-text-muted">
+                                  Diajukan oleh {offerData.designerName || "Desainer"}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                              Escrow Dilindungi
+                            </span>
+                          </div>
+
+                          {/* Judul & Harga */}
+                          <div className="space-y-1">
+                            <h4 className="font-bold text-base text-text">
+                              {offerData.title}
+                            </h4>
+                            <div className="font-money text-2xl font-extrabold text-primary">
+                              {formatRupiah(offerData.price)}
+                            </div>
+                          </div>
+
+                          {/* Detail Spesifikasi */}
+                          <div className="grid grid-cols-2 gap-2 text-xs bg-neutral-soft/60 rounded-xl p-3 border border-border">
+                            <div className="flex items-center gap-1.5 text-text-muted">
+                              <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+                              <span>Durasi: <strong className="text-text">{offerData.durationDays} hari kerja</strong></span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-text-muted">
+                              <RotateCcw className="w-3.5 h-3.5 text-primary shrink-0" />
+                              <span>Revisi: <strong className="text-text">{offerData.revisionQuota}x kuota</strong></span>
+                            </div>
+                          </div>
+
+                          {/* Catatan / Lingkup Pekerjaan */}
+                          {(offerData.note || offerData.notes) && (
+                            <div className="text-xs text-text-muted bg-background/60 rounded-lg p-2.5 border border-border/60">
+                              <span className="font-medium text-text block mb-0.5">Catatan Kesepakatan:</span>
+                              <p className="whitespace-pre-wrap leading-relaxed">{offerData.note || offerData.notes}</p>
+                            </div>
+                          )}
+
+                          {/* Action Area */}
+                          <div className="pt-1">
+                            {role === "CUSTOMER" ? (
+                              isOrderCreated ? (
+                                <div className="flex flex-col gap-2">
+                                  <div className="text-xs text-emerald-600 font-semibold flex items-center justify-center gap-1.5 bg-emerald-500/10 py-2 rounded-lg">
+                                    <Check className="w-4 h-4" />
+                                    <span>Tawaran Sudah Dikonfirmasi</span>
+                                  </div>
+                                  <Link
+                                    href={`/orders/${activeThread.order!.id}`}
+                                    className="w-full text-center py-2 px-3 rounded-lg bg-surface border border-border text-xs font-bold text-primary hover:bg-neutral-soft transition-colors"
+                                  >
+                                    Lihat Detail Pesanan & Escrow
+                                  </Link>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="cta"
+                                  size="md"
+                                  isLoading={isAcceptingOfferId === offerData.offerId}
+                                  disabled={Boolean(isAcceptingOfferId)}
+                                  onClick={() => handleAcceptOfferFromChat(offerData)}
+                                  className="w-full flex items-center justify-center gap-2 text-xs sm:text-sm font-bold shadow-sm"
+                                >
+                                  <ShieldCheck className="w-4 h-4" />
+                                  <span>Konfirmasi & Terima Tawaran (Bayar Sekarang)</span>
+                                </Button>
+                              )
+                            ) : (
+                              <div className="text-center p-2.5 rounded-lg bg-neutral-soft text-xs text-text-muted">
+                                {isOrderCreated ? (
+                                  <span className="text-emerald-600 font-semibold flex items-center justify-center gap-1.5">
+                                    <Check className="w-4 h-4" />
+                                    <span>Pelanggan telah mengonfirmasi tawaran ini!</span>
+                                  </span>
+                                ) : (
+                                  <span>Menunggu pelanggan mengonfirmasi dan melanjutkan ke checkout pembayaran.</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-text-muted pt-1 border-t border-border/40">
+                            <span className="font-mono">ID: {offerData.offerId ? offerData.offerId.slice(0, 8) : "-"}</span>
+                            <span className="font-mono">{formatChatTime(m.createdAt)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={m.id}
@@ -520,6 +886,21 @@ export function ChatViewClient({
               )}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Prompt Aksi Cepat Konfirmasi untuk Desainer */}
+            {role === "DESIGNER" && (
+              <div className="px-3 py-1.5 bg-neutral-soft/80 border-t border-border flex items-center justify-between text-xs text-text-muted">
+                <span>Sudah sepakat harga & spesifikasi dengan klien?</span>
+                <button
+                  type="button"
+                  onClick={() => handleOpenOfferModal()}
+                  className="font-bold text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <Handshake className="w-3.5 h-3.5" />
+                  <span>Kirim Konfirmasi Tawaran</span>
+                </button>
+              </div>
+            )}
 
             {/* Form Input Pesan (Live Send) */}
             <form
@@ -629,6 +1010,137 @@ export function ChatViewClient({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* MODAL POP UP KONFIRMASI PENAWARAN (SISI DESAINER) */}
+      {isOfferModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-surface border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-primary-soft text-primary">
+                  <Handshake className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-text">
+                    Kirim Konfirmasi Tawaran
+                  </h3>
+                  <p className="text-xs text-text-muted">
+                    Ajukan kesepakatan final ke ruang obrolan untuk disetujui pelanggan.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOfferModalOpen(false)}
+                className="p-1 rounded-lg text-text-muted hover:text-text hover:bg-neutral-soft transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitOfferModal} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-text mb-1">
+                  Judul Proyek / Brief
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={modalTitle}
+                  onChange={(e) => setModalTitle(e.target.value)}
+                  placeholder="Contoh: Desain Logo Brand & Identitas Visual"
+                  className="w-full h-10 px-3.5 bg-background border border-border rounded-lg text-xs sm:text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text mb-1">
+                  Harga Kesepakatan (Rupiah)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={10000}
+                  step={1000}
+                  value={modalPrice}
+                  onChange={(e) => setModalPrice(e.target.value)}
+                  placeholder="Contoh: 350000"
+                  className="w-full h-10 px-3.5 bg-background border border-border rounded-lg text-xs sm:text-sm font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <p className="text-[11px] text-primary font-money font-semibold mt-1">
+                  Preview: {formatRupiah(Number(modalPrice) || 0)}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-text mb-1">
+                    Durasi (Hari Kerja)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={60}
+                    value={modalDuration}
+                    onChange={(e) => setModalDuration(e.target.value)}
+                    className="w-full h-10 px-3.5 bg-background border border-border rounded-lg text-xs sm:text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text mb-1">
+                    Kuota Revisi
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    max={10}
+                    value={modalRevisions}
+                    onChange={(e) => setModalRevisions(e.target.value)}
+                    className="w-full h-10 px-3.5 bg-background border border-border rounded-lg text-xs sm:text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text mb-1">
+                  Catatan Deliverables / Lingkup Desain
+                </label>
+                <textarea
+                  rows={3}
+                  value={modalNotes}
+                  onChange={(e) => setModalNotes(e.target.value)}
+                  placeholder="Contoh: 3 Opsi konsep logo, file master AI/EPS, export PNG transparan 300 DPI."
+                  className="w-full p-3 bg-background border border-border rounded-lg text-xs sm:text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsOfferModalOpen(false)}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  variant="cta"
+                  size="sm"
+                  isLoading={isSubmittingOffer}
+                  className="flex items-center gap-1.5"
+                >
+                  <Handshake className="w-4 h-4" />
+                  <span>Kirim Konfirmasi ke Obrolan</span>
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

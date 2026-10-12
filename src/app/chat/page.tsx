@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function ChatPage({
   searchParams,
 }: {
-  searchParams?: { designerId?: string; name?: string };
+  searchParams?: { designerId?: string; name?: string; threadId?: string; offerId?: string };
 }) {
   const session = await AuthService.getCurrentUser();
   if (!session) {
@@ -110,8 +110,14 @@ export default async function ChatPage({
 
   // Tentukan thread aktif awal
   let initialActiveThreadId: string | null = null;
+  const targetThreadId = searchParams?.threadId;
   const targetDesignerId = searchParams?.designerId;
-  if (targetDesignerId) {
+
+  if (targetThreadId) {
+    const matched = initialThreads.find((t) => t.id === targetThreadId);
+    if (matched) initialActiveThreadId = matched.id;
+  }
+  if (!initialActiveThreadId && targetDesignerId) {
     const matched = initialThreads.find((t) => t.otherUser.id === targetDesignerId);
     if (matched) initialActiveThreadId = matched.id;
   }
