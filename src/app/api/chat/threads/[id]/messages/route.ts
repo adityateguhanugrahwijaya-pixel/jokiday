@@ -161,92 +161,82 @@ export async function POST(
       let activeOfferId = offerId;
       let finalOfferDetails: any = null;
 
+      let targetBriefId = briefId;
+      let briefTitle = title;
+      let designerDisplayName = "Desainer";
+
+      const designerUser = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { displayName: true },
+      });
+      if (designerUser?.displayName) {
+        designerDisplayName = designerUser.displayName;
+      }
+
       if (offerId) {
         const existingOffer = await prisma.offer.findUnique({
           where: { id: offerId },
           include: { brief: true, designer: true },
         });
-
-        if (!existingOffer) {
-          throw new NotFoundError("Penawaran awal tidak ditemukan");
+        if (existingOffer) {
+          targetBriefId = existingOffer.briefId;
+          briefTitle = existingOffer.brief.title;
+          designerDisplayName = existingOffer.designer.displayName;
         }
-        if (existingOffer.status !== "PENDING") {
-          throw new ValidationError("Penawaran sudah tidak dalam status PENDING");
-        }
-
-        // Jika terdapat perubahan harga/durasi dari negosiasi di chat, buat versi penawaran baru
-        if (
-          numPrice !== existingOffer.price ||
-          numDuration !== existingOffer.durationDays ||
-          numRevisions !== existingOffer.revisionQuota
-        ) {
-          const newOffer = await OfferService.createOffer({
-            briefId: existingOffer.briefId,
-            designerId: session.userId,
-            price: numPrice,
-            durationDays: numDuration,
-            revisionQuota: numRevisions,
-            deliverables: [notes || "Hasil desain final sesuai kesepakatan obrolan"],
-            note: notes || existingOffer.note,
-          });
-          activeOfferId = newOffer.id;
-          finalOfferDetails = {
-            offerId: newOffer.id,
-            briefId: newOffer.briefId,
-            title: existingOffer.brief.title,
-            price: newOffer.price,
-            durationDays: newOffer.durationDays,
-            revisionQuota: newOffer.revisionQuota,
-            note: newOffer.note,
-            designerName: existingOffer.designer.displayName,
-          };
-        } else {
-          finalOfferDetails = {
-            offerId: existingOffer.id,
-            briefId: existingOffer.briefId,
-            title: existingOffer.brief.title,
-            price: existingOffer.price,
-            durationDays: existingOffer.durationDays,
-            revisionQuota: existingOffer.revisionQuota,
-            note: notes || existingOffer.note,
-            designerName: existingOffer.designer.displayName,
-          };
-        }
-      } else if (briefId) {
-        const brief = await prisma.brief.findUnique({
-          where: { id: briefId },
-          include: { customer: true },
-        });
-        if (!brief) throw new NotFoundError("Brief tidak ditemukan");
-
-        const designerUser = await prisma.user.findUnique({
-          where: { id: session.userId },
-        });
-
-        const newOffer = await OfferService.createOffer({
-          briefId: brief.id,
-          designerId: session.userId,
-          price: numPrice,
-          durationDays: numDuration,
-          revisionQuota: numRevisions,
-          deliverables: [notes || "Hasil desain final sesuai kesepakatan obrolan"],
-          note: notes || "Kesepakatan langsung melalui ruang obrolan",
-        });
-
-        activeOfferId = newOffer.id;
-        finalOfferDetails = {
-          offerId: newOffer.id,
-          briefId: brief.id,
-          title: brief.title,
-          price: newOffer.price,
-          durationDays: newOffer.durationDays,
-          revisionQuota: newOffer.revisionQuota,
-          note: newOffer.note,
-          designerName: designerUser?.displayName || "Desainer",
-        };
-      } else {
-        throw new ValidationError("ID penawaran atau ID brief wajib disertakan");
       }
+
+      // Jika belum ada targetBriefId, cari brief OPEN antara pelanggan dan desainer pada thread ini
+      if (!targetBriefId) {
+        const existingBrief = await prisma.brief.findFirst({
+          where: {
+            customerId: thread.customerId,
+            status: "OPEN",
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        if (existingBrief) {
+          targetBriefId = existingBrief.id;
+          briefTitle = existingBrief.title;
+        }
+      }
+
+      // Jika tetap belum ada brief, buat brief DIRECT otomatis untuk menampung penawaran desainer
+      if (!targetBriefId) {
+        const createdBrief = await OfferService.createBrief({
+          customerId: thread.customerId,
+          mode: "DIRECT",
+          targetDesignerId: session.userId,
+          title: title || `Proyek Desain ${designerDisplayName}`,
+          description: notes || "Kesepakatan kustom langsung dari ruang obrolan.",
+          category: "Lainnya",
+          desiredDeadlineDays: numDuration,
+        });
+        targetBriefId = createdBrief.id;
+        briefTitle = createdBrief.title;
+      }
+
+      // Buat penawaran baru (v1, v2, v3, dst.) agar proses tawar-menawar di chat tetap fleksibel
+      const newOffer = await OfferService.createOffer({
+        briefId: targetBriefId,
+        designerId: session.userId,
+        price: numPrice,
+        durationDays: numDuration,
+        revisionQuota: numRevisions,
+        deliverables: [notes || "Hasil desain final sesuai kesepakatan obrolan"],
+        note: notes || "Penawaran baru hasil diskusi di ruang obrolan",
+      });
+
+      activeOfferId = newOffer.id;
+      finalOfferDetails = {
+        offerId: newOffer.id,
+        briefId: newOffer.briefId,
+        title: briefTitle || "Kesepakatan Desain",
+        price: newOffer.price,
+        durationDays: newOffer.durationDays,
+        revisionQuota: newOffer.revisionQuota,
+        note: newOffer.note,
+        designerName: designerDisplayName,
+      };
 
       const confirmationPayload = JSON.stringify(finalOfferDetails);
 

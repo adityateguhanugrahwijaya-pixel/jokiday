@@ -648,8 +648,8 @@ export function ChatViewClient({
                     className="flex items-center gap-1.5 text-xs font-bold"
                   >
                     <Handshake className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Kirim Konfirmasi Tawaran</span>
-                    <span className="sm:hidden">Ajukan Deal</span>
+                    <span className="hidden sm:inline">Kirim Tawaran Baru</span>
+                    <span className="sm:hidden">Tawaran Baru</span>
                   </Button>
                 )}
 
@@ -680,8 +680,8 @@ export function ChatViewClient({
                   </div>
                   <p className="text-[11px] text-text-muted truncate mt-0.5">
                     {role === "DESIGNER"
-                      ? "Diskusikan detail dengan pelanggan, lalu ajukan kartu konfirmasi saat sepakat."
-                      : "Sedang dalam diskusi penawaran. Desainer dapat mengajukan kartu kesepakatan resmi di obrolan ini."}
+                      ? "Diskusikan harga & deadline dengan klien. Anda yang menginput harga tawaran, klien yang menyetujui."
+                      : "Baku tawar di chat dengan desainer. Desainer yang menginput harga dan batas waktu, lalu Anda yang menyetujui."}
                   </p>
                 </div>
 
@@ -693,7 +693,7 @@ export function ChatViewClient({
                     className="shrink-0 text-xs font-bold self-start sm:self-auto"
                   >
                     <Handshake className="w-3.5 h-3.5 mr-1" />
-                    <span>Ajukan Konfirmasi</span>
+                    <span>Kirim Tawaran Baru</span>
                   </Button>
                 )}
               </div>
@@ -736,12 +736,12 @@ export function ChatViewClient({
                           {/* Header Card */}
                           <div className="flex items-center justify-between pb-3 border-b border-border">
                             <div className="flex items-center gap-2">
-                              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
-                                <ShieldCheck className="w-5 h-5" />
+                              <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                <Sparkles className="w-5 h-5" />
                               </div>
                               <div>
                                 <span className="text-[11px] font-bold uppercase tracking-wider text-primary block">
-                                  Konfirmasi Kesepakatan Desain
+                                  Tawaran Baru dari Desainer
                                 </span>
                                 <span className="text-xs text-text-muted">
                                   Diajukan oleh {offerData.designerName || "Desainer"}
@@ -749,7 +749,7 @@ export function ChatViewClient({
                               </div>
                             </div>
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                              Escrow Dilindungi
+                              {isOrderCreated ? "Telah Disetujui" : "Menunggu Persetujuan Pelanggan"}
                             </span>
                           </div>
 
@@ -767,7 +767,7 @@ export function ChatViewClient({
                           <div className="grid grid-cols-2 gap-2 text-xs bg-neutral-soft/60 rounded-xl p-3 border border-border">
                             <div className="flex items-center gap-1.5 text-text-muted">
                               <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
-                              <span>Durasi: <strong className="text-text">{offerData.durationDays} hari kerja</strong></span>
+                              <span>Batas Waktu: <strong className="text-text">{offerData.durationDays} hari kerja</strong></span>
                             </div>
                             <div className="flex items-center gap-1.5 text-text-muted">
                               <RotateCcw className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -778,7 +778,7 @@ export function ChatViewClient({
                           {/* Catatan / Lingkup Pekerjaan */}
                           {(offerData.note || offerData.notes) && (
                             <div className="text-xs text-text-muted bg-background/60 rounded-lg p-2.5 border border-border/60">
-                              <span className="font-medium text-text block mb-0.5">Catatan Kesepakatan:</span>
+                              <span className="font-medium text-text block mb-0.5">Catatan & Deliverables:</span>
                               <p className="whitespace-pre-wrap leading-relaxed">{offerData.note || offerData.notes}</p>
                             </div>
                           )}
@@ -790,37 +790,53 @@ export function ChatViewClient({
                                 <div className="flex flex-col gap-2">
                                   <div className="text-xs text-emerald-600 font-semibold flex items-center justify-center gap-1.5 bg-emerald-500/10 py-2 rounded-lg">
                                     <Check className="w-4 h-4" />
-                                    <span>Tawaran Sudah Dikonfirmasi</span>
+                                    <span>Tawaran Sudah Disetujui</span>
                                   </div>
                                   <Link
                                     href={`/orders/${activeThread.order!.id}`}
                                     className="w-full text-center py-2 px-3 rounded-lg bg-surface border border-border text-xs font-bold text-primary hover:bg-neutral-soft transition-colors"
                                   >
-                                    Lihat Detail Pesanan & Escrow
+                                    Lihat Detail Pesanan & Pembayaran
                                   </Link>
                                 </div>
                               ) : (
-                                <Button
-                                  variant="cta"
-                                  size="md"
-                                  isLoading={isAcceptingOfferId === offerData.offerId}
-                                  disabled={Boolean(isAcceptingOfferId)}
-                                  onClick={() => handleAcceptOfferFromChat(offerData)}
-                                  className="w-full flex items-center justify-center gap-2 text-xs sm:text-sm font-bold shadow-sm"
-                                >
-                                  <ShieldCheck className="w-4 h-4" />
-                                  <span>Konfirmasi & Terima Tawaran (Bayar Sekarang)</span>
-                                </Button>
+                                <div className="space-y-2">
+                                  <Button
+                                    variant="cta"
+                                    size="md"
+                                    isLoading={isAcceptingOfferId === offerData.offerId}
+                                    disabled={Boolean(isAcceptingOfferId)}
+                                    onClick={() => handleAcceptOfferFromChat(offerData)}
+                                    className="w-full flex items-center justify-center gap-2 text-xs sm:text-sm font-bold shadow-sm"
+                                  >
+                                    <ShieldCheck className="w-4 h-4" />
+                                    <span>Setujui Tawaran & Bayar Sekarang</span>
+                                  </Button>
+                                  <p className="text-[11px] text-center text-text-muted">
+                                    Jika ingin menawar harga atau batas waktu, silakan sampaikan di obrolan chat.
+                                  </p>
+                                </div>
                               )
                             ) : (
-                              <div className="text-center p-2.5 rounded-lg bg-neutral-soft text-xs text-text-muted">
-                                {isOrderCreated ? (
-                                  <span className="text-emerald-600 font-semibold flex items-center justify-center gap-1.5">
-                                    <Check className="w-4 h-4" />
-                                    <span>Pelanggan telah mengonfirmasi tawaran ini!</span>
-                                  </span>
-                                ) : (
-                                  <span>Menunggu pelanggan mengonfirmasi dan melanjutkan ke checkout pembayaran.</span>
+                              <div className="space-y-2">
+                                <div className="text-center p-2.5 rounded-lg bg-neutral-soft text-xs text-text-muted">
+                                  {isOrderCreated ? (
+                                    <span className="text-emerald-600 font-semibold flex items-center justify-center gap-1.5">
+                                      <Check className="w-4 h-4" />
+                                      <span>Pelanggan telah menyetujui tawaran ini!</span>
+                                    </span>
+                                  ) : (
+                                    <span>Tawaran terkirim ke klien. Menunggu pelanggan memutuskan setuju atau menawar.</span>
+                                  )}
+                                </div>
+                                {!isOrderCreated && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenOfferModal()}
+                                    className="w-full py-1 px-3 rounded text-[11px] font-semibold text-primary hover:underline text-center"
+                                  >
+                                    Revisi atau Kirim Tawaran Baru Lainnya
+                                  </button>
                                 )}
                               </div>
                             )}
@@ -887,17 +903,17 @@ export function ChatViewClient({
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Prompt Aksi Cepat Konfirmasi untuk Desainer */}
+            {/* Prompt Aksi Cepat Kirim Tawaran untuk Desainer */}
             {role === "DESIGNER" && (
               <div className="px-3 py-1.5 bg-neutral-soft/80 border-t border-border flex items-center justify-between text-xs text-text-muted">
-                <span>Sudah sepakat harga & spesifikasi dengan klien?</span>
+                <span>Klien ingin negosiasi harga atau batas waktu pengerjaan?</span>
                 <button
                   type="button"
                   onClick={() => handleOpenOfferModal()}
                   className="font-bold text-primary hover:underline inline-flex items-center gap-1"
                 >
                   <Handshake className="w-3.5 h-3.5" />
-                  <span>Kirim Konfirmasi Tawaran</span>
+                  <span>Kirim Tawaran Baru</span>
                 </button>
               </div>
             )}
@@ -1013,7 +1029,7 @@ export function ChatViewClient({
         </div>
       )}
 
-      {/* MODAL POP UP KONFIRMASI PENAWARAN (SISI DESAINER) */}
+      {/* MODAL POP UP KIRIM TAWARAN BARU (SISI DESAINER) */}
       {isOfferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-surface border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
@@ -1024,10 +1040,10 @@ export function ChatViewClient({
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-text">
-                    Kirim Konfirmasi Tawaran
+                    Kirim Tawaran Baru ke Klien
                   </h3>
                   <p className="text-xs text-text-muted">
-                    Ajukan kesepakatan final ke ruang obrolan untuk disetujui pelanggan.
+                    Hanya desainer yang dapat menginput harga dan batas waktu. Pelanggan yang akan menyetujui di chat.
                   </p>
                 </div>
               </div>
@@ -1057,7 +1073,7 @@ export function ChatViewClient({
 
               <div>
                 <label className="block text-xs font-semibold text-text mb-1">
-                  Harga Kesepakatan (Rupiah)
+                  Harga Penawaran Baru (Rupiah)
                 </label>
                 <input
                   type="number"
@@ -1077,7 +1093,7 @@ export function ChatViewClient({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-text mb-1">
-                    Durasi (Hari Kerja)
+                    Batas Waktu / Deadline (Hari Kerja)
                   </label>
                   <input
                     type="number"
@@ -1136,7 +1152,7 @@ export function ChatViewClient({
                   className="flex items-center gap-1.5"
                 >
                   <Handshake className="w-4 h-4" />
-                  <span>Kirim Konfirmasi ke Obrolan</span>
+                  <span>Kirim Tawaran ke Chat</span>
                 </Button>
               </div>
             </form>

@@ -52,6 +52,30 @@ export function OrdersViewClient({
   displayName,
 }: OrdersViewClientProps) {
   const [filterTab, setFilterTab] = useState<string>("ALL");
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
+
+  const handleDirectPay = async (orderId: string) => {
+    setPayingOrderId(orderId);
+    try {
+      const res = await fetch("/api/orders/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, useBalance: false }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal memproses pembayaran");
+
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        window.location.href = `/orders/${orderId}`;
+      }
+    } catch {
+      window.location.href = `/orders/${orderId}?pay=true`;
+    } finally {
+      setPayingOrderId(null);
+    }
+  };
 
   const filteredOrders = orders.filter((order) => {
     if (filterTab === "ALL") return true;
@@ -303,13 +327,19 @@ export function OrdersViewClient({
                     <div className="flex items-center gap-2">
                       {/* Tombol Bayar jika Customer dan AWAITING_PAYMENT */}
                       {role === "CUSTOMER" && isAwaitingPay && (
-                        <Link
-                          href={`/orders/${order.id}`}
-                          className="inline-flex items-center justify-center h-10 px-4 rounded-md bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors shadow-sm"
+                        <button
+                          type="button"
+                          disabled={payingOrderId === order.id}
+                          onClick={() => handleDirectPay(order.id)}
+                          className="inline-flex items-center justify-center h-10 px-4 rounded-md bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors shadow-sm disabled:opacity-50"
                         >
-                          <CreditCard className="w-3.5 h-3.5 mr-1.5" />
-                          <span>Bayar Tagihan</span>
-                        </Link>
+                          {payingOrderId === order.id ? (
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5" />
+                          ) : (
+                            <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          <span>{payingOrderId === order.id ? "Membuka Menu..." : "Bayar Tagihan"}</span>
+                        </button>
                       )}
 
                       {/* Tombol Kirim Desain jika Designer dan Sedang Dikerjakan */}

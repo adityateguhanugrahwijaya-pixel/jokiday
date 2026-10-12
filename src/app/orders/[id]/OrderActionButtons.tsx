@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { formatRupiah } from "@/lib/format";
 import {
@@ -41,6 +41,9 @@ export function OrderActionButtons({
   designerId,
 }: OrderActionButtonsProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const autoPay = searchParams?.get("pay") === "true";
+
   const [isLoading, setIsLoading] = useState(false);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [showDeliverModal, setShowDeliverModal] = useState(false);
@@ -84,7 +87,8 @@ export function OrderActionButtons({
       if (data.paidDirectly) {
         router.refresh();
       } else if (data.checkoutUrl) {
-        router.push(data.checkoutUrl);
+        // Direct ke menu pembayaran WaroengPay (UI pembayaran resmi)
+        window.location.href = data.checkoutUrl;
       } else {
         router.refresh();
       }
@@ -94,6 +98,13 @@ export function OrderActionButtons({
       setIsLoading(false);
     }
   };
+
+  // Otomatis buka checkout pembayaran jika pengguna datang dari parameter ?pay=true
+  useEffect(() => {
+    if (autoPay && status === "AWAITING_PAYMENT" && viewerRole === "CUSTOMER" && !isLoading) {
+      handlePay();
+    }
+  }, [autoPay, status, viewerRole]);
 
   const handleApprove = async () => {
     if (!confirm("Apakah kamu yakin menyetujui hasil desain ini? Dana akan langsung dirilis ke desainer.")) {
