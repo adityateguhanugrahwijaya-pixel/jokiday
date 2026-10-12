@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { prisma } from "../../src/lib/db";
 import { OfferService } from "../../src/server/offers/offer.service";
 import { OrderStateMachine } from "../../src/server/orders/order.state-machine";
@@ -16,7 +16,9 @@ describe("Offer & Order State Machine", () => {
     await prisma.offer.deleteMany({});
     await prisma.brief.deleteMany({});
     await prisma.designerProfile.deleteMany({});
-    await prisma.user.deleteMany({});
+    await prisma.user.deleteMany({
+      where: { email: { in: ["cust@test.com", "des1@test.com", "des2@test.com"] } },
+    });
 
     // Buat customer & 2 desainer
     const customer = await prisma.user.create({
@@ -204,5 +206,17 @@ describe("Offer & Order State Machine", () => {
     // Verifikasi saldo designer
     const designerBalance = await LedgerService.getAvailableBalance(designer1Id);
     expect(designerBalance).toBe(47500);
+  });
+
+  afterAll(async () => {
+    await prisma.ledgerEntry.deleteMany({});
+    await prisma.auditLog.deleteMany({});
+    await prisma.order.deleteMany({});
+    await prisma.offer.deleteMany({});
+    await prisma.brief.deleteMany({});
+    await prisma.designerProfile.deleteMany({});
+    await prisma.user.deleteMany({
+      where: { email: { in: ["cust@test.com", "des1@test.com", "des2@test.com"] } },
+    });
   });
 });
