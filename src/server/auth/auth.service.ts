@@ -7,6 +7,7 @@ import { SESSION_SECRET, sanitizeInput } from "@/lib/security";
 import crypto from "node:crypto";
 import { EmailService } from "@/server/email/email.service";
 import { getAppUrl } from "@/lib/app-url";
+import { generateUniqueUsername } from "@/lib/user";
 
 const COOKIE_NAME = "jokiday_session";
 
@@ -43,11 +44,13 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(data.password);
+    const username = await generateUniqueUsername(cleanName);
     const user = await prisma.user.create({
       data: {
         email: cleanEmail,
         passwordHash,
         displayName: cleanName,
+        username,
         isCustomer: true,
         isDesigner: false,
         activeRole: "CUSTOMER",
@@ -56,6 +59,7 @@ export class AuthService {
         id: true,
         email: true,
         displayName: true,
+        username: true,
         activeRole: true,
         isCustomer: true,
         isDesigner: true,

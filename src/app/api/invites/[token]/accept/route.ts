@@ -5,6 +5,7 @@ import { handleApiError, NotFoundError, ValidationError, ConflictError, Unauthor
 import { SignJWT } from "jose";
 import { SESSION_SECRET, sanitizeInput } from "@/lib/security";
 import { validateNIK } from "@/lib/validation";
+import { generateUniqueUsername } from "@/lib/user";
 
 const COOKIE_NAME = "jokiday_session";
 
@@ -99,11 +100,13 @@ export async function POST(
       }
 
       const passwordHash = await hashPassword(password);
+      const generatedUsername = await generateUniqueUsername(displayName.trim());
       targetUser = await prisma.user.create({
         data: {
           email: email.toLowerCase().trim(),
           passwordHash,
           displayName: displayName.trim(),
+          username: generatedUsername,
           isCustomer: true,
           isDesigner: true,
           activeRole: "DESIGNER",
@@ -113,10 +116,17 @@ export async function POST(
 
     // Jalankan transaksi pendaftaran desainer dan klaim invite
     await prisma.$transaction(async (tx) => {
-      // Update status user jadi desainer
+      // Pastikan akun memiliki username slug unik jika sebelumnya belum ada
+      let finalUsername = targetUser.username;
+      if (!finalUsername) {
+        finalUsername = await generateUniqueUsername(targetUser.displayName, targetUser.id);
+      }
+
+      // Update status user jadi desainer dan simpan username
       await tx.user.update({
         where: { id: targetUser.id },
         data: {
+          username: finalUsername,
           isDesigner: true,
           activeRole: "DESIGNER",
         },

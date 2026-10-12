@@ -53,6 +53,7 @@ export interface DesignerProfileData {
   bio: string;
   categories: string[];
   ratingAvg: number;
+  ratingCount: number;
   completedCount: number;
   isVerified: boolean;
   createdAt: string;
@@ -347,16 +348,18 @@ export function DesignerProfileClient({
               </div>
               <div>
                 <span className="font-extrabold text-text block">
-                  {designer.completedCount || 42}
+                  {designer.completedCount}
                 </span>
                 <span className="text-text-muted text-xs">Pesanan Selesai</span>
               </div>
               <div className="flex items-center gap-1">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                 <span className="font-extrabold text-text">
-                  {designer.ratingAvg > 0 ? designer.ratingAvg.toFixed(1) : "5.0"}
+                  {designer.ratingCount > 0 ? designer.ratingAvg.toFixed(1) : "-"}
                 </span>
-                <span className="text-text-muted text-xs">Rating</span>
+                <span className="text-text-muted text-xs">
+                  {designer.ratingCount > 0 ? `Rating (${designer.ratingCount})` : "Rating (Baru)"}
+                </span>
               </div>
             </div>
 
@@ -636,7 +639,9 @@ export function DesignerProfileClient({
               <span className="text-text-muted block">Rating Kepuasan</span>
               <span className="font-bold text-text text-sm flex items-center gap-1">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                {designer.ratingAvg.toFixed(1)} / 5.0 ({designer.completedCount || 42} pesanan)
+                {designer.ratingCount > 0
+                  ? `${designer.ratingAvg.toFixed(1)} / 5.0 (${designer.completedCount} pesanan selesai)`
+                  : `Belum ada ulasan (${designer.completedCount} pesanan selesai)`}
               </span>
             </div>
             <div className="p-4 bg-background border border-border rounded-lg space-y-1">

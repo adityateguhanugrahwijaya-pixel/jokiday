@@ -349,10 +349,10 @@ export function DiscoverExperience({
                         <div className="flex items-center gap-1 text-xs">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                           <span className="font-bold text-text">
-                            {post.designer.ratingAvg > 0 ? post.designer.ratingAvg.toFixed(1) : "5.0"}
+                            {post.designer.ratingAvg > 0 ? post.designer.ratingAvg.toFixed(1) : "-"}
                           </span>
                           <span className="text-[10px] text-text-muted">
-                            ({post.designer.completedCount || 42})
+                            ({post.designer.completedCount} pesanan)
                           </span>
                         </div>
                         <div className="mt-1">
@@ -423,9 +423,9 @@ export function DiscoverExperience({
                       <div className="flex items-center gap-1 text-xs text-text-muted mt-0.5">
                         <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                         <span className="font-bold text-text">
-                          {designer.ratingAvg ? designer.ratingAvg.toFixed(1) : "5.0"}
+                          {designer.ratingAvg > 0 ? designer.ratingAvg.toFixed(1) : "-"}
                         </span>
-                        <span>&bull; {designer.completedCount || 42} pesanan selesai</span>
+                        <span>&bull; {designer.completedCount} pesanan selesai</span>
                       </div>
                     </div>
                   </Link>
