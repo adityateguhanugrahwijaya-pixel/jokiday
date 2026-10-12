@@ -43,7 +43,7 @@ export default async function AdminInvitesPage() {
     : null;
 
   return (
-    <AppShell role="DESIGNER" displayName={currentUser?.displayName || "Admin"}>
+    <AppShell displayName={currentUser?.displayName || "Admin"} isAdmin={true}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-text">

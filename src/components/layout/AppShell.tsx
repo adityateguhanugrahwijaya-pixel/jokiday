@@ -21,7 +21,7 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-text">
-      <Navbar initialRole={role} displayName={displayName} />
+      <Navbar initialRole={role} displayName={displayName} isAdmin={isAdmin} />
       <div className="flex-1 flex w-full max-w-content mx-auto">
         {!hideSidebar && <Sidebar role={role} isAdmin={isAdmin} />}
         <main className={`flex-1 min-w-0 ${hideSidebar ? "w-full p-4 sm:p-6 lg:p-8" : "p-4 sm:p-6 lg:p-8"} pb-24 md:pb-8`}>

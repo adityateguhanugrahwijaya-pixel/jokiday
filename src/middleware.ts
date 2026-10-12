@@ -82,7 +82,12 @@ export async function middleware(req: NextRequest) {
     GUEST_PAGES.some((p) => pathname.startsWith(p)) &&
     !pathname.startsWith("/register/invite")
   ) {
-    const redirectUrl = new URL("/dashboard", req.url);
+    const targetPath = session.isAdmin
+      ? "/admin"
+      : session.activeRole === "DESIGNER"
+      ? "/dashboard/designer"
+      : "/dashboard/customer";
+    const redirectUrl = new URL(targetPath, req.url);
     return withSecurityHeaders(NextResponse.redirect(redirectUrl));
   }
 
@@ -112,10 +117,15 @@ export async function middleware(req: NextRequest) {
           )
         );
       }
-      return withSecurityHeaders(NextResponse.redirect(new URL("/", req.url)));
+      return withSecurityHeaders(NextResponse.redirect(new URL("/dashboard/customer", req.url)));
     }
 
     return withSecurityHeaders(NextResponse.next());
+  }
+
+  // Admin tidak boleh mengakses dashboard pelanggan atau desainer
+  if (session?.isAdmin && (pathname.startsWith("/dashboard/customer") || pathname.startsWith("/dashboard/designer"))) {
+    return withSecurityHeaders(NextResponse.redirect(new URL("/admin", req.url)));
   }
 
   // 5. Proteksi Rute Khusus Desainer (/dashboard, /wallet, /api/portfolio/upload, dll)

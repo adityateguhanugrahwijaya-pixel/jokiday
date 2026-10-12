@@ -25,6 +25,7 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 export interface NavbarProps {
   initialRole?: "CUSTOMER" | "DESIGNER";
   displayName?: string;
+  isAdmin?: boolean;
 }
 
 interface AuthUser {
@@ -37,11 +38,27 @@ interface AuthUser {
   isAdmin: boolean;
 }
 
-export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: NavbarProps) {
+export function Navbar({
+  initialRole = "CUSTOMER",
+  displayName = "Pengguna",
+  isAdmin = false,
+}: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(
+    isAdmin
+      ? {
+          id: "admin",
+          email: "admin@jokiday.com",
+          displayName,
+          activeRole: "CUSTOMER",
+          isCustomer: false,
+          isDesigner: false,
+          isAdmin: true,
+        }
+      : null
+  );
+  const [loading, setLoading] = useState(!isAdmin);
   const [role, setRole] = useState<"CUSTOMER" | "DESIGNER">(initialRole);
   const [showMenu, setShowMenu] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
@@ -171,14 +188,14 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
 
   const customerNav = [
     { label: "Beranda", href: "/", icon: Home },
-    { label: "Dashboard", href: "/dashboard", icon: Layers },
+    { label: "Dashboard", href: "/dashboard/customer", icon: Layers },
     { label: "Pasar", href: "/market", icon: ShoppingBag },
     { label: "Order Saya", href: "/orders", icon: Clock },
     { label: "Pesan", href: "/chat", icon: MessageSquare },
   ];
 
   const designerNav = [
-    { label: "Dashboard", href: "/dashboard", icon: Home },
+    { label: "Dashboard", href: "/dashboard/designer", icon: Home },
     { label: "Pasar", href: "/market", icon: ShoppingBag },
     { label: "Karya", href: "/portfolio", icon: Layers },
     { label: "Order", href: "/orders", icon: Clock },
@@ -186,7 +203,7 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
   ];
 
   const adminNav = [
-    { label: "Dashboard", href: "/dashboard", icon: Layers },
+    { label: "Dashboard", href: "/admin", icon: Layers },
     { label: "Undangan", href: "/admin/invites", icon: ShieldCheck },
     { label: "Penarikan", href: "/admin/withdrawals", icon: Wallet },
     { label: "Semua Order", href: "/orders", icon: Clock },
@@ -228,10 +245,10 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
             {user?.isAdmin ? (
               <>
                 <Link
-                  href="/dashboard"
+                  href="/admin"
                   className={clsx(
                     "px-3 py-1.5 rounded-md transition-colors",
-                    pathname === "/dashboard" ? "text-primary bg-primary-soft font-bold" : "text-text-muted hover:text-text hover:bg-background"
+                    pathname === "/admin" ? "text-primary bg-primary-soft font-bold" : "text-text-muted hover:text-text hover:bg-background"
                   )}
                 >
                   Dashboard
@@ -389,7 +406,7 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
                   {user.isAdmin ? (
                     <>
                       <Link
-                        href="/dashboard"
+                        href="/admin"
                         onClick={() => setShowMenu(false)}
                         className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors font-medium"
                       >
@@ -423,6 +440,15 @@ export function Navbar({ initialRole = "CUSTOMER", displayName = "Pengguna" }: N
                     </>
                   ) : (
                     <>
+                      <Link
+                        href={role === "DESIGNER" ? "/dashboard/designer" : "/dashboard/customer"}
+                        onClick={() => setShowMenu(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors font-medium"
+                      >
+                        <Layers className="w-4 h-4 text-primary" />
+                        <span>Dashboard</span>
+                      </Link>
+
                       <Link
                         href="/profile"
                         onClick={() => setShowMenu(false)}

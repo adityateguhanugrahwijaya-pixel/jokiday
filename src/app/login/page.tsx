@@ -30,7 +30,14 @@ function LoginFormContent() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Email atau kata sandi salah");
 
-      const target = redirectTarget || (data.user?.isAdmin ? "/dashboard" : data.user?.activeRole === "DESIGNER" ? "/dashboard" : "/");
+      let target = redirectTarget;
+      if (!target || target === "/dashboard") {
+        target = data.user?.isAdmin
+          ? "/admin"
+          : data.user?.activeRole === "DESIGNER"
+          ? "/dashboard/designer"
+          : "/dashboard/customer";
+      }
       window.location.href = target;
     } catch (err: any) {
       if (err.name === "TypeError" && (err.message?.includes("fetch") || err.message?.includes("Failed"))) {

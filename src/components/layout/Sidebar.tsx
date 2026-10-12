@@ -42,7 +42,7 @@ export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
 
   const customerNav = [
     { label: "Beranda", href: "/", icon: Home },
-    { label: "Dashboard", href: "/dashboard", icon: Layers },
+    { label: "Dashboard", href: "/dashboard/customer", icon: Layers },
     { label: "Pasar Brief", href: "/market", icon: ShoppingBag },
     { label: "Order Saya", href: "/orders", icon: Clock },
     { label: "Pesan & Diskusi", href: "/chat", icon: MessageSquare },
@@ -50,7 +50,7 @@ export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
   ];
 
   const designerNav = [
-    { label: "Dashboard", href: "/dashboard", icon: Home },
+    { label: "Dashboard", href: "/dashboard/designer", icon: Home },
     { label: "Pasar Brief", href: "/market", icon: ShoppingBag },
     { label: "Kelola Order", href: "/orders", icon: Clock },
     { label: "Karya Portofolio", href: "/portfolio", icon: Layers },
@@ -60,7 +60,7 @@ export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
   ];
 
   const adminNav = [
-    { label: "Dashboard Admin", href: "/dashboard", icon: Layers },
+    { label: "Dashboard Admin", href: "/admin", icon: Layers },
     { label: "Undangan Desainer", href: "/admin/invites", icon: UserPlus },
     { label: "Penarikan Saldo", href: "/admin/withdrawals", icon: Wallet },
     { label: "Monitoring Order", href: "/orders", icon: Clock },
