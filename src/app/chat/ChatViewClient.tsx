@@ -108,7 +108,7 @@ export function ChatViewClient({
   const targetDesignerName = searchParams?.get("name");
 
   // Query parameters konteks brief dan penawaran
-  const queryThreadId = searchParams?.get("threadId");
+  const queryThreadId = searchParams?.get("chatid") || searchParams?.get("chatId") || searchParams?.get("threadId");
   const queryOfferId = searchParams?.get("offerId");
   const queryBriefId = searchParams?.get("briefId");
   const queryBriefTitle = searchParams?.get("briefTitle");
@@ -165,6 +165,9 @@ export function ChatViewClient({
   const handleSelectThread = (threadId: string) => {
     if (threadId === activeThreadId) return;
     setActiveThreadId(threadId);
+    if (typeof window !== "undefined") {
+      router.push(`/chat?chatid=${threadId}`, { scroll: false });
+    }
     setIsBriefLocked(false);
     if (messagesCache[threadId] && messagesCache[threadId].length > 0) {
       setMessages(messagesCache[threadId]);
@@ -194,10 +197,24 @@ export function ChatViewClient({
           );
           if (matched) {
             setActiveThreadId(matched.id);
+            if (typeof window !== "undefined") {
+              window.history.replaceState(null, "", `/chat?chatid=${matched.id}`);
+            }
             return;
           }
         }
-        setActiveThreadId(fetchedThreads[0].id);
+        if (queryThreadId) {
+          const matched = fetchedThreads.find((t: ThreadItem) => t.id === queryThreadId);
+          if (matched) {
+            setActiveThreadId(matched.id);
+            return;
+          }
+        }
+        // Pada layar mobile (< 768px), jangan auto-select thread jika tidak ada parameter spesifik di URL
+        // Biarkan activeThreadId tetap null agar pengguna dapat melihat daftar percakapan.
+        if (typeof window !== "undefined" && window.innerWidth >= 768) {
+          setActiveThreadId(fetchedThreads[0].id);
+        }
       }
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -234,6 +251,7 @@ export function ChatViewClient({
             if (data.success && data.threadId) {
               loadThreads().then(() => {
                 setActiveThreadId(data.threadId);
+                router.replace(`/chat?chatid=${data.threadId}`, { scroll: false });
               });
             }
           })
@@ -253,14 +271,17 @@ export function ChatViewClient({
   useEffect(() => {
     const handleReset = () => {
       setActiveThreadId(null);
+      if (typeof window !== "undefined") {
+        router.push("/chat", { scroll: false });
+      }
     };
     window.addEventListener("jokiday_chat_reset_to_list", handleReset);
     return () => {
       window.removeEventListener("jokiday_chat_reset_to_list", handleReset);
     };
-  }, []);
+  }, [router]);
 
-  // Sinkronkan activeThreadId jika pengguna diarahkan dengan ?threadId=... atau kembali ke daftar tanpa query
+  // Sinkronkan activeThreadId jika pengguna diarahkan dengan ?chatid=... atau kembali ke daftar tanpa query
   useEffect(() => {
     if (queryThreadId) {
       if (queryThreadId !== activeThreadId) {
@@ -273,6 +294,23 @@ export function ChatViewClient({
       }
     }
   }, [queryThreadId, targetDesignerId]);
+
+  // Listener event popstate agar navigasi back browser/gesture di layar mobile otomatis sinkron ke daftar
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const cid = params.get("chatid") || params.get("chatId") || params.get("threadId");
+      if (cid) {
+        setActiveThreadId(cid);
+      } else if (typeof window !== "undefined" && window.innerWidth < 768) {
+        setActiveThreadId(null);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   // Sinkronkan class chat-thread-active ke document.body agar navbar mobile otomatis disembunyikan saat ruang chat aktif dibuka
   useEffect(() => {
@@ -748,7 +786,12 @@ export function ChatViewClient({
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button
                   type="button"
-                  onClick={() => setActiveThreadId(null)}
+                  onClick={() => {
+                    setActiveThreadId(null);
+                    if (typeof window !== "undefined") {
+                      router.push("/chat", { scroll: false });
+                    }
+                  }}
                   className="md:hidden p-2 -ml-1 text-primary hover:bg-primary-soft rounded-lg flex items-center gap-1 font-bold text-xs shrink-0 touch-target min-w-[44px] min-h-[44px]"
                   title="Kembali ke daftar percakapan"
                 >

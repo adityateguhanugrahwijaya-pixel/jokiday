@@ -69,32 +69,47 @@ export default async function ProfilePage() {
             </div>
           </div>
 
-          <div className="pt-6 border-t border-border">
-            <ProfileRoleClient
-              userId={user?.id || ""}
-              initialRole={user?.activeRole as any || "CUSTOMER"}
-            />
-          </div>
+          {/* Pengaturan Peran Akun */}
+          {user?.isDesigner ? (
+            <div className="pt-6 border-t border-border">
+              <ProfileRoleClient
+                userId={user.id}
+                initialRole={user.activeRole as any || "CUSTOMER"}
+              />
+            </div>
+          ) : (
+            <div className="pt-6 border-t border-border flex items-center justify-between text-xs text-text-muted">
+              <div>
+                <span className="font-semibold text-text block">Peran Akun: Pelanggan (Customer)</span>
+                <span>Akun Anda digunakan untuk memesan dan mengelola proyek desain.</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-secondary-soft text-secondary font-bold text-[11px]">
+                Pelanggan
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Status Google Drive */}
-        <div className="bg-surface border border-border rounded-lg p-6 sm:p-8 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-primary-soft text-primary rounded-md">
-              <Cloud className="w-6 h-6" />
+        {/* Status Google Drive (Khusus Desainer untuk penyerahan file hasil kerja) */}
+        {user?.isDesigner && (
+          <div className="bg-surface border border-border rounded-lg p-6 sm:p-8 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary-soft text-primary rounded-md">
+                <Cloud className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-text">
+                  Penyimpanan Google Drive Desainer
+                </h3>
+                <p className="text-xs text-text-muted">
+                  File asli pesanan kamu disimpan langsung di Google Drive milikmu sendiri, bukan di server JokiDay.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-base text-text">
-                Penyimpanan Google Drive
-              </h3>
-              <p className="text-xs text-text-muted">
-                File asli pesanan kamu disimpan langsung di Google Drive milikmu sendiri, bukan di server JokiDay.
-              </p>
-            </div>
-          </div>
 
-          <ProfileDriveClient connection={driveConnectionData} />
-        </div>
+            <ProfileDriveClient connection={driveConnectionData} />
+          </div>
+        )}
       </div>
     </AppShell>
   );

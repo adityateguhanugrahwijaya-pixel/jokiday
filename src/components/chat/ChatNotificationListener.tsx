@@ -143,7 +143,7 @@ export function ChatNotificationListener() {
 
           <div className="mt-2 flex items-center gap-2">
             <Link
-              href={`/chat?threadId=${activeToast.threadId}`}
+              href={`/chat?chatid=${activeToast.threadId}`}
               onClick={() => setActiveToast(null)}
               className="px-2.5 py-1 rounded bg-primary text-white text-[11px] font-bold hover:bg-primary-hover transition-colors"
             >

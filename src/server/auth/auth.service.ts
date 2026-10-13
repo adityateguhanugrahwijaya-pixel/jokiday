@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/crypto";
-import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from "@/lib/errors";
+import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { SESSION_SECRET, sanitizeInput } from "@/lib/security";
@@ -148,29 +148,20 @@ export class AuthService {
     });
     if (!user) throw new NotFoundError("Pengguna tidak ditemukan");
 
-    if (targetRole === "DESIGNER" && !user.isDesigner) {
-      // Aktifkan peran desainer dan buat profil default
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { id: userId },
-          data: { isDesigner: true, activeRole: "DESIGNER" },
-        }),
-        prisma.designerProfile.upsert({
-          where: { userId },
-          update: {},
-          create: {
-            userId,
-            bio: "Desainer kreatif di JokiDay",
-            categories: JSON.stringify(["logo", "grafis"]),
-          },
-        }),
-      ]);
-    } else {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { activeRole: targetRole },
-      });
+    if (user.isAdmin) {
+      throw new ForbiddenError("Akun administrator tidak dapat beralih peran.");
     }
+
+    if (targetRole === "DESIGNER" && !user.isDesigner) {
+      throw new ForbiddenError(
+        "Akun Pelanggan tidak dapat beralih ke peran Desainer. Desainer hanya dapat bergabung melalui sistem undangan resmi admin."
+      );
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { activeRole: targetRole },
+    });
 
     const token = await new SignJWT({
       userId: user.id,

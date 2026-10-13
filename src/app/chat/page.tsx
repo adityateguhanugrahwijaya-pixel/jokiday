@@ -10,7 +10,15 @@ export const dynamic = "force-dynamic";
 export default async function ChatPage({
   searchParams,
 }: {
-  searchParams?: { designerId?: string; userId?: string; name?: string; threadId?: string; offerId?: string };
+  searchParams?: {
+    designerId?: string;
+    userId?: string;
+    name?: string;
+    threadId?: string;
+    chatid?: string;
+    chatId?: string;
+    offerId?: string;
+  };
 }) {
   const session = await AuthService.getCurrentUser();
   if (!session) {
@@ -110,7 +118,7 @@ export default async function ChatPage({
 
   // Tentukan thread aktif awal hanya jika ada target spesifik pada parameter URL
   let initialActiveThreadId: string | null = null;
-  const targetThreadId = searchParams?.threadId;
+  const targetThreadId = searchParams?.chatid || searchParams?.chatId || searchParams?.threadId;
   const targetDesignerId = searchParams?.designerId || searchParams?.userId;
 
   if (targetThreadId) {

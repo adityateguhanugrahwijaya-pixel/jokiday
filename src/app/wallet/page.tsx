@@ -210,6 +210,13 @@ export default async function WalletPage() {
     take: 30,
   });
 
+  const minWithdrawalCfg = await prisma.appConfig.findUnique({
+    where: { key: "min_withdrawal" },
+  });
+  const minWithdrawal = minWithdrawalCfg
+    ? parseInt(minWithdrawalCfg.value, 10) || 5000
+    : 5000;
+
   return (
     <AppShell role="DESIGNER" displayName={user.displayName}>
       <div className="space-y-8">
@@ -225,6 +232,7 @@ export default async function WalletPage() {
 
           <WithdrawalModalButton
             availableBalance={availableBalance}
+            minWithdrawal={minWithdrawal}
             savedBankName={user.designerProfile?.payoutBank}
             savedAccountNumber={user.designerProfile?.payoutAccount}
             savedAccountHolder={user.designerProfile?.payoutHolderName}

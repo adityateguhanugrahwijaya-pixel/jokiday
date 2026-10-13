@@ -16,9 +16,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { amount, method, destination } = body;
 
+    const minWithdrawalCfg = await prisma.appConfig.findUnique({
+      where: { key: "min_withdrawal" },
+    });
+    const minWithdrawal = minWithdrawalCfg
+      ? parseInt(minWithdrawalCfg.value, 10) || 5000
+      : 5000;
+
     const amountNum = parseInt(amount, 10);
-    if (isNaN(amountNum) || amountNum < 50000) {
-      throw new ValidationError("Batas minimal penarikan saldo adalah Rp50.000");
+    if (isNaN(amountNum) || amountNum < minWithdrawal) {
+      throw new ValidationError(`Batas minimal penarikan saldo adalah Rp ${minWithdrawal.toLocaleString("id-ID")}`);
     }
 
     const cleanMethod = method === "EWALLET" ? "EWALLET" : "BANK";

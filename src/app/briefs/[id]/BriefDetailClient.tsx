@@ -83,6 +83,7 @@ export function BriefDetailClient({
       if (!res.ok) throw new Error(data.error?.message || "Gagal membuka obrolan dengan desainer");
 
       const params = new URLSearchParams({
+        chatid: data.threadId,
         threadId: data.threadId,
         offerId: offer.id,
         briefId: brief.id,

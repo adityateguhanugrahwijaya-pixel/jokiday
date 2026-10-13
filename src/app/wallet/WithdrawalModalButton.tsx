@@ -9,6 +9,7 @@ import { PAYOUT_CHANNELS } from "@/lib/payout-channels";
 
 interface WithdrawalModalButtonProps {
   availableBalance: number;
+  minWithdrawal?: number;
   savedBankName?: string | null;
   savedAccountNumber?: string | null;
   savedAccountHolder?: string | null;
@@ -17,6 +18,7 @@ interface WithdrawalModalButtonProps {
 
 export function WithdrawalModalButton({
   availableBalance,
+  minWithdrawal = 5000,
   savedBankName,
   savedAccountNumber,
   savedAccountHolder,
@@ -24,7 +26,9 @@ export function WithdrawalModalButton({
 }: WithdrawalModalButtonProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [amount, setAmount] = useState<string>("50000");
+  const [amount, setAmount] = useState<string>(
+    availableBalance >= minWithdrawal ? String(availableBalance) : String(minWithdrawal)
+  );
 
   const [bankCode, setBankCode] = useState<string>(
     savedBankName || "BCA"
@@ -49,11 +53,19 @@ export function WithdrawalModalButton({
   // Pengelompokan kanal
   const categories = Array.from(new Set(PAYOUT_CHANNELS.map((c) => c.category)));
 
+  const handleOpenModal = () => {
+    setAmount(
+      availableBalance >= minWithdrawal ? String(availableBalance) : String(minWithdrawal)
+    );
+    setErrorMsg("");
+    setIsOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const numAmount = parseInt(amount, 10);
-    if (isNaN(numAmount) || numAmount < 50000) {
-      setErrorMsg("Batas minimal penarikan dana adalah Rp50.000");
+    if (isNaN(numAmount) || numAmount < minWithdrawal) {
+      setErrorMsg(`Batas minimal penarikan dana adalah ${formatRupiah(minWithdrawal)}`);
       return;
     }
     if (numAmount > availableBalance) {
@@ -98,13 +110,14 @@ export function WithdrawalModalButton({
     }
   };
 
+  const isBalanceInsufficient = availableBalance < minWithdrawal;
+
   return (
     <>
       <Button
         variant="cta"
-        onClick={() => setIsOpen(true)}
-        disabled={availableBalance < 50000}
-        className="flex items-center gap-2"
+        onClick={handleOpenModal}
+        className="flex items-center gap-2 font-bold shadow-sm"
       >
         <ArrowDownLeft className="w-4 h-4" />
         <span>Tarik Saldo</span>
@@ -136,6 +149,21 @@ export function WithdrawalModalButton({
               </button>
             </div>
 
+            {/* Banner Informasi Batas Penarikan jika saldo kurang */}
+            {isBalanceInsufficient && (
+              <div className="p-3.5 bg-neutral-soft border border-border rounded-xl flex items-start gap-2.5 text-xs text-text">
+                <AlertCircle className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-text">
+                    Saldo Belum Mencapai Batas Minimum
+                  </p>
+                  <p className="text-text-muted leading-relaxed">
+                    Saldo siap tarik Anda saat ini adalah <strong className="text-text">{formatRupiah(availableBalance)}</strong>. Batas minimum pencairan dana adalah <strong className="text-text">{formatRupiah(minWithdrawal)}</strong>. Anda dapat mencairkan saldo setelah menyelesaikan order berikutnya.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {errorMsg && (
               <div className="p-3 bg-danger-soft text-danger text-xs rounded-md border border-danger/20 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -155,23 +183,26 @@ export function WithdrawalModalButton({
                   </span>
                   <input
                     type="number"
-                    min={50000}
+                    min={minWithdrawal}
                     max={availableBalance}
                     step={1000}
+                    disabled={isBalanceInsufficient}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full h-11 pl-10 pr-3 bg-background border border-border rounded-md text-text font-money text-base font-bold focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full h-11 pl-10 pr-3 bg-background border border-border rounded-md text-text font-money text-base font-bold focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex items-center justify-between text-xs text-text-muted mt-1.5">
-                  <span>Minimal: Rp50.000</span>
-                  <button
-                    type="button"
-                    onClick={() => setAmount(String(availableBalance))}
-                    className="text-primary font-semibold hover:underline"
-                  >
-                    Tarik Semua ({formatRupiah(availableBalance)})
-                  </button>
+                  <span>Minimal: {formatRupiah(minWithdrawal)}</span>
+                  {availableBalance >= minWithdrawal && (
+                    <button
+                      type="button"
+                      onClick={() => setAmount(String(availableBalance))}
+                      className="text-primary font-semibold hover:underline"
+                    >
+                      Tarik Semua ({formatRupiah(availableBalance)})
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -278,9 +309,10 @@ export function WithdrawalModalButton({
                   <Button
                     type="submit"
                     variant="cta"
+                    disabled={isBalanceInsufficient}
                     isLoading={isLoading}
                   >
-                    Konfirmasi Penarikan
+                    {isBalanceInsufficient ? "Saldo Belum Mencukupi" : "Konfirmasi Penarikan"}
                   </Button>
                 </div>
               </div>

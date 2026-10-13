@@ -25,7 +25,7 @@ async function main() {
     type: "CHAT_MESSAGE",
     title: "Pesan baru dari Pelanggan (Verifikasi E2E)",
     body: "Halo, ini pesan verifikasi push notification saat web ditutup.",
-    url: "/chat?threadId=test_thread_verification_123",
+    url: "/chat?chatid=test_thread_verification_123",
     payload: {
       threadId: "test_thread_verification_123",
       testMarker: "test_verification_run",

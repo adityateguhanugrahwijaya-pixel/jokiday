@@ -322,7 +322,7 @@ export async function POST(
         type: "CHAT_OFFER",
         title: `Tawaran baru dari ${designerDisplayName}`,
         body: `Pengajuan tawaran proyek: ${finalOfferDetails.title} (Rp ${finalOfferDetails.price.toLocaleString("id-ID")})`,
-        url: `/chat?threadId=${thread.id}`,
+        url: `/chat?chatid=${thread.id}`,
         payload: {
           threadId: thread.id,
         },
@@ -385,7 +385,7 @@ export async function POST(
       type: "CHAT_MESSAGE",
       title: `Pesan baru dari ${senderName}`,
       body: cleanText.length > 80 ? cleanText.slice(0, 80) + "..." : cleanText,
-      url: `/chat?threadId=${thread.id}`,
+      url: `/chat?chatid=${thread.id}`,
       payload: {
         threadId: thread.id,
       },
