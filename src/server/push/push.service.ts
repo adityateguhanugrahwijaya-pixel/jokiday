@@ -106,12 +106,11 @@ export class PushNotificationService {
     });
 
     let successCount = 0;
-    const expiredEndpoints: string[] = [];
 
     await Promise.all(
       subscriptions.map(async (sub) => {
         try {
-          await webpush.sendNotification(
+          const res = await webpush.sendNotification(
             {
               endpoint: sub.endpoint,
               keys: {
@@ -119,26 +118,24 @@ export class PushNotificationService {
                 auth: sub.auth,
               },
             },
-            notificationPayload
+            notificationPayload,
+            {
+              TTL: 86400,
+              urgency: "high",
+              timeout: 8000,
+            }
           );
+          console.log(`[PushNotificationService] Push berhasil terkirim ke user ${userId} (${sub.endpoint.slice(0, 35)}...): HTTP ${res.statusCode}`);
           successCount++;
         } catch (err: any) {
-          // HTTP 404 atau 410 menunjukkan subscription sudah tidak aktif pada server browser
           if (err.statusCode === 404 || err.statusCode === 410) {
-            expiredEndpoints.push(sub.endpoint);
+            console.warn(`[PushNotificationService] Endpoint tidak aktif atau expired (HTTP ${err.statusCode}): ${sub.endpoint.slice(0, 35)}...`);
           } else {
-            console.warn(`[PushNotificationService] Gagal mengirim push ke ${sub.endpoint.slice(0, 30)}...:`, err.message);
+            console.warn(`[PushNotificationService] Gagal mengirim push ke ${sub.endpoint.slice(0, 35)}...:`, err.message, "status:", err.statusCode);
           }
         }
       })
     );
-
-    // Bersihkan subscription yang sudah kedaluwarsa secara otomatis
-    if (expiredEndpoints.length > 0) {
-      await prisma.pushSubscription.deleteMany({
-        where: { endpoint: { in: expiredEndpoints } },
-      });
-    }
 
     return successCount;
   }

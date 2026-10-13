@@ -42,10 +42,46 @@ export function NotificationBell() {
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
       setPushSupported(true);
-      setPushPermission(Notification.permission);
+      const perm = Notification.permission;
+      setPushPermission(perm);
 
       // Daftarkan service worker
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
+      navigator.serviceWorker.register("/sw.js").then(async (registration) => {
+        // Jika izin sudah granted di browser, pastikan subscription aktif tersinkronisasi ke akun yang sedang login
+        if (perm === "granted") {
+          try {
+            let sub = await registration.pushManager.getSubscription();
+            if (!sub) {
+              const keyRes = await fetch("/api/notifications/vapid-key");
+              if (keyRes.ok) {
+                const keyData = await keyRes.json();
+                if (keyData.publicKey) {
+                  sub = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(keyData.publicKey),
+                  });
+                }
+              }
+            }
+
+            if (sub) {
+              const subJson = sub.toJSON();
+              if (subJson.endpoint && subJson.keys?.p256dh && subJson.keys?.auth) {
+                await fetch("/api/notifications/subscribe", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    endpoint: subJson.endpoint,
+                    keys: subJson.keys,
+                  }),
+                });
+              }
+            }
+          } catch (syncErr) {
+            console.warn("[Push] Gagal sinkronisasi otomatis subscription:", syncErr);
+          }
+        }
+      }).catch((err) => {
         console.warn("[Push] Gagal mendaftarkan service worker:", err);
       });
     }

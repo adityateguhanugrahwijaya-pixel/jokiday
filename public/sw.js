@@ -3,7 +3,16 @@ self.addEventListener('push', function (event) {
   if (!event.data) return;
 
   try {
-    const data = event.data.json();
+    let data;
+    try {
+      data = event.data.json();
+    } catch {
+      data = {
+        title: 'JokiDay',
+        body: event.data.text() || 'Anda memiliki pesan baru di JokiDay.',
+      };
+    }
+
     const title = data.title || 'JokiDay';
     const options = {
       body: data.body || '',
@@ -14,6 +23,7 @@ self.addEventListener('push', function (event) {
       },
       tag: data.tag || 'jokiday-notification',
       renotify: true,
+      vibrate: [200, 100, 200],
     };
 
     event.waitUntil(self.registration.showNotification(title, options));

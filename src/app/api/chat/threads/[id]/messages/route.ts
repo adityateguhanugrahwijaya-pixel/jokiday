@@ -5,6 +5,7 @@ import { handleApiError, UnauthorizedError, ForbiddenError, NotFoundError, Valid
 import { sanitizeInput } from "@/lib/security";
 
 import { OfferService } from "@/server/offers/offer.service";
+import { PushNotificationService } from "@/server/push/push.service";
 
 export async function GET(
   req: NextRequest,
@@ -315,20 +316,19 @@ export async function POST(
         },
       });
 
-      // Kirim notifikasi tawaran ke penerima
+      // Kirim notifikasi tawaran ke penerima via In-App dan Web Push (VAPID)
       const offerRecipientId = thread.customerId === session.userId ? thread.designerId : thread.customerId;
-      await prisma.notification.create({
-        data: {
-          userId: offerRecipientId,
-          type: "CHAT_OFFER",
-          payload: JSON.stringify({
-            title: `Tawaran baru dari ${designerDisplayName}`,
-            body: `Pengajuan tawaran proyek: ${finalOfferDetails.title} (Rp ${finalOfferDetails.price.toLocaleString("id-ID")})`,
-            url: `/chat?threadId=${thread.id}`,
-            threadId: thread.id,
-          }),
+      await PushNotificationService.notifyUser(offerRecipientId, {
+        type: "CHAT_OFFER",
+        title: `Tawaran baru dari ${designerDisplayName}`,
+        body: `Pengajuan tawaran proyek: ${finalOfferDetails.title} (Rp ${finalOfferDetails.price.toLocaleString("id-ID")})`,
+        url: `/chat?threadId=${thread.id}`,
+        payload: {
+          threadId: thread.id,
         },
-      }).catch(() => {});
+      }).catch((notifErr) => {
+        console.warn("[Chat] Gagal mengirim notifikasi tawaran via web push:", notifErr);
+      });
 
       return NextResponse.json({
         success: true,
@@ -373,7 +373,7 @@ export async function POST(
       },
     });
 
-    // Kirim notifikasi pesan ke lawan bicara
+    // Kirim notifikasi pesan ke lawan bicara via In-App dan Web Push (VAPID)
     const recipientId = thread.customerId === session.userId ? thread.designerId : thread.customerId;
     const sender = await prisma.user.findUnique({
       where: { id: session.userId },
@@ -381,18 +381,17 @@ export async function POST(
     });
     const senderName = sender?.displayName || "Pengguna";
 
-    await prisma.notification.create({
-      data: {
-        userId: recipientId,
-        type: "CHAT_MESSAGE",
-        payload: JSON.stringify({
-          title: `Pesan baru dari ${senderName}`,
-          body: cleanText.length > 80 ? cleanText.slice(0, 80) + "..." : cleanText,
-          url: `/chat?threadId=${thread.id}`,
-          threadId: thread.id,
-        }),
+    await PushNotificationService.notifyUser(recipientId, {
+      type: "CHAT_MESSAGE",
+      title: `Pesan baru dari ${senderName}`,
+      body: cleanText.length > 80 ? cleanText.slice(0, 80) + "..." : cleanText,
+      url: `/chat?threadId=${thread.id}`,
+      payload: {
+        threadId: thread.id,
       },
-    }).catch(() => {});
+    }).catch((notifErr) => {
+      console.warn("[Chat] Gagal mengirim notifikasi chat via web push:", notifErr);
+    });
 
     return NextResponse.json({
       success: true,

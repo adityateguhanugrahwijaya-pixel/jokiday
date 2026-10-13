@@ -29,7 +29,10 @@ export default async function HomePage() {
   const designers = await prisma.user.findMany({
     where: {
       isDesigner: true,
-      designerProfile: { isVerified: true },
+      OR: [
+        { designerProfile: { isVerified: true } },
+        { designerProfile: null },
+      ],
     },
     include: { designerProfile: true },
     take: 6,

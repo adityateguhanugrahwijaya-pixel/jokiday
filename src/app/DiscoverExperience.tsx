@@ -398,61 +398,75 @@ export function DiscoverExperience({
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {topDesigners.map((designer) => {
-            const profileUrl = `/designer/${designer.username || designer.id}`;
-            return (
-              <div
-                key={designer.id}
-                className="bg-surface border border-border rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-primary/40 transition-colors"
-              >
-                <div>
-                  <Link href={profileUrl} className="flex items-center gap-3 group/d hover:opacity-90 transition-opacity">
-                    <div className="w-12 h-12 rounded-full bg-primary-soft text-primary font-extrabold flex items-center justify-center text-base border border-primary/20 shrink-0">
-                      {designer.displayName.slice(0, 1).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-bold text-base text-text truncate group-hover/d:text-primary transition-colors">
-                          {designer.displayName}
-                        </h3>
-                        {designer.isVerified && (
-                          <UserCheck className="w-4 h-4 text-primary shrink-0" />
-                        )}
+        {topDesigners.length === 0 ? (
+          <div className="bg-surface border border-border rounded-xl p-8 text-center max-w-md mx-auto space-y-3">
+            <div className="w-10 h-10 rounded-full bg-primary-soft text-primary mx-auto flex items-center justify-center">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <p className="text-sm font-semibold text-text">
+              Belum ada desainer terverifikasi yang ditampilkan
+            </p>
+            <p className="text-xs text-text-muted">
+              Pendaftaran desainer baru dibuka secara bertahap melalui sistem undangan eksklusif.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {topDesigners.map((designer) => {
+              const profileUrl = `/designer/${designer.username || designer.id}`;
+              return (
+                <div
+                  key={designer.id}
+                  className="bg-surface border border-border rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-primary/40 transition-colors"
+                >
+                  <div>
+                    <Link href={profileUrl} className="flex items-center gap-3 group/d hover:opacity-90 transition-opacity">
+                      <div className="w-12 h-12 rounded-full bg-primary-soft text-primary font-extrabold flex items-center justify-center text-base border border-primary/20 shrink-0">
+                        {designer.displayName.slice(0, 1).toUpperCase()}
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-text-muted mt-0.5">
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        <span className="font-bold text-text">
-                          {designer.ratingAvg > 0 ? designer.ratingAvg.toFixed(1) : "-"}
-                        </span>
-                        <span>&bull; {designer.completedCount} pesanan selesai</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-bold text-base text-text truncate group-hover/d:text-primary transition-colors">
+                            {designer.displayName}
+                          </h3>
+                          {designer.isVerified && (
+                            <UserCheck className="w-4 h-4 text-primary shrink-0" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-text-muted mt-0.5">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          <span className="font-bold text-text">
+                            {designer.ratingAvg > 0 ? designer.ratingAvg.toFixed(1) : "-"}
+                          </span>
+                          <span>&bull; {designer.completedCount} pesanan selesai</span>
+                        </div>
                       </div>
-                    </div>
-                  </Link>
+                    </Link>
 
-                  <p className="text-xs text-text-muted mt-3 line-clamp-2 leading-relaxed">
-                    {designer.bio || "Desainer grafis profesional siap membantu kebutuhan visual usahamu."}
-                  </p>
-                </div>
+                    <p className="text-xs text-text-muted mt-3 line-clamp-2 leading-relaxed">
+                      {designer.bio || "Desainer grafis profesional siap membantu kebutuhan visual usahamu."}
+                    </p>
+                  </div>
 
-                <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
-                  <Link
-                    href={profileUrl}
-                    className="inline-flex items-center justify-center h-8 px-3 rounded-md bg-primary-soft text-primary font-bold text-xs hover:bg-primary/20 transition-colors"
-                  >
-                    Lihat Portofolio
-                  </Link>
-                  <Link
-                    href={`/briefs/new?designerId=${designer.id}`}
-                    className="inline-flex items-center justify-center h-8 px-3 rounded-md bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors"
-                  >
-                    Pesan Desain
-                  </Link>
+                  <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+                    <Link
+                      href={profileUrl}
+                      className="inline-flex items-center justify-center h-8 px-3 rounded-md bg-primary-soft text-primary font-bold text-xs hover:bg-primary/20 transition-colors"
+                    >
+                      Lihat Portofolio
+                    </Link>
+                    <Link
+                      href={`/briefs/new?designerId=${designer.id}`}
+                      className="inline-flex items-center justify-center h-8 px-3 rounded-md bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors"
+                    >
+                      Pesan Desain
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* 5. CARA KERJA PEMESANAN (Simple, Jelas, Gaya Fastwork) */}
