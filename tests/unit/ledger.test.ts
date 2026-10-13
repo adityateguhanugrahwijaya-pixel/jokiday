@@ -79,6 +79,8 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
     expect(platformEntries).toHaveLength(1);
     expect(platformEntries[0].amount).toBe(2500);
     expect(platformEntries[0].direction).toBe("CREDIT");
+
+    await prisma.ledgerEntry.deleteMany({ where: { orderId } });
   });
 
   it("records full refund correctly without charging platform fee", async () => {
@@ -95,6 +97,8 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
     expect(refundEntries).toHaveLength(1);
     expect(refundEntries[0].amount).toBe(50000);
     expect(refundEntries[0].direction).toBe("CREDIT");
+
+    await prisma.ledgerEntry.deleteMany({ where: { orderId } });
   });
 
   it("handles dispute split correctly: 60% designer, 40% customer", async () => {
@@ -121,6 +125,8 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
       where: { account: "PLATFORM_REVENUE", orderId },
     });
     expect(platformEntries[0].amount).toBe(3000);
+
+    await prisma.ledgerEntry.deleteMany({ where: { orderId } });
   });
 
   it("guarantees idempotency: same key returns previous transaction without duplication", async () => {
@@ -136,6 +142,8 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
       where: { orderId },
     });
     expect(count).toBe(2); // Only 1 pair of debit/credit
+
+    await prisma.ledgerEntry.deleteMany({ where: { orderId } });
   });
 
   it("handles partial payment: 200k order paid with 50k refund balance + 150k QRIS gateway", async () => {
@@ -183,6 +191,10 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
     });
     expect(debitGateway?.direction).toBe("DEBIT");
     expect(debitGateway?.amount).toBe(150000);
+
+    await prisma.ledgerEntry.deleteMany({
+      where: { orderId: { in: [orderId1, orderId2] } },
+    });
   });
 
   it("handles 100% payment using refund balance when balance >= order price", async () => {
@@ -213,6 +225,10 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
     });
     expect(escrow?.amount).toBe(70000);
     expect(escrow?.direction).toBe("CREDIT");
+
+    await prisma.ledgerEntry.deleteMany({
+      where: { orderId: { in: [orderId1, orderId2] } },
+    });
   });
 
   it("accumulates platform fee 5% and allows admin to withdraw platform balance", async () => {
@@ -260,10 +276,13 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
       LedgerService.recordPlatformWithdrawal(adminId, remainingBalance + 1000, "admin-withdraw-exceed-" + adminId)
     ).rejects.toThrow(/tidak mencukupi/i);
 
-    // Cleanup hanya data test yang dibuat
+    // Cleanup hanya data test yang dibuat (termasuk debet penarikan admin test)
     await prisma.ledgerEntry.deleteMany({
       where: {
-        orderId: { in: [orderId1, orderId2] },
+        OR: [
+          { orderId: { in: [orderId1, orderId2] } },
+          { userId: adminId },
+        ],
       },
     });
   });

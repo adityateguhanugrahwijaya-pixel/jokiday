@@ -132,4 +132,57 @@ export class WaroengPayGateway implements PaymentGateway {
       return { isValid: false };
     }
   }
+
+  /**
+   * Mengambil saldo akun merchant langsung dari API WaroengPay:
+   * GET /api/balance
+   * Header: Authorization: Bearer $WAROENGPAY_API_KEY
+   */
+  async getBalance(): Promise<{
+    available: number;
+    held: number;
+    inProcess: number;
+    withdrawn: number;
+    totalReceived: number;
+    settled: number;
+    gross: number;
+    fee: number;
+    currency: string;
+    raw: any;
+  }> {
+    if (!this.apiKey) {
+      throw new AppError("WAROENGPAY_API_KEY belum dikonfigurasi di environment", "GATEWAY_CONFIG_MISSING", 500);
+    }
+
+    const res = await fetch(`${this.baseUrl}/api/balance`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      let errorMsg = res.statusText;
+      try {
+        const json = await res.json();
+        errorMsg = json.message || json.error || res.statusText;
+      } catch {}
+      throw new AppError(`Gagal mengambil saldo dari WaroengPay: ${errorMsg}`, "GATEWAY_ERROR", 502);
+    }
+
+    const data = await res.json();
+    return {
+      available: data.available || 0,
+      held: data.held || 0,
+      inProcess: data.in_process || 0,
+      withdrawn: data.withdrawn || 0,
+      totalReceived: data.total_received || 0,
+      settled: data.settled || 0,
+      gross: data.gross || 0,
+      fee: data.fee || 0,
+      currency: data.currency || "IDR",
+      raw: data,
+    };
+  }
 }

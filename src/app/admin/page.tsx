@@ -34,6 +34,9 @@ export default async function AdminDashboardPage() {
     pendingWithdrawalsList,
     recentOrders,
     recentInvites,
+    reconciliation,
+    totalCustomerRefundBalance,
+    customersWithBalance,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { isCustomer: true, isDesigner: false } }),
@@ -65,6 +68,9 @@ export default async function AdminDashboardPage() {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
+    LedgerService.getReconciliationReport(),
+    LedgerService.getTotalCustomerRefundWallets(),
+    LedgerService.getCustomersWithRefundBalance(),
   ]);
 
   return (
@@ -80,10 +86,13 @@ export default async function AdminDashboardPage() {
         pendingWithdrawals,
         activeInvites,
         platformBalance,
+        totalCustomerRefundBalance,
       }}
       pendingWithdrawalsList={pendingWithdrawalsList}
       recentOrders={recentOrders}
       recentInvites={recentInvites}
+      reconciliation={reconciliation}
+      customersWithBalance={customersWithBalance}
     />
   );
 }

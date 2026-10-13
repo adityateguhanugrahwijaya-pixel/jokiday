@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { AppError, ConflictError } from "@/lib/errors";
+import { WaroengPayGateway } from "@/server/payment/waroengpay.gateway";
 import crypto from "node:crypto";
 
 export interface LedgerEntryItem {
@@ -573,5 +574,269 @@ export class LedgerService {
     ];
 
     return await this.recordTransaction(entries, idempotencyKey, txClient);
+  }
+
+  /**
+   * Hitung total seluruh saldo desainer yang beredar di sistem (WALLET_AVAILABLE:*):
+   * Memfilter hanya akun desainer yang sah terdaftar di sistem.
+   */
+  static async getTotalDesignerWallets(txClient = prisma): Promise<number> {
+    const designers = await txClient.user.findMany({
+      where: { isDesigner: true },
+      select: { id: true },
+    });
+    if (designers.length === 0) return 0;
+
+    const accounts = designers.map((d) => `WALLET_AVAILABLE:${d.id}`);
+    const entries = await txClient.ledgerEntry.findMany({
+      where: { account: { in: accounts } },
+      select: { direction: true, amount: true },
+    });
+    let total = 0;
+    for (const e of entries) {
+      if (e.direction === "CREDIT") total += e.amount;
+      else if (e.direction === "DEBIT") total -= e.amount;
+    }
+    return Math.max(0, total);
+  }
+
+  /**
+   * Hitung total seluruh saldo refund customer yang beredar di sistem (REFUND_PAYABLE:*):
+   * Memfilter hanya akun customer yang sah terdaftar di sistem.
+   */
+  static async getTotalCustomerRefundWallets(txClient = prisma): Promise<number> {
+    const customers = await txClient.user.findMany({
+      where: { isCustomer: true },
+      select: { id: true },
+    });
+    if (customers.length === 0) return 0;
+
+    const accounts = customers.map((c) => `REFUND_PAYABLE:${c.id}`);
+    const entries = await txClient.ledgerEntry.findMany({
+      where: { account: { in: accounts } },
+      select: { direction: true, amount: true },
+    });
+    let total = 0;
+    for (const e of entries) {
+      if (e.direction === "CREDIT") total += e.amount;
+      else if (e.direction === "DEBIT") total -= e.amount;
+    }
+    return Math.max(0, total);
+  }
+
+  /**
+   * Ambil rincian customer yang memiliki saldo refund aktif di platform:
+   */
+  static async getCustomersWithRefundBalance(txClient = prisma) {
+    const customers = await txClient.user.findMany({
+      where: { isCustomer: true },
+      select: { id: true, displayName: true, email: true },
+    });
+    if (customers.length === 0) return [];
+
+    const accounts = customers.map((c) => `REFUND_PAYABLE:${c.id}`);
+    const entries = await txClient.ledgerEntry.findMany({
+      where: { account: { in: accounts } },
+      select: { account: true, direction: true, amount: true, createdAt: true, reason: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const balances: Record<string, number> = {};
+    const lastReasons: Record<string, string> = {};
+    const lastDates: Record<string, string> = {};
+
+    for (const e of entries) {
+      const cur = balances[e.account] || 0;
+      balances[e.account] = e.direction === "CREDIT" ? cur + e.amount : cur - e.amount;
+      if (!lastReasons[e.account]) {
+        lastReasons[e.account] = e.reason;
+        lastDates[e.account] = e.createdAt.toISOString();
+      }
+    }
+
+    return customers
+      .map((c) => {
+        const acc = `REFUND_PAYABLE:${c.id}`;
+        const bal = Math.max(0, balances[acc] || 0);
+        return {
+          id: c.id,
+          displayName: c.displayName,
+          email: c.email,
+          balance: bal,
+          lastReason: lastReasons[acc] || "Saldo refund",
+          lastActivityAt: lastDates[acc] || null,
+        };
+      })
+      .filter((c) => c.balance > 0);
+  }
+
+  /**
+   * Hitung total dana pesanan yang sedang terkunci di escrow (ESCROW:*):
+   * Memfilter hanya pesanan aktif yang terdaftar di database.
+   */
+  static async getTotalEscrowLocked(txClient = prisma): Promise<number> {
+    const activeOrders = await txClient.order.findMany({
+      where: {
+        status: {
+          in: ["IN_PROGRESS", "AWAITING_APPROVAL", "REVISION", "DISPUTED"],
+        },
+      },
+      select: { id: true },
+    });
+    if (activeOrders.length === 0) return 0;
+
+    const accounts = activeOrders.map((o) => `ESCROW:${o.id}`);
+    const entries = await txClient.ledgerEntry.findMany({
+      where: { account: { in: accounts } },
+      select: { direction: true, amount: true },
+    });
+    let total = 0;
+    for (const e of entries) {
+      if (e.direction === "CREDIT") total += e.amount;
+      else if (e.direction === "DEBIT") total -= e.amount;
+    }
+    return Math.max(0, total);
+  }
+
+  /**
+   * Hitung kas bersih clearing gateway yang tercatat di ledger (GATEWAY_CLEARING):
+   * Memfilter transaksi pesanan nyata dan pencairan platform.
+   */
+  static async getGatewayClearingNet(txClient = prisma): Promise<number> {
+    const realOrders = await txClient.order.findMany({ select: { id: true } });
+    const realOrderIds = realOrders.map((o) => o.id);
+
+    const entries = await txClient.ledgerEntry.findMany({
+      where: {
+        account: "GATEWAY_CLEARING",
+        OR: [
+          { orderId: { in: realOrderIds } },
+          { orderId: null },
+        ],
+      },
+      select: { direction: true, amount: true },
+    });
+    let net = 0;
+    for (const e of entries) {
+      if (e.direction === "DEBIT") net += e.amount;
+      else if (e.direction === "CREDIT") net -= e.amount;
+    }
+    return Math.max(0, net);
+  }
+
+  /**
+   * Rekonsiliasi audit Ghost Wallet:
+   * Membandingkan kas riil gateway WaroengPay (available + held) dengan seluruh liabilitas dompet di sistem:
+   * - Total Dompet Desainer
+   * - Total Dompet Refund Customer
+   * - Saldo Fee Platform Admin
+   * - Dana Escrow Order Berjalan
+   */
+  static async getReconciliationReport(txClient = prisma) {
+    const [users, activeOrders, entries] = await Promise.all([
+      txClient.user.findMany({
+        select: { id: true, isCustomer: true, isDesigner: true },
+      }),
+      txClient.order.findMany({
+        where: {
+          status: {
+            in: ["IN_PROGRESS", "AWAITING_APPROVAL", "REVISION", "DISPUTED"],
+          },
+        },
+        select: { id: true },
+      }),
+      txClient.ledgerEntry.findMany({
+        select: { account: true, direction: true, amount: true, orderId: true },
+      }),
+    ]);
+
+    const designerIds = new Set(users.filter((u) => u.isDesigner).map((u) => u.id));
+    const customerIds = new Set(users.filter((u) => u.isCustomer).map((u) => u.id));
+    const activeOrderIds = new Set(activeOrders.map((o) => o.id));
+
+    let designerWallets = 0;
+    let customerRefundWallets = 0;
+    let platformFeeWallet = 0;
+    let escrowLocked = 0;
+    let gatewayClearingNet = 0;
+
+    for (const e of entries) {
+      const net = e.direction === "CREDIT" ? e.amount : -e.amount;
+      if (e.account === "PLATFORM_REVENUE") {
+        platformFeeWallet += net;
+      } else if (e.account.startsWith("WALLET_AVAILABLE:")) {
+        const uid = e.account.replace("WALLET_AVAILABLE:", "");
+        if (designerIds.has(uid)) designerWallets += net;
+      } else if (e.account.startsWith("REFUND_PAYABLE:")) {
+        const uid = e.account.replace("REFUND_PAYABLE:", "");
+        if (customerIds.has(uid)) customerRefundWallets += net;
+      } else if (e.account.startsWith("ESCROW:")) {
+        const oid = e.account.replace("ESCROW:", "");
+        if (activeOrderIds.has(oid)) escrowLocked += net;
+      } else if (e.account === "GATEWAY_CLEARING") {
+        gatewayClearingNet += e.direction === "DEBIT" ? e.amount : -e.amount;
+      }
+    }
+
+    designerWallets = Math.max(0, designerWallets);
+    customerRefundWallets = Math.max(0, customerRefundWallets);
+    platformFeeWallet = Math.max(0, platformFeeWallet);
+    escrowLocked = Math.max(0, escrowLocked);
+    gatewayClearingNet = Math.max(0, gatewayClearingNet);
+
+    const totalSystemWallets =
+      designerWallets + customerRefundWallets + platformFeeWallet + escrowLocked;
+
+    // Tarik saldo riil secara live dari API WaroengPay (available + held)
+    let waroengPayBalance = 0;
+    let waroengPayAvailable = 0;
+    let waroengPayHeld = 0;
+    let isLiveApi = false;
+    let liveError: string | null = null;
+
+    if (process.env.WAROENGPAY_API_KEY) {
+      try {
+        const gateway = new WaroengPayGateway();
+        const live = await gateway.getBalance();
+        waroengPayAvailable = live.available || 0;
+        waroengPayHeld = live.held || 0;
+        // Saldo riil kas WaroengPay = available + held (seluruh uang yang sah masuk di WaroengPay)
+        waroengPayBalance = waroengPayAvailable + waroengPayHeld;
+        isLiveApi = true;
+      } catch (err: any) {
+        liveError = err.message || "Gagal menghubungi WaroengPay API";
+        waroengPayBalance = gatewayClearingNet;
+      }
+    } else {
+      waroengPayBalance = gatewayClearingNet;
+    }
+
+    const discrepancy = waroengPayBalance - totalSystemWallets;
+    const hasGhostWallet = discrepancy !== 0;
+
+    let ghostWalletType: "BALANCED" | "DEFICIT" | "SURPLUS" = "BALANCED";
+    if (discrepancy < 0) {
+      ghostWalletType = "DEFICIT";
+    } else if (discrepancy > 0) {
+      ghostWalletType = "SURPLUS";
+    }
+
+    return {
+      waroengPayBalance,
+      waroengPayAvailable,
+      waroengPayHeld,
+      isLiveApi,
+      liveError,
+      gatewayClearingNet,
+      designerWallets,
+      customerRefundWallets,
+      platformFeeWallet,
+      escrowLocked,
+      totalSystemWallets,
+      discrepancy,
+      hasGhostWallet,
+      ghostWalletType,
+      verifiedAt: new Date().toISOString(),
+    };
   }
 }
