@@ -9,21 +9,104 @@ describe("Offer & Order State Machine", () => {
   let designer1Id: string;
   let designer2Id: string;
 
-  beforeEach(async () => {
-    await prisma.message.deleteMany({});
-    await prisma.chatThread.deleteMany({});
-    await prisma.revisionRequest.deleteMany({});
-    await prisma.deliveryFile.deleteMany({});
-    await prisma.delivery.deleteMany({});
-    await prisma.ledgerEntry.deleteMany({});
-    await prisma.auditLog.deleteMany({});
-    await prisma.order.deleteMany({});
-    await prisma.offer.deleteMany({});
-    await prisma.brief.deleteMany({});
-    await prisma.designerProfile.deleteMany({});
-    await prisma.user.deleteMany({
-      where: { email: { in: ["cust@test.com", "des1@test.com", "des2@test.com"] } },
+  const TEST_EMAILS = ["cust@test.com", "des1@test.com", "des2@test.com"];
+
+  async function cleanupTestData() {
+    const testUsers = await prisma.user.findMany({
+      where: { email: { in: TEST_EMAILS } },
+      select: { id: true },
     });
+    const testUserIds = testUsers.map((u) => u.id);
+    if (testUserIds.length === 0) return;
+
+    const testBriefs = await prisma.brief.findMany({
+      where: { customerId: { in: testUserIds } },
+      select: { id: true },
+    });
+    const testBriefIds = testBriefs.map((b) => b.id);
+
+    const testOrders = await prisma.order.findMany({
+      where: {
+        OR: [
+          { customerId: { in: testUserIds } },
+          { designerId: { in: testUserIds } },
+        ],
+      },
+      select: { id: true },
+    });
+    const testOrderIds = testOrders.map((o) => o.id);
+
+    const testThreads = await prisma.chatThread.findMany({
+      where: {
+        OR: [
+          { customerId: { in: testUserIds } },
+          { designerId: { in: testUserIds } },
+        ],
+      },
+      select: { id: true },
+    });
+    const testThreadIds = testThreads.map((t) => t.id);
+
+    await prisma.message.deleteMany({
+      where: {
+        OR: [
+          { senderId: { in: testUserIds } },
+          { threadId: { in: testThreadIds } },
+        ],
+      },
+    });
+    await prisma.chatThread.deleteMany({
+      where: { id: { in: testThreadIds } },
+    });
+    await prisma.revisionRequest.deleteMany({
+      where: { orderId: { in: testOrderIds } },
+    });
+    await prisma.deliveryFile.deleteMany({
+      where: { delivery: { orderId: { in: testOrderIds } } },
+    });
+    await prisma.delivery.deleteMany({
+      where: { orderId: { in: testOrderIds } },
+    });
+    await prisma.ledgerEntry.deleteMany({
+      where: {
+        OR: [
+          { orderId: { in: testOrderIds } },
+          { userId: { in: testUserIds } },
+        ],
+      },
+    });
+    await prisma.auditLog.deleteMany({
+      where: {
+        OR: [
+          { actorId: { in: testUserIds } },
+          { entityId: { in: testOrderIds } },
+        ],
+      },
+    });
+    await prisma.order.deleteMany({
+      where: { id: { in: testOrderIds } },
+    });
+    await prisma.offer.deleteMany({
+      where: {
+        OR: [
+          { briefId: { in: testBriefIds } },
+          { designerId: { in: testUserIds } },
+        ],
+      },
+    });
+    await prisma.brief.deleteMany({
+      where: { id: { in: testBriefIds } },
+    });
+    await prisma.designerProfile.deleteMany({
+      where: { userId: { in: testUserIds } },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: testUserIds } },
+    });
+  }
+
+  beforeEach(async () => {
+    await cleanupTestData();
 
     // Buat customer & 2 desainer
     const customer = await prisma.user.create({
@@ -214,14 +297,6 @@ describe("Offer & Order State Machine", () => {
   });
 
   afterAll(async () => {
-    await prisma.ledgerEntry.deleteMany({});
-    await prisma.auditLog.deleteMany({});
-    await prisma.order.deleteMany({});
-    await prisma.offer.deleteMany({});
-    await prisma.brief.deleteMany({});
-    await prisma.designerProfile.deleteMany({});
-    await prisma.user.deleteMany({
-      where: { email: { in: ["cust@test.com", "des1@test.com", "des2@test.com"] } },
-    });
+    await cleanupTestData();
   });
 });

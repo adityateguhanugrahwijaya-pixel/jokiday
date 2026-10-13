@@ -247,36 +247,6 @@ export class OrderStateMachine {
       return updatedOrder;
     }, { maxWait: 15000, timeout: 30000 });
 
-    // Kirim notifikasi audit fee platform 5% ke email admin jika order selesai
-    if (
-      result.status === "COMPLETED" &&
-      (event === "APPROVE_DELIVERY" || event === "RESOLVE_DISPUTE_RELEASE")
-    ) {
-      try {
-        const { fee, designerNet } = LedgerService.calculatePlatformFee(result.price);
-        const platformBalance = await LedgerService.getPlatformBalance();
-        const briefTitle = (result as any).brief?.title || "Pesanan Desain";
-        const designerName = (result as any).designer?.displayName || "Desainer";
-        const customerName = (result as any).customer?.displayName || "Pelanggan";
-
-        // Pengiriman email audit non-blocking
-        EmailService.sendPlatformFeeCollectedEmail({
-          orderId: result.id,
-          briefTitle,
-          price: result.price,
-          fee,
-          designerNet,
-          designerName,
-          customerName,
-          platformBalance,
-        }).catch((e) => {
-          console.error("[EmailService] Background email error for platform fee:", e);
-        });
-      } catch (err) {
-        console.error("[OrderStateMachine] Gagal memicu notifikasi fee platform:", err);
-      }
-    }
-
     return result;
   }
 }

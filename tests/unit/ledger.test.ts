@@ -4,9 +4,6 @@ import { prisma } from "../../src/lib/db";
 import crypto from "node:crypto";
 
 describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
-  beforeEach(async () => {
-    await prisma.ledgerEntry.deleteMany({});
-  });
 
   it("calculates platform fee correctly: 50.000 -> 47.500 (designer) + 2.500 (fee)", () => {
     const { fee, designerNet } = LedgerService.calculatePlatformFee(50000, 5);
@@ -224,6 +221,10 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
     const orderId1 = crypto.randomUUID();
     const orderId2 = crypto.randomUUID();
 
+    const initialBalance = await LedgerService.getPlatformBalance();
+    const initialAllTime = await LedgerService.getTotalPlatformRevenueAllTime();
+    const initialWithdrawn = await LedgerService.getTotalPlatformWithdrawnAllTime();
+
     // Order 1: 100.000 (fee 5.000)
     await LedgerService.recordCustomerPayment(orderId1, 100000, "pay-" + orderId1);
     await LedgerService.recordOrderCompleted(orderId1, designerId, 100000, "complete-" + orderId1);
@@ -232,31 +233,38 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
     await LedgerService.recordCustomerPayment(orderId2, 200000, "pay-" + orderId2);
     await LedgerService.recordOrderCompleted(orderId2, designerId, 200000, "complete-" + orderId2);
 
-    // Total fee terkumpul = 15.000
+    // Total fee terkumpul bertambah 15.000
     const platformBalance = await LedgerService.getPlatformBalance();
-    expect(platformBalance).toBe(15000);
+    expect(platformBalance).toBe(initialBalance + 15000);
 
     const totalAllTime = await LedgerService.getTotalPlatformRevenueAllTime();
-    expect(totalAllTime).toBe(15000);
+    expect(totalAllTime).toBe(initialAllTime + 15000);
 
     // Admin cairkan 10.000
     await LedgerService.recordPlatformWithdrawal(
       adminId,
       10000,
-      "admin-withdraw-test-1",
+      "admin-withdraw-test-" + adminId,
       "Pencairan fee platform"
     );
 
-    // Sisa saldo platform = 5.000
+    // Sisa saldo platform berkurang 10.000
     const remainingBalance = await LedgerService.getPlatformBalance();
-    expect(remainingBalance).toBe(5000);
+    expect(remainingBalance).toBe(initialBalance + 5000);
 
     const totalWithdrawn = await LedgerService.getTotalPlatformWithdrawnAllTime();
-    expect(totalWithdrawn).toBe(10000);
+    expect(totalWithdrawn).toBe(initialWithdrawn + 10000);
 
-    // Gagal jika menarik melebihi saldo tersedia (misal 6.000)
+    // Gagal jika menarik melebihi saldo tersedia
     await expect(
-      LedgerService.recordPlatformWithdrawal(adminId, 6000, "admin-withdraw-exceed")
+      LedgerService.recordPlatformWithdrawal(adminId, remainingBalance + 1000, "admin-withdraw-exceed-" + adminId)
     ).rejects.toThrow(/tidak mencukupi/i);
+
+    // Cleanup hanya data test yang dibuat
+    await prisma.ledgerEntry.deleteMany({
+      where: {
+        orderId: { in: [orderId1, orderId2] },
+      },
+    });
   });
 });

@@ -4,6 +4,8 @@ import { AuthService } from "@/server/auth/auth.service";
 import { redirect } from "next/navigation";
 import { CustomerDashboardView } from "@/app/dashboard/CustomerDashboardView";
 
+import { LedgerService } from "@/server/ledger/ledger.service";
+
 export const dynamic = "force-dynamic";
 
 export default async function CustomerDashboardPage() {
@@ -24,6 +26,8 @@ export default async function CustomerDashboardPage() {
   if (user.isAdmin) {
     redirect("/admin");
   }
+
+  const refundBalance = await LedgerService.getCustomerRefundBalance(user.id);
 
   const activeOrders = await prisma.order.findMany({
     where: {
@@ -70,6 +74,7 @@ export default async function CustomerDashboardPage() {
       awaitingPaymentOrders={awaitingPaymentOrders}
       completedOrdersCount={completedOrdersCount}
       myBriefs={myBriefs}
+      refundBalance={refundBalance}
     />
   );
 }

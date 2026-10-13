@@ -42,7 +42,7 @@ export default async function WalletPage() {
     const ledgerEntries = await prisma.ledgerEntry.findMany({
       where: {
         OR: [
-          { account: `REFUND_BALANCE:${user.id}` },
+          { account: `REFUND_PAYABLE:${user.id}` },
           { userId: user.id },
         ],
       },

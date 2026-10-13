@@ -16,6 +16,7 @@ import {
   AlertCircle,
   MessageSquare,
   FileText,
+  Wallet,
 } from "lucide-react";
 
 interface CustomerDashboardProps {
@@ -24,6 +25,7 @@ interface CustomerDashboardProps {
   awaitingPaymentOrders: any[];
   completedOrdersCount: number;
   myBriefs: any[];
+  refundBalance?: number;
 }
 
 export function CustomerDashboardView({
@@ -32,6 +34,7 @@ export function CustomerDashboardView({
   awaitingPaymentOrders,
   completedOrdersCount,
   myBriefs,
+  refundBalance = 0,
 }: CustomerDashboardProps) {
   const ongoingOrdersCount = activeOrders.length;
   const awaitingPaymentCount = awaitingPaymentOrders.length;
@@ -86,8 +89,26 @@ export function CustomerDashboardView({
           </div>
         )}
 
-        {/* 3 Kartu Ringkasan Pelanggan */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+        {/* 4 Kartu Ringkasan Pelanggan */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <Card className="space-y-1.5 border-primary/20 bg-primary-soft/40">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">
+                Saldo Refund / Batal
+              </span>
+              <Wallet className="w-4 h-4 text-primary" />
+            </div>
+            <div className="font-money text-2xl sm:text-3xl font-extrabold text-primary">
+              {formatRupiah(refundBalance)}
+            </div>
+            <Link
+              href="/wallet"
+              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+            >
+              <span>Buka dompet &rarr;</span>
+            </Link>
+          </Card>
+
           <Card className="space-y-1.5">
             <span className="text-xs font-bold text-text-muted uppercase tracking-wider">
               Pesanan Sedang Dikerjakan
