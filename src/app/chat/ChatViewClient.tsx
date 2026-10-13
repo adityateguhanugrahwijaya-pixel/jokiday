@@ -23,6 +23,10 @@ import {
   X,
   Sparkles,
   ArrowLeft,
+  Wallet,
+  CreditCard,
+  QrCode,
+  CheckCircle2,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { playChatChime } from "@/lib/sound";
@@ -143,6 +147,13 @@ export function ChatViewClient({
   const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
   const [isAcceptingOfferId, setIsAcceptingOfferId] = useState<string | null>(null);
   const [isBriefLocked, setIsBriefLocked] = useState(false);
+
+  // State untuk pop up opsi pembayaran penawaran (Sisi Pelanggan)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedOfferForPayment, setSelectedOfferForPayment] = useState<any>(null);
+  const [customerRefundBalance, setCustomerRefundBalance] = useState<number>(0);
+  const [useRefundBalance, setUseRefundBalance] = useState<boolean>(true);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -440,19 +451,29 @@ export function ChatViewClient({
     }
   };
 
-  // Handler Pelanggan: Konfirmasi & Terima Tawaran Langsung dari Chat -> Direct Payment Gateway
-  const handleAcceptOfferFromChat = async (offerData: any) => {
-    if (
-      !confirm(
-        `Konfirmasi menerima penawaran "${offerData.title}" sebesar ${formatRupiah(
-          offerData.price
-        )}? Kontrak akan dikunci dan Anda akan diarahkan langsung ke checkout pembayaran.`
-      )
-    ) {
-      return;
+  // Handler Pelanggan: Buka Pop-up Opsi Pembayaran (WaroengPay / Saldo Refund / Kombinasi)
+  const handleOpenPaymentModal = async (offerData: any) => {
+    setSelectedOfferForPayment(offerData);
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/wallet/customer-balance");
+      if (res.ok) {
+        const data = await res.json();
+        const bal = typeof data.refundBalance === "number" ? data.refundBalance : 0;
+        setCustomerRefundBalance(bal);
+        setUseRefundBalance(bal > 0);
+      }
+    } catch {
+      // Abaikan jika gagal
     }
+    setIsPaymentModalOpen(true);
+  };
 
-    setIsAcceptingOfferId(offerData.offerId);
+  const handleConfirmPaymentAndAcceptOffer = async () => {
+    if (!selectedOfferForPayment || isProcessingPayment) return;
+
+    setIsProcessingPayment(true);
+    setIsAcceptingOfferId(selectedOfferForPayment.offerId);
     setErrorMsg("");
 
     try {
@@ -461,7 +482,7 @@ export function ChatViewClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          offerId: offerData.offerId,
+          offerId: selectedOfferForPayment.offerId,
         }),
       });
 
@@ -489,34 +510,44 @@ export function ChatViewClient({
         setIsBriefLocked(true);
       }
 
-      // 2. Inisialisasi pembayaran order (WaroengPay QRIS checkout)
-      try {
-        const payRes = await fetch("/api/orders/pay", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId: order.id,
-            useBalance: false,
-          }),
-        });
+      // 2. Inisialisasi pembayaran order (Saldo / WaroengPay QRIS / Split)
+      const willUseBalance = useRefundBalance && customerRefundBalance > 0;
+      const payRes = await fetch("/api/orders/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          useBalance: willUseBalance,
+        }),
+      });
 
-        const payContentType = payRes.headers.get("content-type") || "";
-        if (payContentType.includes("application/json")) {
-          const payData = await payRes.json();
-          if (payRes.ok && payData.checkoutUrl) {
-            window.location.href = payData.checkoutUrl;
-            return;
-          }
-        }
-      } catch (payErr) {
-        console.warn("Inisialisasi pembayaran gateway dilewati:", payErr);
+      const payContentType = payRes.headers.get("content-type") || "";
+      if (!payContentType.includes("application/json")) {
+        throw new Error("Gagal memproses pembayaran: Format respon gateway tidak valid.");
       }
 
-      // 3. Fallback langsung ke halaman detail order
-      router.push(`/orders/${order.id}`);
+      const payData = await payRes.json();
+      if (!payRes.ok) {
+        throw new Error(payData.error?.message || "Gagal memproses pembayaran");
+      }
+
+      setIsPaymentModalOpen(false);
+
+      if (payData.paidDirectly) {
+        // Pembayaran 100% lunas menggunakan saldo refund
+        alert("Pembayaran lunas menggunakan saldo refund! Pesanan resmi aktif dan langsung dikerjakan desainer.");
+        router.push(`/orders/${order.id}`);
+      } else if (payData.checkoutUrl) {
+        // Direct ke menu pembayaran WaroengPay QRIS
+        window.location.href = payData.checkoutUrl;
+      } else {
+        router.push(`/orders/${order.id}`);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || "Gagal memproses kesepakatan");
       alert(err.message || "Gagal memproses kesepakatan");
+    } finally {
+      setIsProcessingPayment(false);
       setIsAcceptingOfferId(null);
     }
   };
@@ -940,7 +971,7 @@ export function ChatViewClient({
                                     size="md"
                                     isLoading={isAcceptingOfferId === offerData.offerId}
                                     disabled={Boolean(isAcceptingOfferId)}
-                                    onClick={() => handleAcceptOfferFromChat(offerData)}
+                                    onClick={() => handleOpenPaymentModal(offerData)}
                                     className="w-full flex items-center justify-center gap-2 text-xs sm:text-sm font-bold shadow-sm"
                                   >
                                     <ShieldCheck className="w-4 h-4" />
@@ -1291,6 +1322,222 @@ export function ChatViewClient({
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL POP UP OPSI PEMBAYARAN TEPAT SAAT SETUJUI TAWARAN (SISI PELANGGAN) */}
+      {isPaymentModalOpen && selectedOfferForPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-surface border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-primary-soft text-primary">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-text">
+                    Pilih Metode Pembayaran
+                  </h3>
+                  <p className="text-xs text-text-muted">
+                    Setujui kesepakatan dan bayar dengan Saldo Refund atau WaroengPay QRIS.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isProcessingPayment}
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="p-1 rounded-lg text-text-muted hover:text-text hover:bg-neutral-soft transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Rincian Tawaran Desain */}
+            <div className="bg-background/80 border border-border rounded-xl p-4 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                    Paket Desain Disepakati
+                  </span>
+                  <h4 className="font-bold text-sm text-text mt-0.5">
+                    {selectedOfferForPayment.title}
+                  </h4>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Desainer: <span className="font-semibold text-text">{selectedOfferForPayment.designerName || activeThread?.otherUser.displayName || "Desainer"}</span>
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-xs text-text-muted block">Total Biaya</span>
+                  <span className="font-money text-xl font-extrabold text-primary">
+                    {formatRupiah(selectedOfferForPayment.price)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-1 text-xs text-text-muted border-t border-border/60">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  <span>{selectedOfferForPayment.durationDays} hari kerja</span>
+                </span>
+                <span>&bull;</span>
+                <span className="flex items-center gap-1">
+                  <RotateCcw className="w-3.5 h-3.5 text-primary" />
+                  <span>{selectedOfferForPayment.revisionQuota}x kuota revisi</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Pilihan Metode Pembayaran */}
+            <div className="space-y-3">
+              <h5 className="text-xs font-bold text-text uppercase tracking-wider">
+                Opsi Pembayaran
+              </h5>
+
+              {/* Opsi 1: Saldo Refund JokiDay */}
+              {customerRefundBalance > 0 ? (
+                <div className={`p-4 rounded-xl border transition-all ${
+                  useRefundBalance
+                    ? "bg-primary-soft/50 border-primary/40 shadow-xs"
+                    : "bg-surface border-border hover:border-border/80"
+                }`}>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useRefundBalance}
+                      disabled={isProcessingPayment}
+                      onChange={(e) => setUseRefundBalance(e.target.checked)}
+                      className="mt-0.5 rounded text-primary focus:ring-primary h-4 w-4"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 font-bold text-xs text-text">
+                          <Wallet className="w-4 h-4 text-primary" />
+                          <span>Gunakan Saldo Refund ({formatRupiah(customerRefundBalance)})</span>
+                        </div>
+                        {customerRefundBalance >= selectedOfferForPayment.price ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-success-soft text-success border border-success/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Saldo Cukup (100% Lunas)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary-soft text-secondary border border-secondary/30">
+                            Gabung Saldo + QRIS
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
+                        {customerRefundBalance >= selectedOfferForPayment.price
+                          ? "Saldo Anda cukup untuk melunasi seluruh pesanan tanpa perlu transfer atau bayar QRIS lagi."
+                          : "Saldo refund Anda akan dipotong maksimal, dan sisanya dibayar via QRIS WaroengPay."}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              ) : (
+                <div className="p-3 bg-neutral-soft/50 border border-border rounded-xl flex items-center justify-between text-xs text-text-muted">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-text-muted" />
+                    <span>Saldo Refund JokiDay</span>
+                  </div>
+                  <span className="font-semibold text-text">Rp 0 (Kosong)</span>
+                </div>
+              )}
+
+              {/* Opsi 2: WaroengPay QRIS */}
+              <div className="p-4 rounded-xl border bg-surface border-border flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-surface border border-border text-primary shrink-0 mt-0.5">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-xs text-text">WaroengPay QRIS Dinamis</span>
+                    <span className="text-[10px] font-semibold text-primary">Semua Bank & E-Wallet</span>
+                  </div>
+                  <p className="text-[11px] text-text-muted mt-0.5 leading-relaxed">
+                    {useRefundBalance && customerRefundBalance >= selectedOfferForPayment.price
+                      ? "Tidak diperlukan tagihan QRIS karena sudah lunas 100% oleh saldo refund."
+                      : useRefundBalance && customerRefundBalance > 0
+                      ? `Sisa tagihan QRIS setelah dipotong saldo refund: ${formatRupiah(Math.max(0, selectedOfferForPayment.price - customerRefundBalance))}`
+                      : `Total pembayaran penuh melalui QRIS: ${formatRupiah(selectedOfferForPayment.price)}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ringkasan Perhitungan Pembayaran */}
+            {(() => {
+              const price = selectedOfferForPayment.price;
+              const balanceDeducted = useRefundBalance && customerRefundBalance > 0
+                ? Math.min(customerRefundBalance, price)
+                : 0;
+              const remainingPay = Math.max(0, price - balanceDeducted);
+
+              return (
+                <div className="p-3.5 bg-background border border-border rounded-xl space-y-1.5 text-xs font-mono">
+                  <div className="flex justify-between text-text-muted">
+                    <span>Total Kesepakatan:</span>
+                    <span>{formatRupiah(price)}</span>
+                  </div>
+                  {balanceDeducted > 0 && (
+                    <div className="flex justify-between text-success font-semibold">
+                      <span>Potongan Saldo Refund:</span>
+                      <span>-{formatRupiah(balanceDeducted)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-text pt-1.5 border-t border-border text-sm">
+                    <span>
+                      {remainingPay === 0 ? "Total Bayar via Saldo:" : "Total Bayar via QRIS:"}
+                    </span>
+                    <span className="text-primary font-extrabold">
+                      {formatRupiah(remainingPay === 0 ? balanceDeducted : remainingPay)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Modal Actions */}
+            {(() => {
+              const price = selectedOfferForPayment.price;
+              const balanceDeducted = useRefundBalance && customerRefundBalance > 0
+                ? Math.min(customerRefundBalance, price)
+                : 0;
+              const remainingPay = Math.max(0, price - balanceDeducted);
+
+              return (
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={isProcessingPayment}
+                    onClick={() => setIsPaymentModalOpen(false)}
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="cta"
+                    size="md"
+                    isLoading={isProcessingPayment}
+                    onClick={handleConfirmPaymentAndAcceptOffer}
+                    className="flex items-center gap-2 font-bold shadow-sm"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>
+                      {remainingPay === 0
+                        ? `Setujui & Bayar Lunas (${formatRupiah(balanceDeducted)})`
+                        : balanceDeducted > 0
+                        ? `Setujui & Bayar QRIS (${formatRupiah(remainingPay)})`
+                        : `Setujui & Bayar QRIS (${formatRupiah(price)})`}
+                    </span>
+                  </Button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

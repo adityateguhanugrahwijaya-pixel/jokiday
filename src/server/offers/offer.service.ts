@@ -217,16 +217,27 @@ export class OfferService {
       });
 
       // Hubungkan chat thread antara pelanggan dan desainer terpilih dengan order baru
-      const matchedThreads = await tx.chatThread.findMany({
+      // Catatan: orderId di ChatThread memiliki unique constraint (1-to-1).
+      // Pilih 1 thread aktif yang belum terikat order lain (orderId: null), atau buat thread baru jika belum ada.
+      let threadToLink = await tx.chatThread.findFirst({
         where: {
           customerId,
           designerId: offer.designerId,
+          orderId: null,
         },
+        orderBy: { lastMessageAt: "desc" },
       });
 
-      for (const th of matchedThreads) {
+      if (!threadToLink) {
+        // Cek jika sudah ada thread yang khusus untuk order ini
+        threadToLink = await tx.chatThread.findUnique({
+          where: { orderId: order.id },
+        });
+      }
+
+      if (threadToLink) {
         await tx.chatThread.update({
-          where: { id: th.id },
+          where: { id: threadToLink.id },
           data: {
             orderId: order.id,
             lastMessage: `[Kesepakatan Disetujui: Order #${order.id.slice(0, 8)}]`,
@@ -236,7 +247,27 @@ export class OfferService {
 
         await tx.message.create({
           data: {
-            threadId: th.id,
+            threadId: threadToLink.id,
+            senderId: customerId,
+            type: "SYSTEM",
+            body: `Pelanggan telah menyetujui tawaran sebesar Rp ${offer.price.toLocaleString("id-ID")} untuk proyek "${offer.brief.title}". Order resmi #${order.id.slice(0, 8)} telah dibuat. Kesepakatan terkunci.`,
+          },
+        });
+      } else {
+        const newTh = await tx.chatThread.create({
+          data: {
+            customerId,
+            designerId: offer.designerId,
+            orderId: order.id,
+            title: `Diskusi Order #${order.id.slice(0, 8)}`,
+            lastMessage: `[Kesepakatan Disetujui: Order #${order.id.slice(0, 8)}]`,
+            lastMessageAt: new Date(),
+          },
+        });
+
+        await tx.message.create({
+          data: {
+            threadId: newTh.id,
             senderId: customerId,
             type: "SYSTEM",
             body: `Pelanggan telah menyetujui tawaran sebesar Rp ${offer.price.toLocaleString("id-ID")} untuk proyek "${offer.brief.title}". Order resmi #${order.id.slice(0, 8)} telah dibuat. Kesepakatan terkunci.`,
