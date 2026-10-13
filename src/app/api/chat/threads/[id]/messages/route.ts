@@ -259,6 +259,21 @@ export async function POST(
         },
       });
 
+      // Kirim notifikasi tawaran ke penerima
+      const offerRecipientId = thread.customerId === session.userId ? thread.designerId : thread.customerId;
+      await prisma.notification.create({
+        data: {
+          userId: offerRecipientId,
+          type: "CHAT_OFFER",
+          payload: JSON.stringify({
+            title: `Tawaran baru dari ${designerDisplayName}`,
+            body: `Pengajuan tawaran proyek: ${finalOfferDetails.title} (Rp ${finalOfferDetails.price.toLocaleString("id-ID")})`,
+            url: `/chat?threadId=${thread.id}`,
+            threadId: thread.id,
+          }),
+        },
+      }).catch(() => {});
+
       return NextResponse.json({
         success: true,
         message: {
@@ -301,6 +316,27 @@ export async function POST(
         lastMessageAt: new Date(),
       },
     });
+
+    // Kirim notifikasi pesan ke lawan bicara
+    const recipientId = thread.customerId === session.userId ? thread.designerId : thread.customerId;
+    const sender = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { displayName: true },
+    });
+    const senderName = sender?.displayName || "Pengguna";
+
+    await prisma.notification.create({
+      data: {
+        userId: recipientId,
+        type: "CHAT_MESSAGE",
+        payload: JSON.stringify({
+          title: `Pesan baru dari ${senderName}`,
+          body: cleanText.length > 80 ? cleanText.slice(0, 80) + "..." : cleanText,
+          url: `/chat?threadId=${thread.id}`,
+          threadId: thread.id,
+        }),
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

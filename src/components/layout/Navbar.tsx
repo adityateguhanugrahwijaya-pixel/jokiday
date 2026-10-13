@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { RoleSwitchModal } from "@/components/ui/RoleSwitchModal";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { ChatNotificationListener, useUnreadChatCount } from "@/components/chat/ChatNotificationListener";
 
 export interface NavbarProps {
   initialRole?: "CUSTOMER" | "DESIGNER";
@@ -64,6 +65,7 @@ export function Navbar({
   const [showMenu, setShowMenu] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
+  const unreadChatCount = useUnreadChatCount();
 
   // Sinkronisasi saat prop initialRole berubah pada navigasi halaman
   useEffect(() => {
@@ -197,9 +199,9 @@ export function Navbar({
 
   const designerNav = [
     { label: "Dashboard", href: "/dashboard/designer", icon: Home },
-    { label: "Pasar", href: "/market", icon: ShoppingBag },
-    { label: "Karya", href: "/portfolio", icon: Layers },
     { label: "Order", href: "/orders", icon: Clock },
+    { label: "Pesan", href: "/chat", icon: MessageSquare },
+    { label: "Karya", href: "/portfolio", icon: Layers },
     { label: "Dompet", href: "/wallet", icon: Wallet },
   ];
 
@@ -370,6 +372,18 @@ export function Navbar({
           ) : user ? (
             <>
               <NotificationBell />
+              <Link
+                href="/chat"
+                className="relative p-2 rounded-md hover:bg-background text-text-muted hover:text-text transition-colors touch-target"
+                title="Pesan & Diskusi Desain"
+              >
+                <MessageSquare className="w-5 h-5" />
+                {unreadChatCount > 0 && (
+                  <span className="absolute top-1 right-1 bg-danger text-white text-[9px] font-extrabold h-4 min-w-4 px-1 rounded-full flex items-center justify-center animate-pulse shadow-xs">
+                    {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                  </span>
+                )}
+              </Link>
               <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
@@ -479,10 +493,17 @@ export function Navbar({
                       <Link
                         href="/chat"
                         onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                        className="flex items-center justify-between px-4 py-2 text-text hover:bg-background transition-colors"
                       >
-                        <MessageSquare className="w-4 h-4 text-text-muted" />
-                        <span>Pesan & Diskusi</span>
+                        <div className="flex items-center gap-2.5">
+                          <MessageSquare className="w-4 h-4 text-text-muted" />
+                          <span>Pesan & Diskusi</span>
+                        </div>
+                        {unreadChatCount > 0 && (
+                          <span className="bg-danger text-white text-[10px] font-extrabold px-1.5 py-0.2 rounded-full min-w-4 text-center">
+                            {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                          </span>
+                        )}
                       </Link>
 
                       {user.isDesigner && (
@@ -568,6 +589,7 @@ export function Navbar({
         {currentNav.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
+          const isChat = item.href === "/chat";
           return (
             <Link
               key={item.href}
@@ -577,12 +599,21 @@ export function Navbar({
                 isActive ? "text-primary font-bold" : "text-text-muted hover:text-text"
               )}
             >
-              <Icon className="w-5 h-5 mb-1" />
+              <div className="relative mb-1">
+                <Icon className="w-5 h-5" />
+                {isChat && unreadChatCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 bg-danger text-white text-[9px] font-extrabold h-4 min-w-4 px-1 rounded-full flex items-center justify-center animate-pulse shadow-sm">
+                    {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] tracking-tight">{item.label}</span>
             </Link>
           );
         })}
       </nav>
+
+      <ChatNotificationListener />
 
       <RoleSwitchModal
         isOpen={isSwitchModalOpen}

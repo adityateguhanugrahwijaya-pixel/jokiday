@@ -22,7 +22,10 @@ import {
   Handshake,
   X,
   Sparkles,
+  ArrowLeft,
 } from "lucide-react";
+import { clsx } from "clsx";
+import { playChatChime } from "@/lib/sound";
 
 export interface PendingOfferItem {
   id: string;
@@ -97,7 +100,7 @@ export function ChatViewClient({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const targetDesignerId = searchParams?.get("designerId");
+  const targetDesignerId = searchParams?.get("designerId") || searchParams?.get("userId");
   const targetDesignerName = searchParams?.get("name");
 
   // Query parameters konteks brief dan penawaran
@@ -263,6 +266,17 @@ export function ChatViewClient({
               );
               const merged = [...data.messages, ...remainingOptimistics];
               setMessagesCache((cache) => ({ ...cache, [activeThreadId]: merged }));
+
+              // Jika ada pesan baru dari lawan bicara saat percakapan sedang dibuka, bunyikan alert
+              if (!isFirstLoad) {
+                const prevOtherMsgs = prev.filter((p) => !p.isMe).length;
+                const newOtherMsgs = data.messages.filter((m: any) => !m.isMe).length;
+                if (newOtherMsgs > prevOtherMsgs) {
+                  playChatChime();
+                  setTimeout(() => scrollToBottom("smooth"), 50);
+                }
+              }
+
               return merged;
             });
 
@@ -506,7 +520,12 @@ export function ChatViewClient({
   return (
     <div className="flex-1 bg-surface border border-border rounded-xl overflow-hidden flex flex-col md:flex-row min-h-0 shadow-sm">
       {/* PANEL KIRI: DAFTAR THREAD BERDASARKAN MODE AKTIF */}
-      <div className="w-full md:w-80 border-r border-border flex flex-col shrink-0 bg-surface">
+      <div
+        className={clsx(
+          "w-full md:w-80 border-r border-border flex flex-col shrink-0 bg-surface min-h-0",
+          activeThreadId ? "hidden md:flex" : "flex flex-1 md:flex-initial h-full"
+        )}
+      >
         {/* Header Kotak Pesan Sesuai Mode */}
         <div className="p-3.5 border-b border-border bg-neutral-soft/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -615,25 +634,40 @@ export function ChatViewClient({
       </div>
 
       {/* PANEL TENGAH: RUANG OBROLAN LIVE & CENTANG DUA */}
-      <div className="flex-1 flex flex-col bg-background min-w-0">
+      <div
+        className={clsx(
+          "flex-1 flex flex-col bg-background min-w-0 h-full",
+          !activeThreadId ? "hidden md:flex" : "flex"
+        )}
+      >
         {activeThread ? (
           <>
             {/* Header Thread Aktif */}
-            <div className="p-3.5 border-b border-border bg-surface flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0">
+            <div className="p-3 sm:p-3.5 border-b border-border bg-surface flex items-center justify-between gap-2 sm:gap-3 shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveThreadId(null)}
+                  className="md:hidden p-1.5 -ml-1 text-primary hover:bg-primary-soft rounded-lg flex items-center gap-1 font-semibold text-xs shrink-0 touch-target"
+                  title="Kembali ke daftar percakapan"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-xs">Daftar</span>
+                </button>
+
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0">
                   {activeThread.otherUser.displayName.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-sm text-text truncate">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <h3 className="font-bold text-xs sm:text-sm text-text truncate">
                       {activeThread.otherUser.displayName}
                     </h3>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary-soft text-primary">
+                    <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.2 sm:py-0.5 rounded-full bg-primary-soft text-primary">
                       {activeThread.otherUser.roleLabel}
                     </span>
                   </div>
-                  <span className="text-[11px] text-text-muted block truncate font-mono">
+                  <span className="text-[10px] sm:text-[11px] text-text-muted block truncate font-mono">
                     @{activeThread.otherUser.username} &bull; {activeThread.title}
                   </span>
                 </div>
@@ -702,7 +736,7 @@ export function ChatViewClient({
             {/* Bubble Messages (Live Stream) */}
             <div
               ref={chatContainerRef}
-              className="flex-1 p-4 overflow-y-auto space-y-3"
+              className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 min-h-0"
             >
               {isLoadingMessages && messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-8 text-center text-xs text-text-muted space-y-2">
@@ -921,7 +955,7 @@ export function ChatViewClient({
             {/* Form Input Pesan (Live Send) */}
             <form
               onSubmit={handleSendMessage}
-              className="p-3 bg-surface border-t border-border flex items-center gap-2"
+              className="p-2.5 sm:p-3 bg-surface border-t border-border flex items-center gap-2 shrink-0 sticky bottom-0 z-10"
             >
               <input
                 type="text"
@@ -932,7 +966,7 @@ export function ChatViewClient({
                 }
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
-                className="flex-1 h-10 px-3.5 bg-background border border-border rounded-lg text-xs sm:text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1 h-10 px-3 sm:px-3.5 bg-background border border-border rounded-lg text-xs sm:text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <Button
                 type="submit"
@@ -940,7 +974,7 @@ export function ChatViewClient({
                 size="sm"
                 isLoading={isSending}
                 disabled={!messageText.trim()}
-                className="h-10 px-4 shrink-0"
+                className="h-10 px-3.5 sm:px-4 shrink-0"
               >
                 <Send className="w-4 h-4" />
               </Button>

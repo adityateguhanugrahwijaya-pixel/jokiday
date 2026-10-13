@@ -16,6 +16,8 @@ import {
   UserPlus,
 } from "lucide-react";
 
+import { useUnreadChatCount } from "@/components/chat/ChatNotificationListener";
+
 export interface SidebarProps {
   role?: "CUSTOMER" | "DESIGNER";
   isAdmin?: boolean;
@@ -24,6 +26,7 @@ export interface SidebarProps {
 export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
   const pathname = usePathname();
   const [isAdminState, setIsAdminState] = React.useState(isAdmin ?? false);
+  const unreadChatCount = useUnreadChatCount();
 
   React.useEffect(() => {
     if (isAdmin !== undefined) {
@@ -84,6 +87,7 @@ export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
         {currentNav.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
+          const isChat = item.href === "/chat";
           return (
             <Link
               key={item.href}
@@ -95,8 +99,20 @@ export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
                   : "text-text-muted hover:text-text hover:bg-background"
               )}
             >
-              <Icon className="w-5 h-5 shrink-0" />
-              <span>{item.label}</span>
+              <div className="relative">
+                <Icon className="w-5 h-5 shrink-0" />
+                {isChat && unreadChatCount > 0 && (
+                  <span className="lg:hidden absolute -top-1 -right-1.5 bg-danger text-white text-[9px] font-bold h-3.5 min-w-3.5 px-0.5 rounded-full flex items-center justify-center">
+                    {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                  </span>
+                )}
+              </div>
+              <span className="flex-1 truncate">{item.label}</span>
+              {isChat && unreadChatCount > 0 && (
+                <span className="ml-auto bg-danger text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full min-w-5 text-center shadow-xs">
+                  {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                </span>
+              )}
             </Link>
           );
         })}

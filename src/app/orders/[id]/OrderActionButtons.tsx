@@ -247,7 +247,7 @@ export function OrderActionButtons({
               </Button>
               {customerId && (
                 <Link
-                  href={`/chat?userId=${customerId}`}
+                  href={`/chat?userId=${customerId}&designerId=${customerId}`}
                   className="inline-flex items-center justify-center w-full h-10 px-4 rounded-md bg-surface text-text border border-border font-semibold text-xs hover:bg-background transition-colors"
                 >
                   <MessageSquare className="w-3.5 h-3.5 mr-1.5 text-primary" />
@@ -268,7 +268,7 @@ export function OrderActionButtons({
               </p>
               {customerId && (
                 <Link
-                  href={`/chat?userId=${customerId}`}
+                  href={`/chat?userId=${customerId}&designerId=${customerId}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border rounded text-xs font-semibold text-text hover:bg-background mt-1"
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-primary" />
@@ -384,7 +384,7 @@ export function OrderActionButtons({
               </div>
               {designerId && (
                 <Link
-                  href={`/chat?userId=${designerId}`}
+                  href={`/chat?userId=${designerId}&designerId=${designerId}`}
                   className="inline-flex items-center justify-center w-full h-10 px-4 rounded-md bg-surface text-text border border-border font-semibold text-xs hover:bg-background transition-colors"
                 >
                   <MessageSquare className="w-3.5 h-3.5 mr-1.5 text-primary" />

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function ChatPage({
   searchParams,
 }: {
-  searchParams?: { designerId?: string; name?: string; threadId?: string; offerId?: string };
+  searchParams?: { designerId?: string; userId?: string; name?: string; threadId?: string; offerId?: string };
 }) {
   const session = await AuthService.getCurrentUser();
   if (!session) {
@@ -111,7 +111,7 @@ export default async function ChatPage({
   // Tentukan thread aktif awal
   let initialActiveThreadId: string | null = null;
   const targetThreadId = searchParams?.threadId;
-  const targetDesignerId = searchParams?.designerId;
+  const targetDesignerId = searchParams?.designerId || searchParams?.userId;
 
   if (targetThreadId) {
     const matched = initialThreads.find((t) => t.id === targetThreadId);
@@ -160,12 +160,12 @@ export default async function ChatPage({
       role={activeRole}
       displayName={currentUser.displayName || "Pengguna"}
     >
-      <div className="h-[calc(100vh-140px)] flex flex-col space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-text">
+      <div className="h-[calc(100dvh-13.5rem)] md:h-[calc(100vh-140px)] flex flex-col space-y-2 sm:space-y-4">
+        <div className="shrink-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-text">
             Pesan & Diskusi Desain
           </h1>
-          <p className="text-xs text-text-muted mt-0.5">
+          <p className="text-xs text-text-muted mt-0.5 hidden sm:block">
             Komunikasi terpisah antara peran pelanggan dan desainer agar pekerjaan dan pesanan tidak tercampur.
           </p>
         </div>
