@@ -108,7 +108,7 @@ export default async function ChatPage({
     }));
   }
 
-  // Tentukan thread aktif awal
+  // Tentukan thread aktif awal hanya jika ada target spesifik pada parameter URL
   let initialActiveThreadId: string | null = null;
   const targetThreadId = searchParams?.threadId;
   const targetDesignerId = searchParams?.designerId || searchParams?.userId;
@@ -120,9 +120,6 @@ export default async function ChatPage({
   if (!initialActiveThreadId && targetDesignerId) {
     const matched = initialThreads.find((t) => t.otherUser.id === targetDesignerId);
     if (matched) initialActiveThreadId = matched.id;
-  }
-  if (!initialActiveThreadId && initialThreads.length > 0) {
-    initialActiveThreadId = initialThreads[0].id;
   }
 
   // Muat pesan awal untuk thread aktif pertama di server (zero delay, instant load)

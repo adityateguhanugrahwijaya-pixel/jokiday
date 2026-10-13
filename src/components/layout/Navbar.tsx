@@ -18,6 +18,9 @@ import {
   LogIn,
   ShieldCheck,
   Plus,
+  Menu,
+  X,
+  ChevronRight,
 } from "lucide-react";
 import { RoleSwitchModal } from "@/components/ui/RoleSwitchModal";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -63,9 +66,28 @@ export function Navbar({
   const [loading, setLoading] = useState(!isAdmin);
   const [role, setRole] = useState<"CUSTOMER" | "DESIGNER">(initialRole);
   const [showMenu, setShowMenu] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const unreadChatCount = useUnreadChatCount();
+
+  // Tutup drawer dan dropdown saat navigasi rute halaman berganti
+  useEffect(() => {
+    setIsMobileDrawerOpen(false);
+    setShowMenu(false);
+  }, [pathname]);
+
+  // Kunci scroll halaman saat mobile drawer dibuka
+  useEffect(() => {
+    if (isMobileDrawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileDrawerOpen]);
 
   // Sinkronisasi saat prop initialRole berubah pada navigasi halaman
   useEffect(() => {
@@ -186,6 +208,12 @@ export function Navbar({
       window.location.href = "/login";
     } catch (err) {
       console.error("Gagal keluar:", err);
+    }
+  };
+
+  const handleChatNavClick = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("jokiday_chat_reset_to_list"));
     }
   };
 
@@ -319,15 +347,15 @@ export function Navbar({
         </div>
 
         {/* Action & Role Switcher */}
-        <div className="flex items-center gap-3">
-          {/* Admin CTA */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Admin CTA (Desktop / Tablet) */}
           {user?.isAdmin ? (
             <Link
               href="/admin/invites"
-              className="inline-flex items-center gap-1.5 justify-center h-10 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-sm rounded-md hover:bg-secondary-hover transition-colors touch-target shadow-sm"
+              className="hidden sm:inline-flex items-center gap-1.5 justify-center h-9 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-xs sm:text-sm rounded-lg hover:bg-secondary-hover transition-colors touch-target shadow-xs whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden xs:inline">Undang Desainer</span>
+              <span>Undang Desainer</span>
             </Link>
           ) : (
             <>
@@ -335,7 +363,7 @@ export function Navbar({
               {user && (user.isCustomer && user.isDesigner) && (
                 <button
                   onClick={() => setIsSwitchModalOpen(true)}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-background hover:bg-surface text-text transition-colors touch-target"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background hover:bg-surface text-text transition-colors touch-target whitespace-nowrap"
                   title="Ganti peran antara customer dan desainer"
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5 text-primary" />
@@ -343,23 +371,23 @@ export function Navbar({
                 </button>
               )}
 
-              {/* New Order CTA atau Upload Portfolio CTA (Hanya jika bukan admin) */}
+              {/* New Order CTA atau Upload Portfolio CTA (Hanya jika bukan admin, Desktop/Tablet) */}
               {user && (
                 role === "CUSTOMER" ? (
                   <Link
                     href="/briefs/new"
-                    className="inline-flex items-center gap-1.5 justify-center h-10 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-sm rounded-md hover:bg-secondary-hover transition-colors touch-target"
+                    className="hidden sm:inline-flex items-center gap-1.5 justify-center h-9 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-xs sm:text-sm rounded-lg hover:bg-secondary-hover transition-colors touch-target shadow-xs whitespace-nowrap"
                   >
                     <Plus className="w-4 h-4" />
-                    <span className="hidden xs:inline">Buat Brief</span>
+                    <span>Buat Brief</span>
                   </Link>
                 ) : user.isDesigner ? (
                   <Link
                     href="/portfolio"
-                    className="inline-flex items-center gap-1.5 justify-center h-10 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-sm rounded-md hover:bg-secondary-hover transition-colors touch-target"
+                    className="hidden sm:inline-flex items-center gap-1.5 justify-center h-9 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-xs sm:text-sm rounded-lg hover:bg-secondary-hover transition-colors touch-target shadow-xs whitespace-nowrap"
                   >
                     <Plus className="w-4 h-4" />
-                    <span className="hidden xs:inline">Upload Karya</span>
+                    <span>Upload Karya</span>
                   </Link>
                 ) : null
               )}
@@ -374,7 +402,8 @@ export function Navbar({
               <NotificationBell />
               <Link
                 href="/chat"
-                className="relative p-2 rounded-md hover:bg-background text-text-muted hover:text-text transition-colors touch-target"
+                onClick={handleChatNavClick}
+                className="hidden md:flex relative p-2 rounded-lg hover:bg-background text-text-muted hover:text-text transition-colors touch-target"
                 title="Pesan & Diskusi Desain"
               >
                 <MessageSquare className="w-5 h-5" />
@@ -384,201 +413,222 @@ export function Navbar({
                   </span>
                 )}
               </Link>
-              <div className="relative">
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="flex items-center gap-2 p-1 rounded-md hover:bg-background transition-colors touch-target"
-                aria-expanded={showMenu}
-              >
-                <div className="w-9 h-9 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center text-sm border border-primary/20 overflow-hidden shrink-0">
-                  {user.avatarUrl ? (
-                    <img
-                      src={user.avatarUrl}
-                      alt={currentDisplayName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    currentDisplayName.slice(0, 1).toUpperCase()
-                  )}
-                </div>
-                <div className="hidden md:flex flex-col text-left">
-                  <span className="text-xs font-bold text-text truncate max-w-[100px]">
-                    {currentDisplayName}
-                  </span>
-                  <span className="text-[10px] text-text-muted font-medium">
-                    {user.isAdmin ? "Admin" : role === "CUSTOMER" ? "Customer" : "Desainer"}
-                  </span>
-                </div>
-              </button>
-
-              {/* Dropdown Menu Pengguna */}
-              {showMenu && (
-                <div
-                  className="absolute right-0 mt-2 w-56 bg-surface border border-border rounded-lg shadow-lg py-2 z-50 text-sm"
-                  onMouseLeave={() => setShowMenu(false)}
+              <div className="relative hidden md:block">
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="flex items-center gap-2 p-1 rounded-lg hover:bg-background transition-colors touch-target"
+                  aria-expanded={showMenu}
                 >
-                  <div className="px-4 py-2 border-b border-border">
-                    <p className="font-bold text-text truncate">{user.displayName}</p>
-                    <p className="text-xs text-text-muted truncate">{user.email}</p>
-                    <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-primary-soft text-primary">
-                      <ShieldCheck className="w-3 h-3" />
-                      <span>{user.isAdmin ? "Administrator" : role}</span>
-                    </div>
+                  <div className="w-9 h-9 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center text-sm border border-primary/20 overflow-hidden shrink-0">
+                    {user.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={currentDisplayName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      currentDisplayName.slice(0, 1).toUpperCase()
+                    )}
                   </div>
+                  <div className="hidden md:flex flex-col text-left">
+                    <span className="text-xs font-bold text-text truncate max-w-[100px]">
+                      {currentDisplayName}
+                    </span>
+                    <span className="text-[10px] text-text-muted font-medium">
+                      {user.isAdmin ? "Admin" : role === "CUSTOMER" ? "Customer" : "Desainer"}
+                    </span>
+                  </div>
+                </button>
 
-                  {user.isAdmin ? (
-                    <>
-                      <Link
-                        href="/admin"
-                        onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors font-medium"
-                      >
-                        <Layers className="w-4 h-4 text-primary" />
-                        <span>Dashboard Administrator</span>
-                      </Link>
-                      <Link
-                        href="/admin/invites"
-                        onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-secondary font-bold hover:bg-background transition-colors"
-                      >
-                        <ShieldCheck className="w-4 h-4" />
-                        <span>Panel Undangan Desainer</span>
-                      </Link>
-                      <Link
-                        href="/admin/withdrawals"
-                        onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-secondary font-bold hover:bg-background transition-colors"
-                      >
-                        <Wallet className="w-4 h-4" />
-                        <span>Panel Penarikan Saldo</span>
-                      </Link>
-                      <Link
-                        href="/orders"
-                        onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                      >
-                        <Clock className="w-4 h-4 text-text-muted" />
-                        <span>Monitoring Order</span>
-                      </Link>
-                    </>
-                  ) : (
-                    <>
-                      <Link
-                        href={role === "DESIGNER" ? "/dashboard/designer" : "/dashboard/customer"}
-                        onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors font-medium"
-                      >
-                        <Layers className="w-4 h-4 text-primary" />
-                        <span>Dashboard</span>
-                      </Link>
+                {/* Dropdown Menu Pengguna */}
+                {showMenu && (
+                  <div
+                    className="absolute right-0 mt-2 w-56 bg-surface border border-border rounded-lg shadow-lg py-2 z-50 text-sm"
+                    onMouseLeave={() => setShowMenu(false)}
+                  >
+                    <div className="px-4 py-2 border-b border-border">
+                      <p className="font-bold text-text truncate">{user.displayName}</p>
+                      <p className="text-xs text-text-muted truncate">{user.email}</p>
+                      <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-primary-soft text-primary">
+                        <ShieldCheck className="w-3 h-3" />
+                        <span>{user.isAdmin ? "Administrator" : role}</span>
+                      </div>
+                    </div>
 
-                      <Link
-                        href="/profile"
-                        onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                      >
-                        <User className="w-4 h-4 text-text-muted" />
-                        <span>Profil Akun</span>
-                      </Link>
+                    {user.isAdmin ? (
+                      <>
+                        <Link
+                          href="/admin"
+                          onClick={() => setShowMenu(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors font-medium"
+                        >
+                          <Layers className="w-4 h-4 text-primary" />
+                          <span>Dashboard Administrator</span>
+                        </Link>
+                        <Link
+                          href="/admin/invites"
+                          onClick={() => setShowMenu(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-secondary font-bold hover:bg-background transition-colors"
+                        >
+                          <ShieldCheck className="w-4 h-4" />
+                          <span>Panel Undangan Desainer</span>
+                        </Link>
+                        <Link
+                          href="/admin/withdrawals"
+                          onClick={() => setShowMenu(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-secondary font-bold hover:bg-background transition-colors"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          <span>Panel Penarikan Saldo</span>
+                        </Link>
+                        <Link
+                          href="/orders"
+                          onClick={() => setShowMenu(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                        >
+                          <Clock className="w-4 h-4 text-text-muted" />
+                          <span>Monitoring Order</span>
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href={role === "DESIGNER" ? "/dashboard/designer" : "/dashboard/customer"}
+                          onClick={() => setShowMenu(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors font-medium"
+                        >
+                          <Layers className="w-4 h-4 text-primary" />
+                          <span>Dashboard</span>
+                        </Link>
 
-                      <Link
-                        href="/orders"
-                        onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                      >
-                        <Clock className="w-4 h-4 text-text-muted" />
-                        <span>Daftar Order</span>
-                      </Link>
+                        <Link
+                          href="/profile"
+                          onClick={() => setShowMenu(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                        >
+                          <User className="w-4 h-4 text-text-muted" />
+                          <span>Profil Akun</span>
+                        </Link>
 
-                      <Link
-                        href="/chat"
-                        onClick={() => setShowMenu(false)}
-                        className="flex items-center justify-between px-4 py-2 text-text hover:bg-background transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <MessageSquare className="w-4 h-4 text-text-muted" />
-                          <span>Pesan & Diskusi</span>
-                        </div>
-                        {unreadChatCount > 0 && (
-                          <span className="bg-danger text-white text-[10px] font-extrabold px-1.5 py-0.2 rounded-full min-w-4 text-center">
-                            {unreadChatCount > 99 ? "99+" : unreadChatCount}
-                          </span>
-                        )}
-                      </Link>
+                        <Link
+                          href="/orders"
+                          onClick={() => setShowMenu(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                        >
+                          <Clock className="w-4 h-4 text-text-muted" />
+                          <span>Daftar Order</span>
+                        </Link>
 
-                      {user.isDesigner && (
-                        <>
-                          <Link
-                            href="/portfolio"
-                            onClick={() => setShowMenu(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                          >
-                            <Layers className="w-4 h-4 text-text-muted" />
-                            <span>Karya & Portofolio</span>
-                          </Link>
-                          <Link
-                            href="/wallet"
-                            onClick={() => setShowMenu(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                          >
-                            <Wallet className="w-4 h-4 text-text-muted" />
-                            <span>Dompet & Saldo</span>
-                          </Link>
-                        </>
-                      )}
-
-                      {user.isCustomer && user.isDesigner && (
-                        <button
-                          type="button"
+                        <Link
+                          href="/chat"
                           onClick={() => {
                             setShowMenu(false);
-                            setIsSwitchModalOpen(true);
+                            handleChatNavClick();
                           }}
-                          className="w-full flex items-center justify-between px-4 py-2 text-text hover:bg-background transition-colors text-left"
+                          className="flex items-center justify-between px-4 py-2 text-text hover:bg-background transition-colors"
                         >
                           <div className="flex items-center gap-2.5">
-                            <ArrowRightLeft className="w-4 h-4 text-primary" />
-                            <span>Ganti Mode Akun</span>
+                            <MessageSquare className="w-4 h-4 text-text-muted" />
+                            <span>Pesan & Diskusi</span>
                           </div>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary-soft text-primary">
-                            {role === "CUSTOMER" ? "Ke Desainer" : "Ke Customer"}
-                          </span>
-                        </button>
-                      )}
-                    </>
-                  )}
+                          {unreadChatCount > 0 && (
+                            <span className="bg-danger text-white text-[10px] font-extrabold px-1.5 py-0.2 rounded-full min-w-4 text-center">
+                              {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                            </span>
+                          )}
+                        </Link>
 
-                  <div className="border-t border-border mt-1 pt-1">
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        handleLogout();
-                      }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-danger hover:bg-danger-soft transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Keluar dari Akun</span>
-                    </button>
+                        {user.isDesigner && (
+                          <>
+                            <Link
+                              href="/portfolio"
+                              onClick={() => setShowMenu(false)}
+                              className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                            >
+                              <Layers className="w-4 h-4 text-text-muted" />
+                              <span>Karya & Portofolio</span>
+                            </Link>
+                            <Link
+                              href="/wallet"
+                              onClick={() => setShowMenu(false)}
+                              className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                            >
+                              <Wallet className="w-4 h-4 text-text-muted" />
+                              <span>Dompet & Saldo</span>
+                            </Link>
+                          </>
+                        )}
+
+                        {user.isCustomer && user.isDesigner && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowMenu(false);
+                              setIsSwitchModalOpen(true);
+                            }}
+                            className="w-full flex items-center justify-between px-4 py-2 text-text hover:bg-background transition-colors text-left"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <ArrowRightLeft className="w-4 h-4 text-primary" />
+                              <span>Ganti Mode Akun</span>
+                            </div>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary-soft text-primary">
+                              {role === "CUSTOMER" ? "Ke Desainer" : "Ke Customer"}
+                            </span>
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    <div className="border-t border-border mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          handleLogout();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-danger hover:bg-danger-soft transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Keluar dari Akun</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </>
+                )}
+              </div>
+
+              {/* Mobile Burger Menu Button */}
+              <button
+                type="button"
+                onClick={() => setIsMobileDrawerOpen(true)}
+                className="md:hidden flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-surface text-text transition-colors touch-target shrink-0"
+                aria-label="Buka menu navigasi"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            </>
           ) : (
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background hover:bg-surface text-text text-xs font-semibold transition-colors touch-target"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-surface text-text text-xs font-semibold transition-colors touch-target"
               >
                 <LogIn className="w-3.5 h-3.5 text-primary" />
                 <span>Masuk</span>
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition-colors touch-target"
+                className="hidden sm:inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition-colors touch-target"
               >
                 Daftar
               </Link>
+              <button
+                type="button"
+                onClick={() => setIsMobileDrawerOpen(true)}
+                className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-background hover:bg-surface text-text transition-colors touch-target shrink-0"
+                aria-label="Buka menu navigasi"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
             </div>
           )}
         </div>
@@ -594,6 +644,7 @@ export function Navbar({
             <Link
               key={item.href}
               href={item.href}
+              onClick={isChat ? handleChatNavClick : undefined}
               className={clsx(
                 "flex flex-col items-center justify-center flex-1 h-full touch-target transition-colors",
                 isActive ? "text-primary font-bold" : "text-text-muted hover:text-text"
@@ -612,6 +663,385 @@ export function Navbar({
           );
         })}
       </nav>
+
+      {/* Mobile Navigation Drawer / Burger Sheet */}
+      {isMobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            onClick={() => setIsMobileDrawerOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Slide-over Drawer Panel */}
+          <div className="fixed top-0 right-0 bottom-0 w-[84%] max-w-sm bg-surface shadow-2xl flex flex-col border-l border-border animate-in slide-in-from-right duration-200 z-10 overflow-y-auto">
+            {/* Drawer Header */}
+            <div className="p-4 border-b border-border flex items-center justify-between bg-surface sticky top-0 z-10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-md bg-primary text-white flex items-center justify-center font-bold text-base">
+                  J
+                </div>
+                <span className="font-extrabold text-lg tracking-tight text-text">
+                  Joki<span className="text-secondary">Day</span>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileDrawerOpen(false)}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-text-muted hover:text-text hover:bg-background transition-colors touch-target"
+                aria-label="Tutup menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="p-4 flex-1 flex flex-col gap-4">
+              {user ? (
+                <>
+                  {/* User Profile Card */}
+                  <div className="p-3.5 rounded-xl bg-background border border-border flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center text-base border border-primary/20 overflow-hidden shrink-0">
+                      {user.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt={currentDisplayName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        currentDisplayName.slice(0, 1).toUpperCase()
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm text-text truncate">{currentDisplayName}</p>
+                      <p className="text-xs text-text-muted truncate">{user.email}</p>
+                      <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-primary-soft text-primary">
+                        <ShieldCheck className="w-3 h-3" />
+                        <span>{user.isAdmin ? "Administrator" : role === "CUSTOMER" ? "Customer" : "Desainer"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Prominent CTA Hero Card */}
+                  {user.isAdmin ? (
+                    <Link
+                      href="/admin/invites"
+                      onClick={() => setIsMobileDrawerOpen(false)}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-secondary text-on-secondary font-bold text-sm rounded-xl shadow-xs hover:bg-secondary-hover transition-colors touch-target"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Undang Desainer Baru</span>
+                    </Link>
+                  ) : role === "CUSTOMER" ? (
+                    <Link
+                      href="/briefs/new"
+                      onClick={() => setIsMobileDrawerOpen(false)}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-secondary text-on-secondary font-bold text-sm rounded-xl shadow-xs hover:bg-secondary-hover transition-colors touch-target"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Buat Brief Baru</span>
+                    </Link>
+                  ) : user.isDesigner ? (
+                    <Link
+                      href="/portfolio"
+                      onClick={() => setIsMobileDrawerOpen(false)}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-secondary text-on-secondary font-bold text-sm rounded-xl shadow-xs hover:bg-secondary-hover transition-colors touch-target"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Upload Karya Portofolio</span>
+                    </Link>
+                  ) : null}
+
+                  {/* Role Switch Toggle (jika punya peran ganda) */}
+                  {user.isCustomer && user.isDesigner && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileDrawerOpen(false);
+                        setIsSwitchModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-xl border border-border bg-background hover:bg-surface transition-colors text-left touch-target"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ArrowRightLeft className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-semibold text-text">Ganti Mode Akun</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary-soft text-primary">
+                        {role === "CUSTOMER" ? "Ke Desainer" : "Ke Customer"}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Nav Links Section */}
+                  <div className="space-y-1 pt-2 border-t border-border">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-text-muted px-2 mb-1.5">
+                      Navigasi Menu
+                    </p>
+
+                    {user.isAdmin ? (
+                      <>
+                        <Link
+                          href="/admin"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname === "/admin" ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Layers className="w-4 h-4" />
+                            <span>Dashboard Admin</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                        <Link
+                          href="/admin/invites"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname.startsWith("/admin/invites") ? "bg-secondary-soft text-secondary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <ShieldCheck className="w-4 h-4" />
+                            <span>Undangan Desainer</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                        <Link
+                          href="/admin/withdrawals"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname.startsWith("/admin/withdrawals") ? "bg-secondary-soft text-secondary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Wallet className="w-4 h-4" />
+                            <span>Penarikan Saldo</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                        <Link
+                          href="/orders"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname.startsWith("/orders") ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Clock className="w-4 h-4" />
+                            <span>Semua Order</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname === "/" ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Home className="w-4 h-4" />
+                            <span>Beranda</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                        <Link
+                          href={role === "DESIGNER" ? "/dashboard/designer" : "/dashboard/customer"}
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname.startsWith("/dashboard") ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Layers className="w-4 h-4" />
+                            <span>Dashboard {role === "DESIGNER" ? "Desainer" : "Customer"}</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                        <Link
+                          href="/market"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname === "/market" ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>Pasar Brief</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                        <Link
+                          href="/portfolio"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname === "/portfolio" ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Layers className="w-4 h-4" />
+                            <span>Feed Karya</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                        <Link
+                          href="/orders"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname.startsWith("/orders") ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Clock className="w-4 h-4" />
+                            <span>Daftar Order</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                        <Link
+                          href="/chat"
+                          onClick={() => {
+                            setIsMobileDrawerOpen(false);
+                            handleChatNavClick();
+                          }}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname.startsWith("/chat") ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <MessageSquare className="w-4 h-4" />
+                            <span>Pesan & Diskusi</span>
+                          </div>
+                          {unreadChatCount > 0 ? (
+                            <span className="bg-danger text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full min-w-4 text-center">
+                              {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                            </span>
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-text-muted" />
+                          )}
+                        </Link>
+                        {role === "DESIGNER" && (
+                          <Link
+                            href="/wallet"
+                            onClick={() => setIsMobileDrawerOpen(false)}
+                            className={clsx(
+                              "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                              pathname.startsWith("/wallet") ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Wallet className="w-4 h-4" />
+                              <span>Dompet & Saldo</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-text-muted" />
+                          </Link>
+                        )}
+                        <Link
+                          href="/profile"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname.startsWith("/profile") ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <User className="w-4 h-4" />
+                            <span>Profil Akun</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3 pt-2">
+                  <Link
+                    href="/login"
+                    onClick={() => setIsMobileDrawerOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-border bg-background hover:bg-surface text-text font-bold text-sm transition-colors"
+                  >
+                    <LogIn className="w-4 h-4 text-primary" />
+                    <span>Masuk ke Akun</span>
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setIsMobileDrawerOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-hover transition-colors shadow-xs"
+                  >
+                    <span>Daftar Sekarang</span>
+                  </Link>
+                  <div className="space-y-1 pt-4 border-t border-border">
+                    <Link
+                      href="/"
+                      onClick={() => setIsMobileDrawerOpen(false)}
+                      className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-text hover:bg-background"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Home className="w-4 h-4" />
+                        <span>Beranda</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-text-muted" />
+                    </Link>
+                    <Link
+                      href="/portfolio"
+                      onClick={() => setIsMobileDrawerOpen(false)}
+                      className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-text hover:bg-background"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Layers className="w-4 h-4" />
+                        <span>Feed Karya</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-text-muted" />
+                    </Link>
+                    <Link
+                      href="/market"
+                      onClick={() => setIsMobileDrawerOpen(false)}
+                      className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-text hover:bg-background"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ShoppingBag className="w-4 h-4" />
+                        <span>Pasar Brief</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-text-muted" />
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {/* Drawer Footer with Logout (for logged in user) */}
+              {user && (
+                <div className="mt-auto pt-4 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileDrawerOpen(false);
+                      handleLogout();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-danger bg-danger-soft/40 hover:bg-danger-soft font-bold text-sm transition-colors touch-target"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Keluar dari Akun</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ChatNotificationListener />
 

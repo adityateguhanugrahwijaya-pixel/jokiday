@@ -115,7 +115,7 @@ export function ChatViewClient({
 
   const [threads, setThreads] = useState<ThreadItem[]>(initialThreads);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(
-    queryThreadId || initialActiveThreadId || (initialThreads.length > 0 ? initialThreads[0].id : null)
+    queryThreadId || initialActiveThreadId || null
   );
   const [messages, setMessages] = useState<ChatMessageItem[]>(initialMessages);
   const [messagesCache, setMessagesCache] = useState<Record<string, ChatMessageItem[]>>(() => {
@@ -231,12 +231,37 @@ export function ChatViewClient({
     }
   }, [targetDesignerId, isLoadingThreads, role]);
 
-  // Sinkronkan activeThreadId jika pengguna diarahkan dengan ?threadId=...
+  // Pada desktop (layar lebar >= 768px), otomatis pilih obrolan pertama jika belum ada obrolan aktif
   useEffect(() => {
-    if (queryThreadId && queryThreadId !== activeThreadId) {
-      setActiveThreadId(queryThreadId);
+    if (typeof window !== "undefined" && window.innerWidth >= 768 && !activeThreadId && threads.length > 0) {
+      setActiveThreadId(threads[0].id);
     }
-  }, [queryThreadId]);
+  }, [threads, activeThreadId]);
+
+  // Listener event saat navbar pesan diklik agar kembali ke tempat daftar pesan
+  useEffect(() => {
+    const handleReset = () => {
+      setActiveThreadId(null);
+    };
+    window.addEventListener("jokiday_chat_reset_to_list", handleReset);
+    return () => {
+      window.removeEventListener("jokiday_chat_reset_to_list", handleReset);
+    };
+  }, []);
+
+  // Sinkronkan activeThreadId jika pengguna diarahkan dengan ?threadId=... atau kembali ke daftar tanpa query
+  useEffect(() => {
+    if (queryThreadId) {
+      if (queryThreadId !== activeThreadId) {
+        setActiveThreadId(queryThreadId);
+      }
+    } else if (!targetDesignerId) {
+      // Jika diakses tanpa target obrolan spesifik pada layar mobile, pastikan menampilkan daftar pesan
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
+        setActiveThreadId(null);
+      }
+    }
+  }, [queryThreadId, targetDesignerId]);
 
   // Sinkronkan class chat-thread-active ke document.body agar navbar mobile otomatis disembunyikan saat ruang chat aktif dibuka
   useEffect(() => {
