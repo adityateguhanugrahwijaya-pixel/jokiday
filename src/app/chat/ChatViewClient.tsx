@@ -238,6 +238,18 @@ export function ChatViewClient({
     }
   }, [queryThreadId]);
 
+  // Sinkronkan class chat-thread-active ke document.body agar navbar mobile otomatis disembunyikan saat ruang chat aktif dibuka
+  useEffect(() => {
+    if (activeThreadId) {
+      document.body.classList.add("chat-thread-active");
+    } else {
+      document.body.classList.remove("chat-thread-active");
+    }
+    return () => {
+      document.body.classList.remove("chat-thread-active");
+    };
+  }, [activeThreadId]);
+
   // 3. Live Polling Pesan di Thread Aktif setiap 1000ms (1 Detik)
   useEffect(() => {
     if (!activeThreadId) {
@@ -551,7 +563,7 @@ export function ChatViewClient({
   const activeThread = threads.find((t) => t.id === activeThreadId);
 
   return (
-    <div className="flex-1 bg-surface border border-border rounded-xl overflow-hidden flex flex-col md:flex-row min-h-0 shadow-sm">
+    <div className="flex-1 bg-surface border-0 md:border md:border-border rounded-none md:rounded-xl overflow-hidden flex flex-col md:flex-row min-h-0 md:shadow-sm h-full w-full">
       {/* PANEL KIRI: DAFTAR THREAD BERDASARKAN MODE AKTIF */}
       <div
         className={clsx(
@@ -589,7 +601,7 @@ export function ChatViewClient({
         </div>
 
         {/* List Threads */}
-        <div className="flex-1 overflow-y-auto divide-y divide-border">
+        <div className="flex-1 overflow-y-auto divide-y divide-border pb-20 md:pb-0">
           {isLoadingThreads ? (
             <div className="p-8 text-center text-xs text-text-muted">
               Memuat daftar obrolan...
@@ -681,11 +693,11 @@ export function ChatViewClient({
                 <button
                   type="button"
                   onClick={() => setActiveThreadId(null)}
-                  className="md:hidden p-1.5 -ml-1 text-primary hover:bg-primary-soft rounded-lg flex items-center gap-1 font-semibold text-xs shrink-0 touch-target"
+                  className="md:hidden p-2 -ml-1 text-primary hover:bg-primary-soft rounded-lg flex items-center gap-1 font-bold text-xs shrink-0 touch-target min-w-[44px] min-h-[44px]"
                   title="Kembali ke daftar percakapan"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span className="text-xs">Daftar</span>
+                  <span className="text-xs font-bold">Daftar</span>
                 </button>
 
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0">
@@ -794,7 +806,7 @@ export function ChatViewClient({
             {/* Bubble Messages (Live Stream) */}
             <div
               ref={chatContainerRef}
-              className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 min-h-0"
+              className="flex-1 p-3 sm:p-4 pb-6 overflow-y-auto space-y-3 min-h-0"
             >
               {isLoadingMessages && messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-8 text-center text-xs text-text-muted space-y-2">
@@ -1018,7 +1030,7 @@ export function ChatViewClient({
             {/* Form Input Pesan (Live Send) */}
             <form
               onSubmit={handleSendMessage}
-              className="p-2.5 sm:p-3 bg-surface border-t border-border flex items-center gap-2 shrink-0 sticky bottom-0 z-10"
+              className="p-2 sm:p-3 bg-surface border-t border-border flex items-center gap-2 shrink-0 sticky bottom-0 z-10 pb-[max(0.625rem,env(safe-area-inset-bottom))]"
             >
               <input
                 type="text"
@@ -1029,7 +1041,7 @@ export function ChatViewClient({
                 }
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
-                className="flex-1 h-10 px-3 sm:px-3.5 bg-background border border-border rounded-lg text-xs sm:text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1 h-11 px-4 bg-background border border-border rounded-full text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
               />
               <Button
                 type="submit"
@@ -1037,7 +1049,8 @@ export function ChatViewClient({
                 size="sm"
                 isLoading={isSending}
                 disabled={!messageText.trim()}
-                className="h-10 px-3.5 sm:px-4 shrink-0"
+                className="h-11 w-11 rounded-full p-0 flex items-center justify-center shrink-0 shadow-xs touch-target"
+                title="Kirim pesan"
               >
                 <Send className="w-4 h-4" />
               </Button>

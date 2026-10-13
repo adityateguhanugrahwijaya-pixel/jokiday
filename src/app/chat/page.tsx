@@ -159,13 +159,15 @@ export default async function ChatPage({
     <AppShell
       role={activeRole}
       displayName={currentUser.displayName || "Pengguna"}
+      hideFooter={true}
+      fullBleed={true}
     >
-      <div className="h-[calc(100dvh-13.5rem)] md:h-[calc(100vh-140px)] flex flex-col space-y-2 sm:space-y-4">
-        <div className="shrink-0">
+      <div className="h-[calc(100dvh-4rem)] md:h-[calc(100vh-140px)] flex flex-col space-y-0 md:space-y-4">
+        <div className="shrink-0 hidden md:block">
           <h1 className="text-xl sm:text-2xl font-bold text-text">
             Pesan & Diskusi Desain
           </h1>
-          <p className="text-xs text-text-muted mt-0.5 hidden sm:block">
+          <p className="text-xs text-text-muted mt-0.5">
             Komunikasi terpisah antara peran pelanggan dan desainer agar pekerjaan dan pesanan tidak tercampur.
           </p>
         </div>

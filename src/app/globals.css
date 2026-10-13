@@ -58,3 +58,9 @@
   min-height: 44px;
   min-width: 44px;
 }
+
+/* Sembunyikan bottom navigation mobile saat percakapan chat aktif dibuka agar layar obrolan full screen */
+body.chat-thread-active nav.fixed.bottom-0 {
+  display: none !important;
+}
+
