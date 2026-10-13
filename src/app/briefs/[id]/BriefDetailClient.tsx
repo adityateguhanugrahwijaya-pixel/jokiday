@@ -193,15 +193,32 @@ export function BriefDetailClient({
         </div>
       )}
 
-      {/* Form Kirim Penawaran Baru (Hanya untuk Desainer Terverifikasi yang Bukan Pemilik Brief) */}
-      {brief.status === "OPEN" && Boolean(currentDesignerId) && currentUserId !== customerId && (
+      {/* Jika brief DIRECT dan desainer yang login BUKAN target designer */}
+      {brief.status === "OPEN" && brief.mode === "DIRECT" && Boolean(currentDesignerId) && brief.targetDesignerId && brief.targetDesignerId !== currentDesignerId && currentUserId !== customerId && (
+        <div className="bg-neutral-soft border border-border rounded-lg p-5 text-sm text-text-muted text-center space-y-1">
+          <p className="font-bold text-text">Pesanan Khusus Desainer Tertentu</p>
+          <p className="text-xs">
+            Brief ini dibuat sebagai pesanan langsung khusus kepada desainer yang ditunjuk oleh pelanggan. Hanya desainer terpilih yang dapat mengirimkan penawaran.
+          </p>
+        </div>
+      )}
+
+      {/* Form Kirim Penawaran Baru (Hanya untuk Desainer Terverifikasi yang Bukan Pemilik Brief, dan jika DIRECT harus desainer target) */}
+      {brief.status === "OPEN" && Boolean(currentDesignerId) && currentUserId !== customerId && (brief.mode !== "DIRECT" || brief.targetDesignerId === currentDesignerId) && (
         <div className="bg-surface border border-border rounded-lg p-6 sm:p-8 space-y-4">
           <div>
+            {brief.mode === "DIRECT" && (
+              <div className="mb-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-secondary text-on-secondary shadow-2xs">
+                ⭐ Pesanan Langsung Khusus Untukmu
+              </div>
+            )}
             <h3 className="font-bold text-lg text-text">
               Kirim Penawaran Harga (Sisi Desainer)
             </h3>
             <p className="text-xs text-text-muted mt-0.5">
-              Tentukan harga pasti, durasi, dan kuota revisi yang kamu tawarkan untuk brief ini.
+              {brief.mode === "DIRECT"
+                ? "Pelanggan secara khusus menunjuk Anda. Tentukan harga pasti, durasi, dan kuota revisi yang kamu tawarkan."
+                : "Tentukan harga pasti, durasi, dan kuota revisi yang kamu tawarkan untuk brief ini."}
             </p>
           </div>
 

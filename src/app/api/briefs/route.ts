@@ -40,6 +40,27 @@ export async function POST(req: NextRequest) {
       customerId: session.userId,
     });
 
+    if (body.mode === "DIRECT" && body.targetDesignerId) {
+      try {
+        const customer = await prisma.user.findUnique({
+          where: { id: session.userId },
+          select: { displayName: true },
+        });
+        const customerName = customer?.displayName || "Pelanggan";
+
+        const { PushNotificationService } = await import("@/server/push/push.service");
+        await PushNotificationService.notifyUser(body.targetDesignerId, {
+          type: "DIRECT_BRIEF_RECEIVED",
+          title: "Pesanan Brief Langsung Baru!",
+          body: `${customerName} mengirimkan brief langsung khusus untuk Anda: "${brief.title}". Silakan kirim penawaran harga Anda.`,
+          url: `/briefs/${brief.id}`,
+          payload: { briefId: brief.id },
+        });
+      } catch (notifErr) {
+        console.error("Gagal mengirim notifikasi brief langsung:", notifErr);
+      }
+    }
+
     return NextResponse.json({ success: true, brief });
   } catch (err) {
     const { status, body } = handleApiError(err);

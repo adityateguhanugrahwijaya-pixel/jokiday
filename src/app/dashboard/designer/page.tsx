@@ -80,10 +80,25 @@ export default async function DesignerDashboardPage() {
   });
 
   const marketBriefs = await prisma.brief.findMany({
-    where: { status: "OPEN", mode: "MARKET" },
+    where: {
+      status: "OPEN",
+      OR: [
+        { mode: "MARKET" },
+        { mode: "DIRECT", targetDesignerId: user.id },
+      ],
+    },
     include: { customer: true },
-    take: 5,
+    take: 10,
     orderBy: { createdAt: "desc" },
+  });
+
+  // Prioritaskan pesanan brief direct khusus desainer ini di baris teratas
+  const sortedMarketBriefs = [...marketBriefs].sort((a, b) => {
+    const aIsDirect = a.mode === "DIRECT" && a.targetDesignerId === user.id;
+    const bIsDirect = b.mode === "DIRECT" && b.targetDesignerId === user.id;
+    if (aIsDirect && !bIsDirect) return -1;
+    if (!aIsDirect && bIsDirect) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   const initialPackages = await prisma.servicePackage.findMany({
@@ -98,7 +113,7 @@ export default async function DesignerDashboardPage() {
       availableBalance={availableBalance}
       activeOrders={activeOrders}
       awaitingPaymentOrders={awaitingPaymentOrders}
-      marketBriefs={marketBriefs}
+      marketBriefs={sortedMarketBriefs.slice(0, 6)}
       initialPackages={initialPackages}
     />
   );

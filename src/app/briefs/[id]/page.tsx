@@ -36,6 +36,14 @@ export default async function BriefDetailPage({ params }: { params: { id: string
     notFound();
   }
 
+  let targetDesigner = null;
+  if (brief.targetDesignerId) {
+    targetDesigner = await prisma.user.findUnique({
+      where: { id: brief.targetDesignerId },
+      select: { id: true, displayName: true, username: true },
+    });
+  }
+
   const isVerifiedDesigner = Boolean(currentUser?.isDesigner && currentUser?.designerProfile?.isVerified);
   const currentDesignerId = isVerifiedDesigner ? (currentUser?.id || "") : "";
 
@@ -56,9 +64,16 @@ export default async function BriefDetailPage({ params }: { params: { id: string
         {/* Info Brief */}
         <div className="bg-surface border border-border rounded-lg p-6 sm:p-8 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-neutral-soft text-text-muted capitalize">
-              {brief.category}
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-neutral-soft text-text-muted capitalize">
+                {brief.category}
+              </span>
+              {brief.mode === "DIRECT" && (
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-secondary text-on-secondary shadow-2xs">
+                  ⭐ Pesanan Langsung ({targetDesigner?.displayName || "Desainer"})
+                </span>
+              )}
+            </div>
             <Badge variant={brief.status === "OPEN" ? "info" : "neutral"}>
               {brief.status === "OPEN" ? "Terbuka Menerima Penawaran" : brief.status}
             </Badge>

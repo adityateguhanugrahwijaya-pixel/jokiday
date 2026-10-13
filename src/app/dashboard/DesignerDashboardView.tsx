@@ -481,37 +481,53 @@ export function DesignerDashboardView({
               </div>
             ) : (
               <div className="space-y-3">
-                {marketBriefs.map((brief) => (
-                  <div
-                    key={brief.id}
-                    className="bg-surface border border-border rounded-lg p-4 sm:p-5 flex items-center justify-between gap-4 hover:border-secondary/40 transition-colors shadow-subtle"
-                  >
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-semibold px-2 py-0.5 bg-neutral-soft text-text-muted rounded-full">
-                          {brief.category || "Desain"}
-                        </span>
-                        <span className="text-xs text-text-muted">
-                          Oleh {brief.customer.displayName}
-                        </span>
-                      </div>
-                      <h3 className="font-bold text-sm sm:text-base text-text truncate">
-                        {brief.title}
-                      </h3>
-                      <p className="text-xs text-text-muted">
-                        Anggaran: {formatRupiah(brief.budgetHint || 0)}
-                      </p>
-                    </div>
-
-                    <Link
-                      href={`/briefs/${brief.id}`}
-                      className="inline-flex items-center justify-center h-8 px-3 rounded-md bg-surface text-secondary-text border border-border font-semibold text-xs hover:bg-background transition-colors shrink-0"
+                {marketBriefs.map((brief) => {
+                  const isDirect = brief.mode === "DIRECT";
+                  return (
+                    <div
+                      key={brief.id}
+                      className={`bg-surface border rounded-lg p-4 sm:p-5 flex items-center justify-between gap-4 transition-colors shadow-subtle ${
+                        isDirect
+                          ? "border-secondary/60 bg-secondary/5 ring-1 ring-secondary/20"
+                          : "border-border hover:border-secondary/40"
+                      }`}
                     >
-                      <span>Kirim Tawaran</span>
-                      <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
-                    </Link>
-                  </div>
-                ))}
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[11px] font-semibold px-2 py-0.5 bg-neutral-soft text-text-muted rounded-full">
+                            {brief.category || "Desain"}
+                          </span>
+                          {isDirect && (
+                            <span className="text-[11px] font-bold px-2 py-0.5 bg-secondary text-on-secondary rounded-full shadow-2xs">
+                              ⭐ Pesanan Langsung
+                            </span>
+                          )}
+                          <span className="text-xs text-text-muted">
+                            Oleh {brief.customer.displayName}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-sm sm:text-base text-text truncate">
+                          {brief.title}
+                        </h3>
+                        <p className="text-xs text-text-muted">
+                          Anggaran: {formatRupiah(brief.budgetHint || 0)}
+                        </p>
+                      </div>
+
+                      <Link
+                        href={`/briefs/${brief.id}`}
+                        className={`inline-flex items-center justify-center h-8 px-3 rounded-md font-semibold text-xs transition-colors shrink-0 ${
+                          isDirect
+                            ? "bg-secondary text-on-secondary hover:bg-secondary-hover shadow-2xs"
+                            : "bg-surface text-secondary-text border border-border hover:bg-background"
+                        }`}
+                      >
+                        <span>Kirim Tawaran</span>
+                        <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                      </Link>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
