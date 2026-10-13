@@ -283,6 +283,6 @@ export class OfferService {
       }
 
       return order;
-    });
+    }, { maxWait: 15000, timeout: 30000 });
   }
 }

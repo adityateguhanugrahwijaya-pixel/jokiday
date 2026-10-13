@@ -217,4 +217,46 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
     expect(escrow?.amount).toBe(70000);
     expect(escrow?.direction).toBe("CREDIT");
   });
+
+  it("accumulates platform fee 5% and allows admin to withdraw platform balance", async () => {
+    const adminId = crypto.randomUUID();
+    const designerId = crypto.randomUUID();
+    const orderId1 = crypto.randomUUID();
+    const orderId2 = crypto.randomUUID();
+
+    // Order 1: 100.000 (fee 5.000)
+    await LedgerService.recordCustomerPayment(orderId1, 100000, "pay-" + orderId1);
+    await LedgerService.recordOrderCompleted(orderId1, designerId, 100000, "complete-" + orderId1);
+
+    // Order 2: 200.000 (fee 10.000)
+    await LedgerService.recordCustomerPayment(orderId2, 200000, "pay-" + orderId2);
+    await LedgerService.recordOrderCompleted(orderId2, designerId, 200000, "complete-" + orderId2);
+
+    // Total fee terkumpul = 15.000
+    const platformBalance = await LedgerService.getPlatformBalance();
+    expect(platformBalance).toBe(15000);
+
+    const totalAllTime = await LedgerService.getTotalPlatformRevenueAllTime();
+    expect(totalAllTime).toBe(15000);
+
+    // Admin cairkan 10.000
+    await LedgerService.recordPlatformWithdrawal(
+      adminId,
+      10000,
+      "admin-withdraw-test-1",
+      "Pencairan fee platform"
+    );
+
+    // Sisa saldo platform = 5.000
+    const remainingBalance = await LedgerService.getPlatformBalance();
+    expect(remainingBalance).toBe(5000);
+
+    const totalWithdrawn = await LedgerService.getTotalPlatformWithdrawnAllTime();
+    expect(totalWithdrawn).toBe(10000);
+
+    // Gagal jika menarik melebihi saldo tersedia (misal 6.000)
+    await expect(
+      LedgerService.recordPlatformWithdrawal(adminId, 6000, "admin-withdraw-exceed")
+    ).rejects.toThrow(/tidak mencukupi/i);
+  });
 });

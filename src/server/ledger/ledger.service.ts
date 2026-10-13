@@ -493,4 +493,85 @@ export class LedgerService {
 
     return await this.recordTransaction(entries, idempotencyKey, txClient);
   }
+
+  /**
+   * Hitung saldo pendapatan platform (fee 5% terkumpul):
+   * SUM(CREDIT PLATFORM_REVENUE) - SUM(DEBIT PLATFORM_REVENUE)
+   */
+  static async getPlatformBalance(txClient = prisma): Promise<number> {
+    const account = "PLATFORM_REVENUE";
+    const entries = await txClient.ledgerEntry.findMany({
+      where: { account },
+      select: { direction: true, amount: true },
+    });
+
+    let balance = 0;
+    for (const e of entries) {
+      if (e.direction === "CREDIT") {
+        balance += e.amount;
+      } else if (e.direction === "DEBIT") {
+        balance -= e.amount;
+      }
+    }
+    return Math.max(0, balance);
+  }
+
+  /**
+   * Hitung total fee platform 5% kumulatif (all time credit PLATFORM_REVENUE):
+   */
+  static async getTotalPlatformRevenueAllTime(txClient = prisma): Promise<number> {
+    const entries = await txClient.ledgerEntry.findMany({
+      where: { account: "PLATFORM_REVENUE", direction: "CREDIT" },
+      select: { amount: true },
+    });
+    return entries.reduce((acc, curr) => acc + curr.amount, 0);
+  }
+
+  /**
+   * Hitung total pencairan saldo platform kumulatif (all time debit PLATFORM_REVENUE):
+   */
+  static async getTotalPlatformWithdrawnAllTime(txClient = prisma): Promise<number> {
+    const entries = await txClient.ledgerEntry.findMany({
+      where: { account: "PLATFORM_REVENUE", direction: "DEBIT" },
+      select: { amount: true },
+    });
+    return entries.reduce((acc, curr) => acc + curr.amount, 0);
+  }
+
+  /**
+   * Jurnal saat admin mencairkan dana fee platform 5%:
+   * Debit: PLATFORM_REVENUE
+   * Kredit: GATEWAY_CLEARING
+   */
+  static async recordPlatformWithdrawal(
+    adminUserId: string,
+    amount: number,
+    idempotencyKey: string,
+    reason = "Pencairan saldo pendapatan platform 5% oleh admin",
+    txClient = prisma
+  ) {
+    const currentBalance = await this.getPlatformBalance(txClient);
+    if (currentBalance < amount) {
+      throw new ConflictError("Saldo fee platform tidak mencukupi untuk penarikan ini");
+    }
+
+    const entries: LedgerEntryItem[] = [
+      {
+        account: "PLATFORM_REVENUE",
+        direction: "DEBIT",
+        amount,
+        userId: adminUserId,
+        reason,
+      },
+      {
+        account: "GATEWAY_CLEARING",
+        direction: "CREDIT",
+        amount,
+        userId: adminUserId,
+        reason: `Kas keluar untuk pencairan saldo pendapatan platform admin`,
+      },
+    ];
+
+    return await this.recordTransaction(entries, idempotencyKey, txClient);
+  }
 }

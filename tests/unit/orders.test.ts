@@ -10,6 +10,11 @@ describe("Offer & Order State Machine", () => {
   let designer2Id: string;
 
   beforeEach(async () => {
+    await prisma.message.deleteMany({});
+    await prisma.chatThread.deleteMany({});
+    await prisma.revisionRequest.deleteMany({});
+    await prisma.deliveryFile.deleteMany({});
+    await prisma.delivery.deleteMany({});
     await prisma.ledgerEntry.deleteMany({});
     await prisma.auditLog.deleteMany({});
     await prisma.order.deleteMany({});

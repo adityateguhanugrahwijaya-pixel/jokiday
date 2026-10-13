@@ -67,6 +67,70 @@ export async function POST(req: NextRequest) {
       { reason: cleanReason, note: cleanNote }
     );
 
+    // Jika customer mengajukan revisi, kirim pesan otomatis ke chat thread dan buat notifikasi
+    if (typedEvent === "REQUEST_REVISION" && cleanNote) {
+      try {
+        let thread = await prisma.chatThread.findFirst({
+          where: {
+            OR: [
+              { orderId: order.id },
+              {
+                customerId: order.customerId,
+                designerId: order.designerId,
+              },
+            ],
+          },
+        });
+
+        if (!thread) {
+          thread = await prisma.chatThread.create({
+            data: {
+              customerId: order.customerId,
+              designerId: order.designerId,
+              orderId: order.id,
+              title: `Diskusi Order #${order.id.slice(0, 8)}`,
+              lastMessage: `Catatan Revisi: "${cleanNote.slice(0, 50)}"`,
+              lastMessageAt: new Date(),
+            },
+          });
+        }
+
+        const revisionMsgText = `📝 CATATAN REVISI PELANGGAN (Revisi ke-${updated.revisionsUsed}):\n\n"${cleanNote}"\n\nSilakan periksa detail revisi dan unggah hasil penyesuaian melalui halaman pesanan.`;
+
+        await prisma.message.create({
+          data: {
+            threadId: thread.id,
+            senderId: session.userId,
+            type: "TEXT",
+            body: revisionMsgText,
+          },
+        });
+
+        await prisma.chatThread.update({
+          where: { id: thread.id },
+          data: {
+            lastMessage: `Catatan Revisi ke-${updated.revisionsUsed}: ${cleanNote.slice(0, 80)}`,
+            lastMessageAt: new Date(),
+          },
+        });
+
+        // Kirim in-app notifikasi ke desainer
+        await prisma.notification.create({
+          data: {
+            userId: order.designerId,
+            type: "ORDER_REVISION_REQUESTED",
+            payload: JSON.stringify({
+              orderId: order.id,
+              round: updated.revisionsUsed,
+              note: cleanNote,
+            }),
+          },
+        });
+      } catch (chatErr) {
+        console.error("[Transition] Gagal mengirim pesan chat catatan revisi:", chatErr);
+      }
+    }
+
     return NextResponse.json({ success: true, order: updated });
   } catch (err) {
     const { status, body } = handleApiError(err);

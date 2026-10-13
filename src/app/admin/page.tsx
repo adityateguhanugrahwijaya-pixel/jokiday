@@ -1,6 +1,7 @@
 import React from "react";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
+import { LedgerService } from "@/server/ledger/ledger.service";
 import { redirect } from "next/navigation";
 import { AdminDashboardView } from "@/app/dashboard/AdminDashboardView";
 
@@ -29,6 +30,7 @@ export default async function AdminDashboardPage() {
     completedOrders,
     pendingWithdrawals,
     activeInvites,
+    platformBalance,
     pendingWithdrawalsList,
     recentOrders,
     recentInvites,
@@ -47,6 +49,7 @@ export default async function AdminDashboardPage() {
     prisma.order.count({ where: { status: "COMPLETED" } }),
     prisma.withdrawal.count({ where: { status: "REQUESTED" } }),
     prisma.designerInvite.count({ where: { status: "ACTIVE" } }),
+    LedgerService.getPlatformBalance(),
     prisma.withdrawal.findMany({
       where: { status: "REQUESTED" },
       include: { user: true },
@@ -76,6 +79,7 @@ export default async function AdminDashboardPage() {
         completedOrders,
         pendingWithdrawals,
         activeInvites,
+        platformBalance,
       }}
       pendingWithdrawalsList={pendingWithdrawalsList}
       recentOrders={recentOrders}

@@ -130,4 +130,43 @@ export class ImageKitService {
       );
     });
   }
+
+  /**
+   * Upload watermarked order delivery preview image to ImageKit CDN.
+   */
+  static async uploadOrderDeliveryPreview(
+    orderId: string,
+    watermarkedBuffer: Buffer,
+    fileName: string
+  ): Promise<{ url: string; fileId: string }> {
+    const ik = getImageKit();
+
+    return new Promise((resolve, reject) => {
+      ik.upload(
+        {
+          file: watermarkedBuffer.toString("base64"),
+          fileName,
+          folder: "/jokiday/order_previews",
+          useUniqueFileName: true,
+          tags: ["order_preview", `order_${orderId}`],
+        },
+        (err, result) => {
+          if (err || !result) {
+            return reject(
+              new AppError(
+                `Gagal mengunggah pratinjau ke ImageKit CDN: ${err?.message || "Unknown error"}`,
+                "IMAGEKIT_UPLOAD_FAILED",
+                502
+              )
+            );
+          }
+
+          resolve({
+            url: result.url,
+            fileId: result.fileId,
+          });
+        }
+      );
+    });
+  }
 }

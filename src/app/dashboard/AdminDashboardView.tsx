@@ -31,6 +31,7 @@ interface AdminDashboardProps {
     completedOrders: number;
     pendingWithdrawals: number;
     activeInvites: number;
+    platformBalance?: number;
   };
   pendingWithdrawalsList: any[];
   recentOrders: any[];
@@ -79,6 +80,42 @@ export function AdminDashboardView({
             >
               <Wallet className="w-4 h-4 mr-1.5 text-primary" />
               <span>Penarikan Saldo</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Highlight Card: Saldo Pendapatan Platform (Fee 5%) */}
+        <div className="bg-gradient-to-r from-primary-soft/80 via-surface to-surface border border-primary/20 rounded-xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-sm">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-xs">
+                <Wallet className="w-4 h-4" />
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                Saldo Pendapatan Platform (Fee 5%)
+              </span>
+            </div>
+            <div className="flex items-baseline gap-3 pt-1">
+              <p className="text-3xl sm:text-4xl font-extrabold text-text font-money">
+                {formatRupiah(stats.platformBalance || 0)}
+              </p>
+              <span className="text-xs text-success font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Siap Dicairkan
+              </span>
+            </div>
+            <p className="text-xs text-text-muted leading-relaxed max-w-xl">
+              Akumulasi fee 5% dari seluruh order selesai yang otomatis dipindahkan ke saldo admin. Dilacak penuh di buku besar double-entry ledger dengan notifikasi audit email otomatis ke aditya.teguhanugrahwijaya@gmail.com dan admin@jokiday.com.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <Link
+              href="/admin/withdrawals"
+              className="inline-flex items-center justify-center h-10 px-5 rounded-md bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors shadow-sm"
+            >
+              <span>Cairkan Saldo Platform</span>
+              <ChevronRight className="w-4 h-4 ml-1" />
             </Link>
           </div>
         </div>

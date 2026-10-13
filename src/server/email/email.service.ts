@@ -261,4 +261,154 @@ export class EmailService {
       html,
     });
   }
+
+  /**
+   * Template email: Notifikasi Fee Platform 5% Terkumpul ke Email Admin & Tracking
+   */
+  static async sendPlatformFeeCollectedEmail(data: {
+    orderId: string;
+    briefTitle: string;
+    price: number;
+    fee: number;
+    designerNet: number;
+    designerName: string;
+    customerName: string;
+    platformBalance: number;
+  }) {
+    const appUrl = getAppUrl();
+    const adminUrl = `${appUrl}/admin/withdrawals`;
+    const recipients = ["aditya.teguhanugrahwijaya@gmail.com", "admin@jokiday.com"];
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+        <div style="margin-bottom: 20px;">
+          <span style="font-size: 20px; font-weight: 800; color: #1d4ed8;">JokiDay</span>
+          <span style="display: inline-block; margin-left: 8px; padding: 2px 8px; background-color: #dbeafe; color: #1e40af; border-radius: 4px; font-size: 11px; font-weight: bold;">ADMIN NOTIFICATION</span>
+        </div>
+        <h2 style="font-size: 18px; color: #0b1f4a; margin-top: 0;">Fee Platform 5% Berhasil Dikreditkan ke Saldo Admin</h2>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+          Pesanan desain telah disetujui pelanggan dan selesai. Biaya platform sebesar <strong>5%</strong> telah dipindahkan ke Saldo Pendapatan Platform Admin dan dapat dicairkan secara mandiri.
+        </p>
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 16px 0;">
+          <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #0f172a;">${data.briefTitle} (Order #${data.orderId.slice(0, 8)})</p>
+          <div style="font-size: 13px; color: #334155; line-height: 1.8;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+              <span>Total Nilai Pesanan:</span>
+              <strong>Rp${data.price.toLocaleString("id-ID")}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 6px 0;">
+              <span>Hak Desainer (95% - ${data.designerName}):</span>
+              <span>Rp${data.designerNet.toLocaleString("id-ID")}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 6px 0; color: #15803d; font-weight: bold;">
+              <span>Fee Platform JokiDay (5% Masuk Saldo Admin):</span>
+              <span>+Rp${data.fee.toLocaleString("id-ID")}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding-top: 6px; font-weight: bold; color: #1d4ed8;">
+              <span>Total Saldo Admin Tersedia Saat Ini:</span>
+              <span>Rp${data.platformBalance.toLocaleString("id-ID")}</span>
+            </div>
+          </div>
+        </div>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+          Pelanggan: <strong>${data.customerName}</strong><br/>
+          Desainer: <strong>${data.designerName}</strong>
+        </p>
+        <div style="margin: 24px 0;">
+          <a href="${adminUrl}" style="background-color: #1d4ed8; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 6px; display: inline-block;">
+            Buka Panel Saldo Admin & Pencairan
+          </a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="font-size: 11px; color: #94a3b8; margin: 0;">
+          Email audit resmi dikirim otomatis ke aditya.teguhanugrahwijaya@gmail.com dan admin@jokiday.com untuk memastikan setiap rupiah fee platform tercatat dan terlindungi.
+        </p>
+      </div>
+    `;
+
+    try {
+      return await this.sendEmail({
+        to: recipients,
+        subject: `[JokiDay] Fee Platform 5% Terkumpul: +Rp${data.fee.toLocaleString("id-ID")} (Order #${data.orderId.slice(0, 8)})`,
+        html,
+      });
+    } catch (err) {
+      console.error("[EmailService] Gagal mengirim email notifikasi fee platform:", err);
+      return { id: `err_${Date.now()}`, success: false };
+    }
+  }
+
+  /**
+   * Template email: Notifikasi Pencairan Saldo Platform oleh Admin
+   */
+  static async sendAdminWithdrawalNotification(data: {
+    withdrawalId: string;
+    amount: number;
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+    remainingBalance: number;
+    adminName: string;
+  }) {
+    const appUrl = getAppUrl();
+    const adminUrl = `${appUrl}/admin/withdrawals`;
+    const recipients = ["aditya.teguhanugrahwijaya@gmail.com", "admin@jokiday.com"];
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+        <div style="margin-bottom: 20px;">
+          <span style="font-size: 20px; font-weight: 800; color: #1d4ed8;">JokiDay</span>
+          <span style="display: inline-block; margin-left: 8px; padding: 2px 8px; background-color: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: bold;">PENCAIRAN SALDO PLATFORM</span>
+        </div>
+        <h2 style="font-size: 18px; color: #0b1f4a; margin-top: 0;">Pencairan Saldo Pendapatan Platform Berhasil Diproses</h2>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+          Pencairan dana fee platform 5% telah diajukan dan dicatat di buku besar akuntansi (double-entry ledger) JokiDay.
+        </p>
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 16px 0;">
+          <div style="font-size: 13px; color: #334155; line-height: 1.8;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+              <span>Nominal Pencairan:</span>
+              <strong style="color: #dc2626; font-size: 15px;">-Rp${data.amount.toLocaleString("id-ID")}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 6px 0;">
+              <span>Tujuan Transfer:</span>
+              <strong>${data.bankName} - ${data.accountNumber}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 6px 0;">
+              <span>Nama Penerima:</span>
+              <strong>${data.accountHolder}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 6px 0;">
+              <span>Admin Pemroses:</span>
+              <span>${data.adminName}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding-top: 6px; font-weight: bold; color: #1d4ed8;">
+              <span>Sisa Saldo Platform Tersedia:</span>
+              <span>Rp${data.remainingBalance.toLocaleString("id-ID")}</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin: 24px 0;">
+          <a href="${adminUrl}" style="background-color: #1d4ed8; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 6px; display: inline-block;">
+            Lihat Rekap Transaksi Platform
+          </a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="font-size: 11px; color: #94a3b8; margin: 0;">
+          Audit trail: Pengurangan kas platform ini terlacak secara permanen dan dikirim ke aditya.teguhanugrahwijaya@gmail.com dan admin@jokiday.com. ID Penarikan: ${data.withdrawalId}.
+        </p>
+      </div>
+    `;
+
+    try {
+      return await this.sendEmail({
+        to: recipients,
+        subject: `[JokiDay] Pencairan Saldo Platform: -Rp${data.amount.toLocaleString("id-ID")} (${data.bankName})`,
+        html,
+      });
+    } catch (err) {
+      console.error("[EmailService] Gagal mengirim email konfirmasi pencairan admin:", err);
+      return { id: `err_${Date.now()}`, success: false };
+    }
+  }
 }

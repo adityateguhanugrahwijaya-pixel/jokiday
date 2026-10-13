@@ -15,6 +15,8 @@ import {
   Clock,
   MessageSquare,
   FileCheck,
+  X,
+  Upload,
 } from "lucide-react";
 
 export interface OrderActionButtonsProps {
@@ -27,6 +29,7 @@ export interface OrderActionButtonsProps {
   designerName?: string;
   customerId?: string;
   designerId?: string;
+  latestRevisionNote?: string;
 }
 
 export function OrderActionButtons({
@@ -39,6 +42,7 @@ export function OrderActionButtons({
   designerName = "Desainer",
   customerId,
   designerId,
+  latestRevisionNote,
 }: OrderActionButtonsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -68,6 +72,17 @@ export function OrderActionButtons({
         .catch(() => {});
     }
   }, [status, viewerRole]);
+
+  // Kunci scroll halaman belakang saat modal pengiriman atau revisi aktif
+  useEffect(() => {
+    if (showDeliverModal || showRevisionModal) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [showDeliverModal, showRevisionModal]);
 
   const balanceToDeduct = useBalance ? Math.min(refundBalance, price) : 0;
   const remainingQrisAmount = Math.max(0, price - balanceToDeduct);
@@ -235,19 +250,38 @@ export function OrderActionButtons({
 
           {(status === "IN_PROGRESS" || status === "REVISION") && (
             <div className="space-y-3">
-              <div className="p-3 bg-success-soft/70 border border-success/30 rounded-md text-xs text-success font-semibold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>Pembayaran Berhasil. Proyek Siap Dikerjakan.</span>
-              </div>
+              {status === "REVISION" && latestRevisionNote ? (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2 text-xs">
+                  <div className="font-bold text-amber-600 flex items-center gap-1.5">
+                    <RotateCcw className="w-4 h-4 shrink-0" />
+                    <span>Catatan Revisi dari Pelanggan:</span>
+                  </div>
+                  <div className="p-2.5 bg-surface border border-border rounded text-text font-medium whitespace-pre-wrap leading-relaxed">
+                    &ldquo;{latestRevisionNote}&rdquo;
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-success-soft/70 border border-success/30 rounded-md text-xs text-success font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Pembayaran Berhasil. Proyek Siap Dikerjakan.</span>
+                </div>
+              )}
               <Button
                 variant="primary"
                 fullWidth
                 isLoading={isLoading}
-                onClick={() => setShowDeliverModal(true)}
+                onClick={() => {
+                  setErrorMsg("");
+                  setShowDeliverModal(true);
+                }}
                 className="flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                <span>Kirim Hasil Desain ke Pelanggan</span>
+                <span>
+                  {status === "REVISION"
+                    ? "Kirim Hasil Revisi ke Pelanggan"
+                    : "Kirim Hasil Desain ke Pelanggan"}
+                </span>
               </Button>
               {customerId && (
                 <Link
@@ -377,15 +411,27 @@ export function OrderActionButtons({
 
           {(status === "IN_PROGRESS" || status === "REVISION") && (
             <div className="space-y-3">
-              <div className="p-3 bg-surface border border-border rounded-md text-xs text-text space-y-1">
-                <div className="font-bold flex items-center gap-1.5 text-primary">
-                  <Clock className="w-4 h-4" />
-                  <span>Desainer Sedang Mengerjakan Proyek</span>
+              {status === "REVISION" && latestRevisionNote ? (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-md text-xs space-y-1.5">
+                  <div className="font-bold text-amber-600 flex items-center gap-1.5">
+                    <RotateCcw className="w-4 h-4 shrink-0" />
+                    <span>Catatan Revisi Terkirim ke Desainer:</span>
+                  </div>
+                  <div className="p-2 bg-surface/90 border border-border rounded text-text font-medium leading-relaxed">
+                    &ldquo;{latestRevisionNote}&rdquo;
+                  </div>
                 </div>
-                <p className="text-text-muted leading-relaxed">
-                  Desainer {designerName} sedang memproses pesananmu. Hasil pratinjau akan otomatis muncul begitu diunggah.
-                </p>
-              </div>
+              ) : (
+                <div className="p-3 bg-surface border border-border rounded-md text-xs text-text space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-primary">
+                    <Clock className="w-4 h-4" />
+                    <span>Desainer Sedang Mengerjakan Proyek</span>
+                  </div>
+                  <p className="text-text-muted leading-relaxed">
+                    Desainer {designerName} sedang memproses pesananmu. Hasil pratinjau akan otomatis muncul begitu diunggah.
+                  </p>
+                </div>
+              )}
               {designerId && (
                 <Link
                   href={`/chat?userId=${designerId}&designerId=${designerId}`}
@@ -414,7 +460,10 @@ export function OrderActionButtons({
               <Button
                 variant="ghost"
                 fullWidth
-                onClick={() => setShowRevisionModal(true)}
+                onClick={() => {
+                  setErrorMsg("");
+                  setShowRevisionModal(true);
+                }}
                 className="flex items-center gap-2"
               >
                 <RotateCcw className="w-4 h-4" />
@@ -439,52 +488,115 @@ export function OrderActionButtons({
 
       {/* Modal Kirim Hasil Desain (Khusus Desainer) */}
       {showDeliverModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-border rounded-lg max-w-md w-full p-6 space-y-4 shadow-floating">
-            <h3 className="font-bold text-lg text-text">
-              Kirim Hasil Pekerjaan Desain
-            </h3>
-            <p className="text-xs text-text-muted">
-              Tuliskan catatan hasil pengerjaan desain untuk pelanggan. Pratinjau hasil karya akan otomatis dilindungi sebelum pelanggan menyetujui pesanan.
-            </p>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-text">
-                Catatan Pengiriman
-              </label>
-              <textarea
-                value={deliveryNote}
-                onChange={(e) => setDeliveryNote(e.target.value)}
-                placeholder="Contoh: Halo kak, berikut konsep logo final sesuai brief. File master vektor AI dan PNG transparan siap diunduh setelah disetujui."
-                rows={3}
-                className="w-full p-3 bg-background border border-border rounded-md text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-
-            <div className="space-y-1.5 p-3.5 bg-background border border-border rounded-md">
-              <label className="block text-xs font-semibold text-text">
-                Upload File Master (Google Drive)
-              </label>
-              <p className="text-[11px] text-text-muted">
-                File otomatis tersimpan di Google Drive Anda. Format gambar akan otomatis dibuatkan pratinjau watermark.
-              </p>
-              <input
-                type="file"
-                onChange={(e) => setDeliveryFile(e.target.files?.[0] || null)}
-                className="mt-1 block w-full text-xs text-text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary-soft file:text-primary hover:file:bg-primary/20 cursor-pointer"
-              />
-              {deliveryFile && (
-                <p className="text-[11px] text-success font-medium flex items-center gap-1.5 pt-1">
-                  <span>File terpilih: {deliveryFile.name} ({(deliveryFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isLoading) {
+              setShowDeliverModal(false);
+              setErrorMsg("");
+            }
+          }}
+        >
+          <div
+            className="bg-surface border border-border rounded-xl max-w-lg w-full max-h-[90dvh] flex flex-col shadow-floating overflow-hidden my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Modal */}
+            <div className="flex items-start justify-between p-4 sm:p-5 border-b border-border bg-surface shrink-0">
+              <div className="pr-3">
+                <h3 className="font-bold text-base sm:text-lg text-text">
+                  Kirim Hasil Pekerjaan Desain
+                </h3>
+                <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                  Tuliskan catatan hasil pengerjaan desain untuk pelanggan. Pratinjau hasil karya akan otomatis dilindungi sebelum pelanggan menyetujui pesanan.
                 </p>
-              )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isLoading) {
+                    setShowDeliverModal(false);
+                    setErrorMsg("");
+                  }
+                }}
+                disabled={isLoading}
+                className="text-text-muted hover:text-text p-1.5 rounded-lg hover:bg-neutral-soft transition-colors shrink-0"
+                aria-label="Tutup modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            {/* Konten Scrollable */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              {errorMsg && (
+                <div className="p-3 bg-danger-soft border border-danger/20 rounded-md text-xs text-danger flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-text">
+                  Catatan Pengiriman
+                </label>
+                <textarea
+                  value={deliveryNote}
+                  onChange={(e) => setDeliveryNote(e.target.value)}
+                  placeholder="Contoh: Halo kak, berikut konsep logo final sesuai brief. File master vektor AI dan PNG transparan siap diunduh setelah disetujui."
+                  rows={3}
+                  className="w-full p-3 bg-background border border-border rounded-md text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-text-muted/60"
+                />
+              </div>
+
+              <div className="space-y-2 p-3.5 bg-background border border-border rounded-lg">
+                <label className="block text-xs font-semibold text-text">
+                  Upload File Master (Google Drive)
+                </label>
+                <p className="text-[11px] text-text-muted leading-relaxed">
+                  File otomatis tersimpan di Google Drive Anda. Format gambar akan otomatis dibuatkan pratinjau watermark.
+                </p>
+                <div className="mt-2">
+                  <input
+                    type="file"
+                    id="master-delivery-file"
+                    onChange={(e) => setDeliveryFile(e.target.files?.[0] || null)}
+                    className="block w-full text-xs text-text-muted file:mr-3 file:py-2 file:px-3.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary-soft file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                  />
+                </div>
+                {deliveryFile && (
+                  <div className="mt-2 p-2.5 bg-surface border border-border rounded-md flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-text truncate">
+                        {deliveryFile.name}
+                      </p>
+                      <p className="text-[10px] text-text-muted">
+                        {(deliveryFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryFile(null)}
+                      className="text-text-muted hover:text-danger p-1 rounded transition-colors text-xs shrink-0"
+                      title="Hapus file terpilih"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Aksi Pinned */}
+            <div className="p-4 sm:p-5 border-t border-border bg-surface flex items-center justify-end gap-3 shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowDeliverModal(false)}
+                onClick={() => {
+                  setShowDeliverModal(false);
+                  setErrorMsg("");
+                }}
+                disabled={isLoading}
               >
                 Batal
               </Button>
@@ -503,28 +615,78 @@ export function OrderActionButtons({
 
       {/* Modal Minta Revisi (Khusus Pelanggan) */}
       {showRevisionModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-border rounded-lg max-w-md w-full p-6 space-y-4 shadow-floating">
-            <h3 className="font-bold text-lg text-text">
-              Ajukan Catatan Revisi
-            </h3>
-            <p className="text-xs text-text-muted">
-              Jelaskan bagian yang perlu disesuaikan oleh desainer secara jelas dan spesifik.
-            </p>
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isLoading) {
+              setShowRevisionModal(false);
+              setErrorMsg("");
+            }
+          }}
+        >
+          <div
+            className="bg-surface border border-border rounded-xl max-w-lg w-full max-h-[90dvh] flex flex-col shadow-floating overflow-hidden my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Modal */}
+            <div className="flex items-start justify-between p-4 sm:p-5 border-b border-border bg-surface shrink-0">
+              <div className="pr-3">
+                <h3 className="font-bold text-base sm:text-lg text-text">
+                  Ajukan Catatan Revisi
+                </h3>
+                <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                  Jelaskan bagian yang perlu disesuaikan oleh desainer secara jelas dan spesifik.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isLoading) {
+                    setShowRevisionModal(false);
+                    setErrorMsg("");
+                  }
+                }}
+                disabled={isLoading}
+                className="text-text-muted hover:text-text p-1.5 rounded-lg hover:bg-neutral-soft transition-colors shrink-0"
+                aria-label="Tutup modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            <textarea
-              value={revisionNote}
-              onChange={(e) => setRevisionNote(e.target.value)}
-              placeholder="Contoh: Tolong sesuaikan warna biru logo agar lebih terang dan ubah font slogan..."
-              rows={4}
-              className="w-full p-3 bg-background border border-border rounded-md text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+            {/* Konten Scrollable */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              {errorMsg && (
+                <div className="p-3 bg-danger-soft border border-danger/20 rounded-md text-xs text-danger flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-text">
+                  Detail Revisi
+                </label>
+                <textarea
+                  value={revisionNote}
+                  onChange={(e) => setRevisionNote(e.target.value)}
+                  placeholder="Contoh: Tolong sesuaikan warna biru logo agar lebih terang dan ubah font slogan..."
+                  rows={4}
+                  className="w-full p-3 bg-background border border-border rounded-md text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-text-muted/60"
+                />
+              </div>
+            </div>
+
+            {/* Footer Aksi Pinned */}
+            <div className="p-4 sm:p-5 border-t border-border bg-surface flex items-center justify-end gap-3 shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowRevisionModal(false)}
+                onClick={() => {
+                  setShowRevisionModal(false);
+                  setErrorMsg("");
+                }}
+                disabled={isLoading}
               >
                 Batal
               </Button>

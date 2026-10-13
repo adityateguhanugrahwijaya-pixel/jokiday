@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { AppError, ConflictError, NotFoundError } from "@/lib/errors";
 import { LedgerService } from "../ledger/ledger.service";
+import { EmailService } from "../email/email.service";
 
 export type OrderEvent =
   | "PAYMENT_RECEIVED"
@@ -33,7 +34,7 @@ export class OrderStateMachine {
       note?: string;
     }
   ) {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id: orderId },
         include: {
@@ -103,6 +104,22 @@ export class OrderStateMachine {
           nextStatus = "REVISION";
           updatePayload.revisionsUsed = order.revisionsUsed + 1;
           updatePayload.autoApproveAt = null;
+
+          // Simpan catatan revisi ke tabel RevisionRequest
+          const latestDelivery = await tx.delivery.findFirst({
+            where: { orderId: order.id },
+            orderBy: { round: "desc" },
+          });
+
+          if (latestDelivery && extraData?.note) {
+            await tx.revisionRequest.create({
+              data: {
+                orderId: order.id,
+                deliveryId: latestDelivery.id,
+                message: extraData.note.trim(),
+              },
+            });
+          }
           break;
         }
 
@@ -208,6 +225,11 @@ export class OrderStateMachine {
       const updatedOrder = await tx.order.update({
         where: { id: orderId },
         data: updatePayload,
+        include: {
+          customer: true,
+          designer: true,
+          brief: true,
+        },
       });
 
       // Catat Audit Log
@@ -223,6 +245,38 @@ export class OrderStateMachine {
       });
 
       return updatedOrder;
-    });
+    }, { maxWait: 15000, timeout: 30000 });
+
+    // Kirim notifikasi audit fee platform 5% ke email admin jika order selesai
+    if (
+      result.status === "COMPLETED" &&
+      (event === "APPROVE_DELIVERY" || event === "RESOLVE_DISPUTE_RELEASE")
+    ) {
+      try {
+        const { fee, designerNet } = LedgerService.calculatePlatformFee(result.price);
+        const platformBalance = await LedgerService.getPlatformBalance();
+        const briefTitle = (result as any).brief?.title || "Pesanan Desain";
+        const designerName = (result as any).designer?.displayName || "Desainer";
+        const customerName = (result as any).customer?.displayName || "Pelanggan";
+
+        // Pengiriman email audit non-blocking
+        EmailService.sendPlatformFeeCollectedEmail({
+          orderId: result.id,
+          briefTitle,
+          price: result.price,
+          fee,
+          designerNet,
+          designerName,
+          customerName,
+          platformBalance,
+        }).catch((e) => {
+          console.error("[EmailService] Background email error for platform fee:", e);
+        });
+      } catch (err) {
+        console.error("[OrderStateMachine] Gagal memicu notifikasi fee platform:", err);
+      }
+    }
+
+    return result;
   }
 }

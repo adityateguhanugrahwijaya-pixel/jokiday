@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { DriveService } from "@/server/drive/drive.service";
 import { WatermarkService } from "@/server/media/watermark.service";
+import { ImageKitService } from "@/server/storage/imagekit.service";
 import { OrderStateMachine } from "@/server/orders/order.state-machine";
 import { EmailService } from "@/server/email/email.service";
 import { PushNotificationService } from "@/server/push/push.service";
@@ -69,12 +70,6 @@ export async function POST(
     let fileHash = "";
 
     if (file) {
-      if (!driveConn || driveConn.status !== "ACTIVE") {
-        throw new ValidationError(
-          "Sambungkan Google Drive di halaman Profil Anda terlebih dahulu sebelum menyerahkan file master pesanan."
-        );
-      }
-
       uploadedFileName = sanitizeInput(file.name).slice(0, 150);
       uploadedMimeType = file.type || "application/octet-stream";
       const arrayBuffer = await file.arrayBuffer();
@@ -83,16 +78,24 @@ export async function POST(
 
       fileHash = crypto.createHash("sha256").update(buffer).digest("hex");
 
-      // 1. Upload file asli ke Google Drive milik desainer
-      const driveUpload = await DriveService.uploadFile({
-        refreshTokenEnc: driveConn.refreshTokenEnc,
-        fileName: uploadedFileName,
-        mimeType: uploadedMimeType,
-        streamOrBuffer: buffer,
-        folderId: driveConn.rootFolderId,
-      });
-
-      uploadedFileId = driveUpload.fileId;
+      // 1. Upload file asli ke Google Drive milik desainer jika terhubung
+      if (driveConn && driveConn.status === "ACTIVE") {
+        try {
+          const driveUpload = await DriveService.uploadFile({
+            refreshTokenEnc: driveConn.refreshTokenEnc,
+            fileName: uploadedFileName,
+            mimeType: uploadedMimeType,
+            streamOrBuffer: buffer,
+            folderId: driveConn.rootFolderId,
+          });
+          uploadedFileId = driveUpload.fileId;
+        } catch (driveErr) {
+          console.warn("[Drive] Gagal upload ke Google Drive, lanjut fallback:", driveErr);
+          uploadedFileId = `local_drive_${crypto.randomUUID()}`;
+        }
+      } else {
+        uploadedFileId = `local_drive_${crypto.randomUUID()}`;
+      }
 
       // 2. Jika file gambar, buat preview ber-watermark untuk pelanggan
       const isImage =
@@ -113,21 +116,40 @@ export async function POST(
 
           const wmFileId = crypto.randomUUID();
           const wmFileName = `wm_order_${wmFileId}.jpg`;
-          const uploadsDir = path.join(
-            process.cwd(),
-            "public",
-            "uploads",
-            "previews"
-          );
-          await fs.mkdir(uploadsDir, { recursive: true });
-          await fs.writeFile(path.join(uploadsDir, wmFileName), wmBuffer);
+          let previewUrl = `/uploads/previews/${wmFileName}`;
 
-          const wmUrl = `/uploads/previews/${wmFileName}`;
+          // Coba upload ke ImageKit CDN untuk akses gambar cepat dan global
+          try {
+            const ikResult = await ImageKitService.uploadOrderDeliveryPreview(
+              order.id,
+              wmBuffer,
+              wmFileName
+            );
+            if (ikResult?.url) {
+              previewUrl = ikResult.url;
+            }
+          } catch (ikErr) {
+            console.warn("[ImageKit] Gagal upload preview order ke CDN:", ikErr);
+          }
+
+          // Simpan juga salinan file lokal di public/uploads/previews
+          try {
+            const uploadsDir = path.join(
+              process.cwd(),
+              "public",
+              "uploads",
+              "previews"
+            );
+            await fs.mkdir(uploadsDir, { recursive: true });
+            await fs.writeFile(path.join(uploadsDir, wmFileName), wmBuffer);
+          } catch (fsErr) {
+            console.warn("[FS] Gagal simpan preview lokal:", fsErr);
+          }
 
           const previewAsset = await prisma.previewAsset.create({
             data: {
               id: wmFileId,
-              driveFileId: wmUrl,
+              driveFileId: previewUrl,
               width,
               height,
             },

@@ -2,6 +2,7 @@ import React from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
+import { LedgerService } from "@/server/ledger/ledger.service";
 import { AdminWithdrawalClient } from "./AdminWithdrawalClient";
 
 export const dynamic = "force-dynamic";
@@ -15,18 +16,34 @@ export default async function AdminWithdrawalsPage() {
       })
     : null;
 
-  const withdrawals = await prisma.withdrawal.findMany({
-    include: {
-      user: {
-        include: { designerProfile: true },
+  const [
+    withdrawals,
+    autoPayoutConfig,
+    platformBalance,
+    totalPlatformRevenueAllTime,
+    totalPlatformWithdrawnAllTime,
+    platformLedgerEntries,
+  ] = await Promise.all([
+    prisma.withdrawal.findMany({
+      include: {
+        user: {
+          include: { designerProfile: true },
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const autoPayoutConfig = await prisma.appConfig.findUnique({
-    where: { key: "auto_payout_verified" },
-  });
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.appConfig.findUnique({
+      where: { key: "auto_payout_verified" },
+    }),
+    LedgerService.getPlatformBalance(),
+    LedgerService.getTotalPlatformRevenueAllTime(),
+    LedgerService.getTotalPlatformWithdrawnAllTime(),
+    prisma.ledgerEntry.findMany({
+      where: { account: "PLATFORM_REVENUE" },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
+  ]);
 
   return (
     <AppShell displayName={currentUser?.displayName || "Admin"} isAdmin={true}>
@@ -40,22 +57,13 @@ export default async function AdminWithdrawalsPage() {
           </p>
         </div>
 
-        {/* Tab Navigasi Admin */}
-        <div className="flex items-center gap-2 border-b border-border pb-1">
-          <span className="px-4 py-2 rounded-t-md text-xs font-bold text-primary border-b-2 border-primary bg-primary-soft/30">
-            Penarikan Saldo Freelancer
-          </span>
-          <a
-            href="/admin/invites"
-            className="px-4 py-2 rounded-t-md text-xs font-semibold text-text-muted hover:text-text transition-colors"
-          >
-            Undangan Desainer (Invite-Only)
-          </a>
-        </div>
-
         <AdminWithdrawalClient
           initialWithdrawals={withdrawals}
           initialAutoPayout={autoPayoutConfig?.value === "true"}
+          initialPlatformBalance={platformBalance}
+          initialTotalPlatformRevenueAllTime={totalPlatformRevenueAllTime}
+          initialTotalPlatformWithdrawnAllTime={totalPlatformWithdrawnAllTime}
+          initialPlatformLedgerEntries={platformLedgerEntries}
         />
       </div>
     </AppShell>

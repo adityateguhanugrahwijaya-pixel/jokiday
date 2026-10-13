@@ -5,7 +5,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { OrderStatusBadge } from "@/components/ui/Badge";
 import { EscrowCard } from "@/components/ui/Card";
 import { prisma } from "@/lib/db";
-import { formatRupiah, formatRelativeDeadline, formatDate } from "@/lib/format";
+import { formatRupiah, formatRelativeDeadline, formatDate, formatTime } from "@/lib/format";
 import {
   Clock,
   CheckCircle2,
@@ -15,6 +15,8 @@ import {
   UploadCloud,
   ArrowLeft,
   Download,
+  ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 import { AuthService } from "@/server/auth/auth.service";
 import { redirect } from "next/navigation";
@@ -42,6 +44,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         },
         orderBy: { round: "desc" },
       },
+      revisionRequests: {
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
@@ -66,6 +71,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const contract = JSON.parse(order.contractSnapshot || "{}");
   const deliverables = JSON.parse(order.deliverables || "[]");
   const deadlineInfo = order.deadlineAt ? formatRelativeDeadline(order.deadlineAt) : null;
+  const latestRevision = order.revisionRequests?.[0] || null;
 
   // Stepper tahap order
   const steps = [
@@ -168,6 +174,38 @@ export default async function OrderDetailPage({ params }: { params: { id: string
               </div>
             </div>
 
+            {/* Peringatan & Info Jelas Catatan Revisi Aktif */}
+            {order.status === "REVISION" && latestRevision && (
+              <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-xl p-5 space-y-3 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 text-amber-600 font-bold text-base">
+                    <RotateCcw className="w-5 h-5 shrink-0" />
+                    <span>Catatan Revisi dari Pelanggan (Putaran ke-{order.revisionsUsed})</span>
+                  </div>
+                  <span className="text-xs bg-amber-500/20 text-amber-700 px-2.5 py-0.5 rounded-full font-bold">
+                    Sisa Kuota: {Math.max(0, order.revisionQuota - order.revisionsUsed)}x
+                  </span>
+                </div>
+                <div className="p-4 bg-surface border border-border rounded-lg text-sm text-text whitespace-pre-wrap leading-relaxed font-medium">
+                  &ldquo;{latestRevision.message}&rdquo;
+                </div>
+                <div className="flex items-center justify-between text-xs text-text-muted flex-wrap gap-2 pt-1">
+                  <span>
+                    Diajukan pada: {formatDate(latestRevision.createdAt)} {formatTime(latestRevision.createdAt)}
+                  </span>
+                  {order.customerId && order.designerId && (
+                    <Link
+                      href={`/chat?userId=${isDesigner ? order.customerId : order.designerId}&designerId=${isDesigner ? order.customerId : order.designerId}`}
+                      className="text-primary hover:underline font-semibold flex items-center gap-1"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Diskusikan Detail Revisi di Chat</span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Area Hasil Kerja Desain */}
             <div className="bg-surface border border-border rounded-lg p-6 space-y-4">
               <h2 className="text-lg font-bold text-text">
@@ -211,19 +249,63 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                           {delivery.deliveryFiles.map((file) => (
                             <div
                               key={file.id}
-                              className="p-3.5 bg-surface border border-border rounded-md space-y-3"
+                              className="p-3.5 bg-surface border border-border rounded-lg space-y-3"
                             >
-                              {file.previewAsset?.driveFileId && (
-                                <div className="relative rounded overflow-hidden border border-border bg-black/5 aspect-video max-h-64 flex items-center justify-center">
-                                  <img
-                                    src={file.previewAsset.driveFileId}
-                                    alt={file.fileName}
-                                    className="max-h-64 object-contain mx-auto"
-                                  />
+                              {file.previewAsset?.driveFileId ? (
+                                <div className="space-y-2">
+                                  <div className="relative rounded-lg overflow-hidden border border-border bg-neutral-soft/30 aspect-video max-h-80 flex items-center justify-center group">
+                                    <a
+                                      href={file.previewAsset.driveFileId}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block w-full h-full relative cursor-zoom-in"
+                                      title="Klik untuk membuka pratinjau resolusi penuh di tab baru"
+                                    >
+                                      <img
+                                        src={file.previewAsset.driveFileId}
+                                        alt={file.fileName}
+                                        className="w-full h-full object-contain mx-auto transition-transform group-hover:scale-[1.02]"
+                                      />
+                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1.5 backdrop-blur-2xs">
+                                        <ExternalLink className="w-4 h-4" />
+                                        <span>Buka Pratinjau Penuh (Watermark Dilindungi)</span>
+                                      </div>
+                                    </a>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[11px] text-text-muted px-1">
+                                    <span className="flex items-center gap-1 text-primary font-medium">
+                                      <span>🔒 Pratinjau Watermark Dilindungi JokiDay</span>
+                                    </span>
+                                    <a
+                                      href={file.previewAsset.driveFileId}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline font-semibold"
+                                    >
+                                      Perbesar Gambar &rarr;
+                                    </a>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="p-4 bg-primary-soft/30 border border-primary/20 rounded-lg flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-primary-soft text-primary flex items-center justify-center shrink-0">
+                                      <FileText className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-xs text-text">{file.fileName}</p>
+                                      <p className="text-[11px] text-text-muted">
+                                        Berkas Desain Master • {(Number(file.sizeBytes) / 1024 / 1024).toFixed(2)} MB
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] font-semibold text-text-muted bg-surface px-2.5 py-1 rounded border border-border shrink-0">
+                                    Siap Diunduh Setelah Disetujui
+                                  </span>
                                 </div>
                               )}
 
-                              <div className="flex items-center justify-between gap-3 text-xs flex-wrap">
+                              <div className="flex items-center justify-between gap-3 text-xs flex-wrap pt-1 border-t border-border/50">
                                 <div className="flex items-center gap-2">
                                   <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
                                   <span className="font-semibold text-text truncate max-w-xs">
@@ -256,7 +338,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                         <div className="p-3 bg-surface border border-border rounded text-xs text-text-muted flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <CheckCircle2 className="w-4 h-4 text-success" />
-                            <span>Pengiriman tercatat</span>
+                            <span>Pengiriman tercatat (Catatan hasil kerja terlampir)</span>
                           </div>
                         </div>
                       )}
@@ -348,6 +430,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                   designerName={order.designer.displayName}
                   customerId={order.customerId}
                   designerId={order.designerId}
+                  latestRevisionNote={latestRevision?.message}
                 />
               </div>
             </div>
