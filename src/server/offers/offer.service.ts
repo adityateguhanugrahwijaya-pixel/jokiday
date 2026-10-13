@@ -216,6 +216,72 @@ export class OfferService {
         data: { status: "DECLINED" },
       });
 
+      // Hubungkan chat thread antara pelanggan dan desainer terpilih dengan order baru
+      const matchedThreads = await tx.chatThread.findMany({
+        where: {
+          customerId,
+          designerId: offer.designerId,
+        },
+      });
+
+      for (const th of matchedThreads) {
+        await tx.chatThread.update({
+          where: { id: th.id },
+          data: {
+            orderId: order.id,
+            lastMessage: `[Kesepakatan Disetujui: Order #${order.id.slice(0, 8)}]`,
+            lastMessageAt: new Date(),
+          },
+        });
+
+        await tx.message.create({
+          data: {
+            threadId: th.id,
+            senderId: customerId,
+            type: "SYSTEM",
+            body: `Pelanggan telah menyetujui tawaran sebesar Rp ${offer.price.toLocaleString("id-ID")} untuk proyek "${offer.brief.title}". Order resmi #${order.id.slice(0, 8)} telah dibuat. Kesepakatan terkunci.`,
+          },
+        });
+      }
+
+      // Beritahu desainer lain yang menawar pada brief ini bahwa penawaran ditutup
+      const otherOffers = await tx.offer.findMany({
+        where: {
+          briefId: offer.briefId,
+          id: { not: offer.id },
+        },
+        select: { designerId: true },
+      });
+
+      const otherDesignerIds = Array.from(new Set(otherOffers.map((o) => o.designerId)));
+      for (const otherDesignerId of otherDesignerIds) {
+        const otherThreads = await tx.chatThread.findMany({
+          where: {
+            customerId,
+            designerId: otherDesignerId,
+          },
+        });
+
+        for (const oth of otherThreads) {
+          await tx.chatThread.update({
+            where: { id: oth.id },
+            data: {
+              lastMessage: `[Tawaran Ditutup: Proyek disepakati dengan desainer lain]`,
+              lastMessageAt: new Date(),
+            },
+          });
+
+          await tx.message.create({
+            data: {
+              threadId: oth.id,
+              senderId: customerId,
+              type: "SYSTEM",
+              body: `Pemberitahuan: Proyek "${offer.brief.title}" telah disepakati oleh pelanggan dengan desainer lain. Penawaran untuk proyek ini telah ditutup.`,
+            },
+          });
+        }
+      }
+
       return order;
     });
   }

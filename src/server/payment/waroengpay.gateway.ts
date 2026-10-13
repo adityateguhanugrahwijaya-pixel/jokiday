@@ -31,7 +31,7 @@ export class WaroengPayGateway implements PaymentGateway {
       description: params.description || `Pembayaran JokiDay Order #${params.orderId}`,
       callback_url: params.callbackUrl,
       redirect_url: params.redirectUrl,
-      expires_in: 24 * 60, // 24 jam dalam menit
+      expires_in: 60, // Sesuai aturan WaroengPay: bilangan bulat 5 sampai 60 menit
     };
 
     const res = await fetch(`${this.baseUrl}/api/payments`, {
@@ -45,12 +45,28 @@ export class WaroengPayGateway implements PaymentGateway {
     });
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => ({ error: res.statusText }));
+      let errorMessage = res.statusText;
+      try {
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const errorBody = await res.json();
+          errorMessage = errorBody.error || errorBody.message || res.statusText;
+        } else {
+          const rawText = await res.text();
+          errorMessage = rawText.slice(0, 150);
+        }
+      } catch {}
       throw new AppError(
-        `WaroengPay createCharge error: ${errorBody.error || res.statusText}`,
+        `WaroengPay createCharge error: ${errorMessage}`,
         "GATEWAY_ERROR",
         502
       );
+    }
+
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      const rawText = await res.text();
+      throw new AppError(`Format respons gateway tidak valid: ${rawText.slice(0, 100)}`, "GATEWAY_ERROR", 502);
     }
 
     const data = await res.json();

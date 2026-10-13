@@ -64,6 +64,11 @@ export function OrdersViewClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId, useBalance: false }),
       });
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        window.location.href = `/orders/${orderId}?pay=true`;
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Gagal memproses pembayaran");
 

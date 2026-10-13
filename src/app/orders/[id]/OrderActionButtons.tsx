@@ -81,6 +81,10 @@ export function OrderActionButtons({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId, useBalance }),
       });
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error("Gagal memproses pembayaran: Format respon server tidak valid.");
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Gagal memproses pembayaran");
 

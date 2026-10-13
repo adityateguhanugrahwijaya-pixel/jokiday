@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
-import { handleApiError, UnauthorizedError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { handleApiError, UnauthorizedError, ForbiddenError, NotFoundError, ValidationError, ConflictError } from "@/lib/errors";
 import { sanitizeInput } from "@/lib/security";
 
 import { OfferService } from "@/server/offers/offer.service";
@@ -18,6 +18,18 @@ export async function GET(
 
     const thread = await prisma.chatThread.findUnique({
       where: { id: params.id },
+      include: {
+        order: {
+          select: {
+            id: true,
+            status: true,
+            price: true,
+            durationDays: true,
+            revisionQuota: true,
+            deadlineAt: true,
+          },
+        },
+      },
     });
 
     if (!thread) {
@@ -75,8 +87,25 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     });
 
+    // Cek status brief terkait obrolan ini untuk mendeteksi apakah kesepakatan sudah dikunci
+    const latestBrief = await prisma.brief.findFirst({
+      where: {
+        customerId: thread.customerId,
+        offers: {
+          some: { designerId: thread.designerId },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, title: true, status: true },
+    });
+
+    const isBriefLocked = Boolean(thread.orderId || (latestBrief && latestBrief.status !== "OPEN"));
+
     return NextResponse.json({
       success: true,
+      order: thread.order || null,
+      isBriefLocked,
+      briefStatus: latestBrief?.status || null,
       messages: messages.map((m) => ({
         id: m.id,
         senderId: m.senderId,
@@ -144,6 +173,11 @@ export async function POST(
         throw new ForbiddenError("Hanya desainer yang dapat mengajukan konfirmasi tawaran");
       }
 
+      // Cegah penawaran baru jika thread obrolan ini sudah memiliki pesanan resmi yang terkunci
+      if (thread.orderId) {
+        throw new ConflictError("Percakapan ini sudah memiliki pesanan resmi yang terkunci. Tidak dapat mengirim tawaran baru.");
+      }
+
       const offerData = body.offerData || {};
       const { offerId, briefId, title, price, durationDays, revisionQuota, notes } = offerData;
 
@@ -185,6 +219,16 @@ export async function POST(
         }
       }
 
+      // Validasi status brief jika targetBriefId diketahui
+      if (targetBriefId) {
+        const brief = await prisma.brief.findUnique({
+          where: { id: targetBriefId },
+        });
+        if (brief && brief.status !== "OPEN") {
+          throw new ConflictError("Brief proyek ini telah dikonfirmasi dan ditutup untuk penawaran baru.");
+        }
+      }
+
       // Jika belum ada targetBriefId, cari brief OPEN antara pelanggan dan desainer pada thread ini
       if (!targetBriefId) {
         const existingBrief = await prisma.brief.findFirst({
@@ -197,6 +241,18 @@ export async function POST(
         if (existingBrief) {
           targetBriefId = existingBrief.id;
           briefTitle = existingBrief.title;
+        } else {
+          // Jika ada brief yang sudah CLAIMED pada pelanggan ini, tolak pembuatan tawaran baru
+          const claimedBrief = await prisma.brief.findFirst({
+            where: {
+              customerId: thread.customerId,
+              status: "CLAIMED",
+            },
+            orderBy: { createdAt: "desc" },
+          });
+          if (claimedBrief) {
+            throw new ConflictError("Proyek ini telah dikonfirmasi dan ditutup untuk penawaran baru.");
+          }
         }
       }
 

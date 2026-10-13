@@ -176,6 +176,23 @@ export function BriefDetailClient({
         )}
       </div>
 
+      {/* Banner Status Brief Terkunci / Ditutup */}
+      {brief.status !== "OPEN" && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-5 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-600 shrink-0">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm text-text">
+              Proyek Telah Dikonfirmasi (Penawaran Ditutup)
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              Pelanggan telah menyetujui tawaran desainer terpilih. Brief ini telah dikunci dan tidak lagi menerima penawaran baru.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Form Kirim Penawaran Baru (Hanya untuk Desainer Terverifikasi yang Bukan Pemilik Brief) */}
       {brief.status === "OPEN" && Boolean(currentDesignerId) && currentUserId !== customerId && (
         <div className="bg-surface border border-border rounded-lg p-6 sm:p-8 space-y-4">

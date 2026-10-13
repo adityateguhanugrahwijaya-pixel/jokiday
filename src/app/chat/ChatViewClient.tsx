@@ -142,6 +142,7 @@ export function ChatViewClient({
   const [modalNotes, setModalNotes] = useState<string>("");
   const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
   const [isAcceptingOfferId, setIsAcceptingOfferId] = useState<string | null>(null);
+  const [isBriefLocked, setIsBriefLocked] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -153,6 +154,7 @@ export function ChatViewClient({
   const handleSelectThread = (threadId: string) => {
     if (threadId === activeThreadId) return;
     setActiveThreadId(threadId);
+    setIsBriefLocked(false);
     if (messagesCache[threadId] && messagesCache[threadId].length > 0) {
       setMessages(messagesCache[threadId]);
       setIsLoadingMessages(false);
@@ -253,6 +255,18 @@ export function ChatViewClient({
 
         const data = await res.json();
         if (isMounted && data.success) {
+          if (data.order) {
+            setThreads((prev) =>
+              prev.map((t) =>
+                t.id === activeThreadId && (!t.order || t.order.id !== data.order.id)
+                  ? { ...t, order: data.order }
+                  : t
+              )
+            );
+          }
+          if (typeof data.isBriefLocked === "boolean") {
+            setIsBriefLocked(data.isBriefLocked);
+          }
           if (Array.isArray(data.pendingOffers)) {
             setPendingOffers(data.pendingOffers);
           }
@@ -414,6 +428,11 @@ export function ChatViewClient({
         }),
       });
 
+      const acceptContentType = acceptRes.headers.get("content-type") || "";
+      if (!acceptContentType.includes("application/json")) {
+        throw new Error("Gagal menerima penawaran: Server tidak mengembalikan format data yang valid.");
+      }
+
       const acceptData = await acceptRes.json();
       if (!acceptRes.ok) {
         throw new Error(acceptData.error?.message || "Gagal menerima penawaran");
@@ -421,29 +440,43 @@ export function ChatViewClient({
 
       const order = acceptData.order;
 
+      // Update state lokal agar UI chat langsung terkunci dengan pesanan baru
+      if (order && activeThreadId) {
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === activeThreadId
+              ? { ...t, order }
+              : t
+          )
+        );
+        setIsBriefLocked(true);
+      }
+
       // 2. Inisialisasi pembayaran order (WaroengPay QRIS checkout)
-      const payRes = await fetch("/api/orders/pay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: order.id,
-          useBalance: false,
-        }),
-      });
+      try {
+        const payRes = await fetch("/api/orders/pay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: order.id,
+            useBalance: false,
+          }),
+        });
 
-      const payData = await payRes.json();
-      if (!payRes.ok) {
-        // Fallback langsung ke detail order jika inisialisasi gateway gagal
-        router.push(`/orders/${order.id}`);
-        return;
+        const payContentType = payRes.headers.get("content-type") || "";
+        if (payContentType.includes("application/json")) {
+          const payData = await payRes.json();
+          if (payRes.ok && payData.checkoutUrl) {
+            window.location.href = payData.checkoutUrl;
+            return;
+          }
+        }
+      } catch (payErr) {
+        console.warn("Inisialisasi pembayaran gateway dilewati:", payErr);
       }
 
-      // 3. Direct langsung ke Payment Gateway URL
-      if (payData.checkoutUrl) {
-        window.location.href = payData.checkoutUrl;
-      } else {
-        router.push(`/orders/${order.id}`);
-      }
+      // 3. Fallback langsung ke halaman detail order
+      router.push(`/orders/${order.id}`);
     } catch (err: any) {
       setErrorMsg(err.message || "Gagal memproses kesepakatan");
       alert(err.message || "Gagal memproses kesepakatan");
@@ -674,7 +707,7 @@ export function ChatViewClient({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {role === "DESIGNER" && (
+                {role === "DESIGNER" && !activeThread.order && !isBriefLocked && (
                   <Button
                     variant="primary"
                     size="sm"
@@ -699,8 +732,33 @@ export function ChatViewClient({
               </div>
             </div>
 
-            {/* Banner Diskusi Penawaran Aktif */}
-            {pendingOffers.length > 0 && (
+            {/* Banner Diskusi Penawaran Aktif atau Status Kesepakatan Terkunci */}
+            {activeThread.order || isBriefLocked ? (
+              <div className="px-4 py-2.5 bg-emerald-500/10 border-b border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <span className="text-xs font-bold text-text block">
+                      Kesepakatan Telah Dikonfirmasi
+                    </span>
+                    <span className="text-[11px] text-text-muted">
+                      {activeThread.order
+                        ? `Pesanan resmi #${activeThread.order.id.slice(0, 8)} aktif. Brief dikunci dari penawaran lain.`
+                        : "Proyek ini telah disepakati oleh pelanggan dengan desainer terpilih. Penawaran telah ditutup."}
+                    </span>
+                  </div>
+                </div>
+                {activeThread.order && (
+                  <Link
+                    href={`/orders/${activeThread.order.id}`}
+                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1 shrink-0"
+                  >
+                    <span>Lihat Order</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+              </div>
+            ) : pendingOffers.length > 0 ? (
               <div className="px-4 py-2.5 bg-primary/5 border-b border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -731,7 +789,7 @@ export function ChatViewClient({
                   </Button>
                 )}
               </div>
-            )}
+            ) : null}
 
             {/* Bubble Messages (Live Stream) */}
             <div
@@ -760,8 +818,7 @@ export function ChatViewClient({
                     if (!offerData) return null;
 
                     const isOrderCreated = Boolean(
-                      activeThread.order &&
-                      activeThread.order.price === offerData.price
+                      activeThread.order || isBriefLocked
                     );
 
                     return (
@@ -826,12 +883,18 @@ export function ChatViewClient({
                                     <Check className="w-4 h-4" />
                                     <span>Tawaran Sudah Disetujui</span>
                                   </div>
-                                  <Link
-                                    href={`/orders/${activeThread.order!.id}`}
-                                    className="w-full text-center py-2 px-3 rounded-lg bg-surface border border-border text-xs font-bold text-primary hover:bg-neutral-soft transition-colors"
-                                  >
-                                    Lihat Detail Pesanan & Pembayaran
-                                  </Link>
+                                  {activeThread.order ? (
+                                    <Link
+                                      href={`/orders/${activeThread.order.id}`}
+                                      className="w-full text-center py-2 px-3 rounded-lg bg-surface border border-border text-xs font-bold text-primary hover:bg-neutral-soft transition-colors"
+                                    >
+                                      Lihat Detail Pesanan & Pembayaran
+                                    </Link>
+                                  ) : (
+                                    <span className="text-[11px] text-text-muted text-center block py-1">
+                                      Brief telah dikonfirmasi dan ditutup untuk penawaran lain.
+                                    </span>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="space-y-2">
@@ -863,7 +926,7 @@ export function ChatViewClient({
                                     <span>Tawaran terkirim ke klien. Menunggu pelanggan memutuskan setuju atau menawar.</span>
                                   )}
                                 </div>
-                                {!isOrderCreated && (
+                                {!isOrderCreated && !isBriefLocked && (
                                   <button
                                     type="button"
                                     onClick={() => handleOpenOfferModal()}

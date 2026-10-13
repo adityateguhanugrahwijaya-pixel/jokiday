@@ -3,16 +3,26 @@ import { prisma } from "@/lib/db";
 import { getPaymentGateway } from "@/server/payment";
 import { LedgerService } from "@/server/ledger/ledger.service";
 import { OrderStateMachine } from "@/server/orders/order.state-machine";
-import { handleApiError, NotFoundError, ConflictError, ValidationError } from "@/lib/errors";
+import { handleApiError, NotFoundError, ConflictError, ValidationError, UnauthorizedError, ForbiddenError } from "@/lib/errors";
 import { EmailService } from "@/server/email/email.service";
 import { PushNotificationService } from "@/server/push/push.service";
 import { RedisService } from "@/server/redis/redis.service";
 import { getAppUrl } from "@/lib/app-url";
+import { AuthService } from "@/server/auth/auth.service";
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await AuthService.getCurrentUser();
+    if (!session) {
+      throw new UnauthorizedError("Silakan masuk terlebih dahulu untuk melakukan pembayaran");
+    }
+
     const body = await req.json();
     const { orderId, useBalance = false } = body;
+
+    if (!orderId) {
+      throw new ValidationError("ID Order tidak valid atau tidak disertakan");
+    }
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -20,6 +30,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!order) throw new NotFoundError("Order tidak ditemukan");
+
+    if (order.customerId !== session.userId && !session.isAdmin) {
+      throw new ForbiddenError("Hanya pemesan yang berhak melakukan pembayaran pesanan ini");
+    }
     if (order.status !== "AWAITING_PAYMENT") {
       throw new ConflictError("Order ini sudah dibayar atau tidak dalam status menunggu pembayaran");
     }
@@ -115,12 +129,20 @@ export async function POST(req: NextRequest) {
     // Skenario B: Partial payment (Saldo refund + sisa tagihan QRIS WaroengPay)
     const gateway = getPaymentGateway();
     const baseUrl = getAppUrl();
+
+    // WaroengPay API mewajibkan port callback 80, 443, 8080, atau 8443
+    const callbackUrl = baseUrl.includes("localhost") || baseUrl.includes(":3000")
+      ? "https://jokiday.agentkikir.cloud/api/webhooks/waroengpay"
+      : `${baseUrl}/api/webhooks/waroengpay`;
+
+    const redirectUrl = `${baseUrl}/orders/${order.id}`;
+
     const charge = await gateway.createCharge({
       orderId: order.id,
       amount: remainingToPay, // Tagihan QRIS hanya untuk sisa pembayaran
       description: `Escrow JokiDay (${order.brief.title})`,
-      redirectUrl: `${baseUrl}/orders/${order.id}`,
-      callbackUrl: `${baseUrl}/api/webhooks/waroengpay`,
+      redirectUrl,
+      callbackUrl,
     });
 
     // Simpan record payment dengan informasi potongan saldo
