@@ -264,7 +264,9 @@ export function DesignerProfileClient({
         id: data.post.id,
         caption: data.post.caption,
         category: data.post.category,
-        previewUrl: data.post.previewAsset.driveFileId,
+        previewUrl: data.post.previewAsset?.id
+          ? `/api/previews/${data.post.previewAsset.id}`
+          : data.post.previewAsset?.driveFileId,
         createdAt: data.post.createdAt,
       };
 

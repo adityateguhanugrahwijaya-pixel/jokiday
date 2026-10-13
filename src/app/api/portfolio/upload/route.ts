@@ -6,6 +6,8 @@ import { handleApiError, ValidationError, NotFoundError, UnauthorizedError, Forb
 import { sanitizeInput } from "@/lib/security";
 import { ImageKitService } from "@/server/storage/imagekit.service";
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,21 +68,37 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    // Upload file preview ber-watermark ke ImageKit CDN
+    // 1. Simpan salinan file lokal di public/uploads/previews secara pasti
     const fileId = crypto.randomUUID();
     const fileName = `wm_${fileId}.jpg`;
-    const { url: previewUrl } = await ImageKitService.uploadPortfolioPost(
-      designer.id,
-      watermarkedBuffer,
-      fileName
-    );
+    try {
+      const uploadsDir = path.join(process.cwd(), "public", "uploads", "previews");
+      await fs.mkdir(uploadsDir, { recursive: true });
+      await fs.writeFile(path.join(uploadsDir, fileName), watermarkedBuffer);
+    } catch (fsErr) {
+      console.warn("[FS] Gagal simpan preview portofolio lokal:", fsErr);
+    }
+
+    // Gunakan URL internal /api/previews/${fileId} agar kebal blokir ISP / Internet Positif
+    const previewUrl = `/api/previews/${fileId}`;
+
+    // 2. Upload file preview ber-watermark ke ImageKit CDN sebagai cadangan cloud
+    try {
+      await ImageKitService.uploadPortfolioPost(
+        designer.id,
+        watermarkedBuffer,
+        fileName
+      );
+    } catch (ikErr) {
+      console.warn("[ImageKit] Gagal upload preview portofolio ke CDN:", ikErr);
+    }
 
     // Simpan record ke database
     const post = await prisma.$transaction(async (tx) => {
       const previewAsset = await tx.previewAsset.create({
         data: {
           id: fileId,
-          driveFileId: previewUrl, // URL relatif preview yang terlindungi
+          driveFileId: previewUrl, // URL internal preview yang terlindungi
           width,
           height,
         },

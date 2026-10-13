@@ -162,7 +162,9 @@ export default async function DesignerPage({
     id: p.id,
     caption: p.caption,
     category: p.category,
-    previewUrl: p.previewAsset.driveFileId,
+    previewUrl: p.previewAsset.id
+      ? `/api/previews/${p.previewAsset.id}`
+      : p.previewAsset.driveFileId,
     createdAt: p.createdAt.toISOString(),
   }));
 

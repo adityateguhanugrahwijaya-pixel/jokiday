@@ -116,23 +116,8 @@ export async function POST(
 
           const wmFileId = crypto.randomUUID();
           const wmFileName = `wm_order_${wmFileId}.jpg`;
-          let previewUrl = `/uploads/previews/${wmFileName}`;
 
-          // Coba upload ke ImageKit CDN untuk akses gambar cepat dan global
-          try {
-            const ikResult = await ImageKitService.uploadOrderDeliveryPreview(
-              order.id,
-              wmBuffer,
-              wmFileName
-            );
-            if (ikResult?.url) {
-              previewUrl = ikResult.url;
-            }
-          } catch (ikErr) {
-            console.warn("[ImageKit] Gagal upload preview order ke CDN:", ikErr);
-          }
-
-          // Simpan juga salinan file lokal di public/uploads/previews
+          // 1. Simpan salinan file lokal di public/uploads/previews secara pasti
           try {
             const uploadsDir = path.join(
               process.cwd(),
@@ -144,6 +129,20 @@ export async function POST(
             await fs.writeFile(path.join(uploadsDir, wmFileName), wmBuffer);
           } catch (fsErr) {
             console.warn("[FS] Gagal simpan preview lokal:", fsErr);
+          }
+
+          // Gunakan URL internal /api/previews/${wmFileId} agar tidak terblokir Internet Positif / Telkom
+          const previewUrl = `/api/previews/${wmFileId}`;
+
+          // Coba upload ke ImageKit CDN sebagai cadangan cloud
+          try {
+            await ImageKitService.uploadOrderDeliveryPreview(
+              order.id,
+              wmBuffer,
+              wmFileName
+            );
+          } catch (ikErr) {
+            console.warn("[ImageKit] Gagal upload preview order ke CDN:", ikErr);
           }
 
           const previewAsset = await prisma.previewAsset.create({

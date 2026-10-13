@@ -81,9 +81,14 @@ export class AuthService {
       throw new UnauthorizedError("Email atau password salah");
     }
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email: cleanEmail },
     });
+    if (!user && (cleanEmail === "admin" || cleanEmail === "administrator" || cleanEmail === "admin@jokiday.com")) {
+      user = await prisma.user.findFirst({
+        where: { isAdmin: true },
+      });
+    }
     if (!user) {
       throw new UnauthorizedError("Email atau password salah");
     }

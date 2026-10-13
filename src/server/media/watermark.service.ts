@@ -1,4 +1,38 @@
 import sharp from "sharp";
+import fs from "node:fs";
+import path from "node:path";
+
+let cachedFontBase64: string | null = null;
+
+function getEmbeddedFontBase64(): string {
+  if (cachedFontBase64) return cachedFontBase64;
+  try {
+    const fontPath = path.join(
+      process.cwd(),
+      "src",
+      "server",
+      "media",
+      "assets",
+      "noto-sans.ttf"
+    );
+    if (fs.existsSync(fontPath)) {
+      cachedFontBase64 = fs.readFileSync(fontPath).toString("base64");
+      return cachedFontBase64;
+    }
+  } catch (err) {
+    console.warn("[WatermarkService] Gagal memuat font lokal:", err);
+  }
+  return "";
+}
+
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
 
 export interface WatermarkOptions {
   username: string;
@@ -8,9 +42,10 @@ export interface WatermarkOptions {
 export class WatermarkService {
   /**
    * Menambahkan watermark diagonal berulang ke dalam gambar sesuai DESIGN.md:
-   * - Teks "JokiDay • @username"
+   * - Teks format: @username + JokiDay (aman glyph ASCII, tanpa tofu kotak-kotak)
    * - Sudut diagonal -30 derajat
    * - Dua lapis bergantian (putih 30% dan navy #0B1F4A 25%)
+   * - Font Noto Sans TTF tersemat via base64 font-face agar konsisten di semua platform
    * - Sisi terpanjang di-resize maksimum maxPx (default 1200px)
    */
   static async applyWatermark(
@@ -38,22 +73,41 @@ export class WatermarkService {
 
     const shortSide = Math.min(width, height);
     const fontSize = Math.max(14, Math.round(shortSide * 0.04));
-    const textLabel = `JokiDay • @${options.username}`;
 
-    // SVG Pattern berulang diagonal -30 deg
-    const patternWidth = Math.max(200, fontSize * 12);
-    const patternHeight = Math.max(100, fontSize * 6);
+    // Bersihkan username dari karakter @ di depan jika ada, lalu sanitasi XML
+    const rawUsername = options.username.trim().replace(/^@+/, "");
+    const safeUsername = escapeXml(rawUsername || "Desainer");
+    const textLabel = `@${safeUsername} + JokiDay`;
+
+    // Kalkulasi dimensi pattern SVG agar teks tidak tumpang tindih
+    const estimatedTextWidth = Math.ceil(textLabel.length * fontSize * 0.72);
+    const patternWidth = Math.max(260, Math.round(estimatedTextWidth * 1.6));
+    const patternHeight = Math.max(120, Math.round(fontSize * 5));
+
+    const fontBase64 = getEmbeddedFontBase64();
 
     const svgOverlay = Buffer.from(`
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
         <defs>
+          ${
+            fontBase64
+              ? `<style>
+                  @font-face {
+                    font-family: 'JokiDayWatermarkFont';
+                    src: url('data:font/ttf;base64,${fontBase64}');
+                    font-weight: bold;
+                    font-style: normal;
+                  }
+                </style>`
+              : ""
+          }
           <pattern id="wm" width="${patternWidth}" height="${patternHeight}" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
-            <!-- Lapis 1: Navy 25% -->
-            <text x="2" y="${patternHeight / 2 + 2}" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="rgba(11, 31, 74, 0.25)">
+            <!-- Lapis 1: Navy #0B1F4A 25% -->
+            <text x="2" y="${patternHeight / 2 + 2}" font-family="'JokiDayWatermarkFont', Arial, 'Segoe UI', Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold" fill="rgba(11, 31, 74, 0.25)">
               ${textLabel}
             </text>
             <!-- Lapis 2: Putih 30% -->
-            <text x="0" y="${patternHeight / 2}" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="rgba(255, 255, 255, 0.30)">
+            <text x="0" y="${patternHeight / 2}" font-family="'JokiDayWatermarkFont', Arial, 'Segoe UI', Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold" fill="rgba(255, 255, 255, 0.30)">
               ${textLabel}
             </text>
           </pattern>
@@ -81,3 +135,4 @@ export class WatermarkService {
     };
   }
 }
+

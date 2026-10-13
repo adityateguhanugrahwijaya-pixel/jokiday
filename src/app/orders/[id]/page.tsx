@@ -251,42 +251,48 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                               key={file.id}
                               className="p-3.5 bg-surface border border-border rounded-lg space-y-3"
                             >
-                              {file.previewAsset?.driveFileId ? (
-                                <div className="space-y-2">
-                                  <div className="relative rounded-lg overflow-hidden border border-border bg-neutral-soft/30 aspect-video max-h-80 flex items-center justify-center group">
-                                    <a
-                                      href={file.previewAsset.driveFileId}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="block w-full h-full relative cursor-zoom-in"
-                                      title="Klik untuk membuka pratinjau resolusi penuh di tab baru"
-                                    >
-                                      <img
-                                        src={file.previewAsset.driveFileId}
-                                        alt={file.fileName}
-                                        className="w-full h-full object-contain mx-auto transition-transform group-hover:scale-[1.02]"
-                                      />
-                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1.5 backdrop-blur-2xs">
-                                        <ExternalLink className="w-4 h-4" />
-                                        <span>Buka Pratinjau Penuh (Watermark Dilindungi)</span>
-                                      </div>
-                                    </a>
+                              {file.previewAsset ? (() => {
+                                const previewSrc = file.previewAsset.id
+                                  ? `/api/previews/${file.previewAsset.id}`
+                                  : file.previewAsset.driveFileId;
+
+                                return (
+                                  <div className="space-y-2">
+                                    <div className="relative rounded-lg overflow-hidden border border-border bg-neutral-soft/30 aspect-video max-h-80 flex items-center justify-center group">
+                                      <a
+                                        href={previewSrc}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block w-full h-full relative cursor-zoom-in"
+                                        title="Klik untuk membuka pratinjau resolusi penuh di tab baru"
+                                      >
+                                        <img
+                                          src={previewSrc}
+                                          alt={file.fileName}
+                                          className="w-full h-full object-contain mx-auto transition-transform group-hover:scale-[1.02]"
+                                        />
+                                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1.5 backdrop-blur-2xs">
+                                          <ExternalLink className="w-4 h-4" />
+                                          <span>Buka Pratinjau Penuh (Watermark Dilindungi)</span>
+                                        </div>
+                                      </a>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] text-text-muted px-1">
+                                      <span className="flex items-center gap-1 text-primary font-medium">
+                                        <span>🔒 Pratinjau Watermark Dilindungi JokiDay</span>
+                                      </span>
+                                      <a
+                                        href={previewSrc}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline font-semibold"
+                                      >
+                                        Perbesar Gambar &rarr;
+                                      </a>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center justify-between text-[11px] text-text-muted px-1">
-                                    <span className="flex items-center gap-1 text-primary font-medium">
-                                      <span>🔒 Pratinjau Watermark Dilindungi JokiDay</span>
-                                    </span>
-                                    <a
-                                      href={file.previewAsset.driveFileId}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline font-semibold"
-                                    >
-                                      Perbesar Gambar &rarr;
-                                    </a>
-                                  </div>
-                                </div>
-                              ) : (
+                                );
+                              })() : (
                                 <div className="p-4 bg-primary-soft/30 border border-primary/20 rounded-lg flex items-center justify-between gap-3">
                                   <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-lg bg-primary-soft text-primary flex items-center justify-center shrink-0">
