@@ -4,7 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft } from "lucide-react";
 import { BriefForm } from "./BriefForm";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,33 @@ export default async function NewBriefPage({
     currentUser = await prisma.user.findUnique({
       where: { id: session.userId },
     });
+  }
+
+  // Jika akun sedang aktif dalam Mode Desainer, instruksikan beralih ke Mode Pelanggan
+  if (currentUser?.activeRole === "DESIGNER") {
+    return (
+      <AppShell role="DESIGNER" displayName={currentUser.displayName}>
+        <div className="max-w-md mx-auto text-center py-16 space-y-4">
+          <div className="w-12 h-12 rounded-full bg-secondary-soft text-secondary-text mx-auto flex items-center justify-center">
+            <ArrowRightLeft className="w-6 h-6" />
+          </div>
+          <h2 className="text-xl font-bold text-text">
+            Beralih ke Mode Pelanggan untuk Posting Brief
+          </h2>
+          <p className="text-sm text-text-muted leading-relaxed">
+            Akun Anda saat ini aktif dalam Mode Desainer. Pembuatan brief kebutuhan desain hanya dapat dilakukan melalui Mode Pelanggan (Customer). Silakan ubah mode akun Anda melalui menu navigasi atas.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/market"
+              className="inline-flex items-center justify-center h-10 px-5 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary-hover transition-colors"
+            >
+              Kembali ke Pasar Brief
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
   }
 
   let targetDesigner = null;

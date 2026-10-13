@@ -11,6 +11,10 @@ export async function POST(req: NextRequest) {
       throw new UnauthorizedError("Silakan masuk terlebih dahulu untuk membuat brief");
     }
 
+    if (session.activeRole === "DESIGNER") {
+      throw new ValidationError("Untuk membuat brief, silakan ubah mode akun Anda ke Mode Pelanggan terlebih dahulu");
+    }
+
     const body = await req.json();
 
     if (body.mode === "DIRECT") {

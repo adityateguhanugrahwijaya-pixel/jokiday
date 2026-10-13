@@ -89,13 +89,15 @@ export default async function MarketPage() {
             </p>
           </div>
 
-          <Link
-            href="/briefs/new"
-            className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-md bg-secondary text-on-secondary font-bold text-sm hover:bg-secondary-hover transition-colors shrink-0 touch-target"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Posting Brief Baru</span>
-          </Link>
+          {currentUser?.activeRole !== "DESIGNER" && (
+            <Link
+              href="/briefs/new"
+              className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-md bg-secondary text-on-secondary font-bold text-sm hover:bg-secondary-hover transition-colors shrink-0 touch-target"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Posting Brief Baru</span>
+            </Link>
+          )}
         </div>
 
         {/* Banner Pesanan Langsung jika desainer menerima brief khusus */}
@@ -126,15 +128,19 @@ export default async function MarketPage() {
             <div>
               <h3 className="font-bold text-lg text-text">Belum ada brief di pasar</h3>
               <p className="text-sm text-text-muted mt-1">
-                Jadilah yang pertama membuat permintaan desain terbuka agar para desainer dapat mengirim penawaran.
+                {currentUser?.activeRole === "DESIGNER"
+                  ? "Saat ini belum ada brief terbuka dari pelanggan. Silakan periksa kembali nanti untuk menemukan peluang proyek baru."
+                  : "Jadilah yang pertama membuat permintaan desain terbuka agar para desainer dapat mengirim penawaran."}
               </p>
             </div>
-            <Link
-              href="/briefs/new"
-              className="inline-flex items-center justify-center h-10 px-4 rounded-md bg-secondary text-on-secondary font-bold text-sm hover:bg-secondary-hover transition-colors"
-            >
-              Buat Brief Sekarang
-            </Link>
+            {currentUser?.activeRole !== "DESIGNER" && (
+              <Link
+                href="/briefs/new"
+                className="inline-flex items-center justify-center h-10 px-4 rounded-md bg-secondary text-on-secondary font-bold text-sm hover:bg-secondary-hover transition-colors"
+              >
+                Buat Brief Sekarang
+              </Link>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
