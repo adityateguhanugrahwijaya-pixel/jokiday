@@ -404,15 +404,14 @@ export function AdminDashboardView({
               </p>
             </div>
 
-            <div className="flex items-center gap-2 pt-2 text-xs text-text-muted">
-              <span className="font-semibold text-text">Daftar Customer:</span>
-              {customersWithBalance.length > 0 ? (
-                <span>
-                  {customersWithBalance.map((c) => `${c.displayName} (${formatRupiah(c.balance)})`).join(", ")}
-                </span>
-              ) : (
-                <span>Tidak ada saldo tersimpan</span>
-              )}
+            <div className="flex items-center gap-3 pt-2">
+              <a
+                href="#customer-wallets"
+                className="inline-flex items-center justify-center h-9 px-4 rounded-md bg-surface border border-border text-text font-bold text-xs hover:bg-background transition-colors shadow-xs"
+              >
+                <span>Lihat Rincian Akun Customer</span>
+                <ChevronRight className="w-3.5 h-3.5 ml-1 text-secondary" />
+              </a>
             </div>
           </div>
         </div>
@@ -686,7 +685,7 @@ export function AdminDashboardView({
         </div>
 
         {/* Rincian Saldo Akun Pelanggan (Customer Wallets) */}
-        <Card className="p-5 sm:p-6 space-y-4">
+        <Card id="customer-wallets" className="p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-border">
             <div>
               <h3 className="font-bold text-text text-base flex items-center gap-2">
