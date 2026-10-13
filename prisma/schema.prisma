@@ -332,6 +332,8 @@ model Withdrawal {
   destination String   // Encrypted JSON
   status          String    @default("REQUESTED") // REQUESTED, PROCESSING, SUCCESS, FAILED
   gatewayRef      String?   @map("gateway_ref")
+  proofUrl        String?   @map("proof_url")
+  proofDriveId    String?   @map("proof_drive_id")
   reviewedBy      String?   @map("reviewed_by")
   reviewedAt      DateTime? @map("reviewed_at")
   rejectionReason String?   @map("rejection_reason")

@@ -11,8 +11,6 @@ import {
   CheckCircle2,
   XCircle,
   ShieldCheck,
-  ToggleLeft,
-  ToggleRight,
   AlertCircle,
   Wallet,
   ArrowDownLeft,
@@ -22,11 +20,17 @@ import {
   Building,
   Mail,
   ExternalLink,
+  Cloud,
+  Copy,
+  Check,
+  Upload,
+  FileText,
+  RotateCcw,
 } from "lucide-react";
 
 export interface AdminWithdrawalClientProps {
   initialWithdrawals: any[];
-  initialAutoPayout: boolean;
+  initialAdminDrive?: { isConnected: boolean; googleEmail?: string } | null;
   initialPlatformBalance?: number;
   initialTotalPlatformRevenueAllTime?: number;
   initialTotalPlatformWithdrawnAllTime?: number;
@@ -52,7 +56,7 @@ const SUPPORTED_BANKS = [
 
 export function AdminWithdrawalClient({
   initialWithdrawals,
-  initialAutoPayout,
+  initialAdminDrive = null,
   initialPlatformBalance = 0,
   initialTotalPlatformRevenueAllTime = 0,
   initialTotalPlatformWithdrawnAllTime = 0,
@@ -61,8 +65,7 @@ export function AdminWithdrawalClient({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"FREELANCER" | "PLATFORM">("FREELANCER");
   const [withdrawals, setWithdrawals] = useState(initialWithdrawals);
-  const [autoPayoutEnabled, setAutoPayoutEnabled] = useState(initialAutoPayout);
-  const [isUpdatingConfig, setIsUpdatingConfig] = useState(false);
+  const [adminDrive, setAdminDrive] = useState(initialAdminDrive);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
 
@@ -84,48 +87,108 @@ export function AdminWithdrawalClient({
   const [withdrawError, setWithdrawError] = useState<string>("");
   const [withdrawSuccessMsg, setWithdrawSuccessMsg] = useState<string>("");
 
-  // Kunci scroll body saat modal aktif
-  useEffect(() => {
-    if (showWithdrawModal) {
-      const orig = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = orig;
-      };
-    }
-  }, [showWithdrawModal]);
+  // State Modal Konfirmasi Transfer & Unggah Bukti
+  const [approveModalWithdrawal, setApproveModalWithdrawal] = useState<any | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
+  const [proofRefNumber, setProofRefNumber] = useState<string>("");
+  const [isSubmittingApprove, setIsSubmittingApprove] = useState<boolean>(false);
+  const [approveError, setApproveError] = useState<string>("");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const handleToggleAutoPayout = async () => {
-    setIsUpdatingConfig(true);
-    const nextState = !autoPayoutEnabled;
-    try {
-      const res = await fetch("/api/admin/settings/auto-payout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: nextState }),
-      });
-      if (res.ok) {
-        setAutoPayoutEnabled(nextState);
-        setMsg(`Otomatisasi pencairan desainer terverifikasi ${nextState ? "DIAKTIFKAN" : "DINONAKTIFKAN"}`);
-      }
-    } finally {
-      setIsUpdatingConfig(false);
+  const handleCopyText = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => {
+      setCopiedField((prev) => (prev === fieldName ? null : prev));
+    }, 2000);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setProofFile(file);
+    setApproveError("");
+    if (file && file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setProofPreviewUrl(url);
+    } else {
+      setProofPreviewUrl(null);
     }
   };
 
-  const handleApprove = async (id: string) => {
-    if (!confirm("Konfirmasi bahwa transfer dana ke rekening desainer telah dilakukan?")) return;
-    setActionLoadingId(id);
-    setMsg("");
+  const handleCloseApproveModal = () => {
+    if (proofPreviewUrl) {
+      URL.revokeObjectURL(proofPreviewUrl);
+    }
+    setApproveModalWithdrawal(null);
+    setProofFile(null);
+    setProofPreviewUrl(null);
+    setProofRefNumber("");
+    setApproveError("");
+  };
+
+  const handleOpenApproveModal = (withdrawal: any) => {
+    setApproveModalWithdrawal(withdrawal);
+    setProofFile(null);
+    setProofPreviewUrl(null);
+    setProofRefNumber("");
+    setApproveError("");
+  };
+
+  const handleSubmitApproveWithProof = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!approveModalWithdrawal) return;
+
+    if (!adminDrive?.isConnected) {
+      setApproveError("Google Drive admin belum tersambung. Harap hubungkan Google Drive terlebih dahulu.");
+      return;
+    }
+
+    if (!proofFile) {
+      setApproveError("Silakan pilih file bukti pembayaran transfer.");
+      return;
+    }
+
+    setIsSubmittingApprove(true);
+    setApproveError("");
     try {
-      const res = await fetch(`/api/admin/withdrawals/${id}/approve`, {
-        method: "POST",
-      });
-      if (res.ok) {
-        router.refresh();
+      const formData = new FormData();
+      formData.append("proof", proofFile);
+      if (proofRefNumber.trim()) {
+        formData.append("refNumber", proofRefNumber.trim());
       }
+
+      const res = await fetch(`/api/admin/withdrawals/${approveModalWithdrawal.id}/approve`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setWithdrawals((prev) =>
+          prev.map((w) =>
+            w.id === approveModalWithdrawal.id
+              ? {
+                  ...w,
+                  status: "SUCCESS",
+                  gatewayRef: proofRefNumber.trim() || w.gatewayRef,
+                  proofUrl: data.proofUrl || `/api/withdrawals/${w.id}/proof`,
+                  reviewedBy: "ADMIN_MANUAL",
+                  reviewedAt: new Date().toISOString(),
+                }
+              : w
+          )
+        );
+        setMsg(data.message || "Penarikan berhasil dikonfirmasi dan bukti transfer tersimpan di Google Drive admin.");
+        handleCloseApproveModal();
+        router.refresh();
+      } else {
+        setApproveError(data.error?.message || data.message || "Gagal menyetujui penarikan");
+      }
+    } catch (err: any) {
+      setApproveError(err.message || "Terjadi kesalahan jaringan saat mengunggah bukti pembayaran");
     } finally {
-      setActionLoadingId(null);
+      setIsSubmittingApprove(false);
     }
   };
 
@@ -141,9 +204,29 @@ export function AdminWithdrawalClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        setWithdrawals((prev) =>
+          prev.map((w) =>
+            w.id === id
+              ? {
+                  ...w,
+                  status: "FAILED",
+                  reviewedBy: "ADMIN_MANUAL",
+                  reviewedAt: new Date().toISOString(),
+                  rejectionReason: reason,
+                }
+              : w
+          )
+        );
+        setMsg(data.message || "Penarikan berhasil ditolak dan dana dikembalikan.");
+        router.refresh();
+      } else {
+        alert(data.error?.message || data.message || "Gagal menolak penarikan");
         router.refresh();
       }
+    } catch (err: any) {
+      alert(err.message || "Terjadi kesalahan jaringan saat menolak penarikan");
     } finally {
       setActionLoadingId(null);
     }
@@ -252,42 +335,66 @@ export function AdminWithdrawalClient({
       {/* TAMPILAN TAB 1: PENARIKAN SALDO FREELANCER */}
       {activeTab === "FREELANCER" && (
         <div className="space-y-6">
-          {/* Pengaturan Auto-Confirm untuk Freelancer Terverifikasi */}
-          <div className="bg-surface border border-border rounded-lg p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-primary" />
-                <span className="font-bold text-base text-text">
-                  Auto-Confirm Freelancer Terverifikasi
-                </span>
+          {/* Integrasi Google Drive Admin untuk Penyimpanan Bukti Pembayaran */}
+          {adminDrive?.isConnected ? (
+            <div className="bg-surface border border-border rounded-lg p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="p-2.5 bg-success-soft text-success rounded-lg shrink-0">
+                  <Cloud className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm sm:text-base text-text">
+                      Google Drive Admin Terhubung
+                    </span>
+                    <span className="text-[10px] bg-success-soft text-success px-2 py-0.5 rounded-full font-bold">
+                      Aktif
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    Tersambung ke akun <strong className="text-text font-mono">{adminDrive.googleEmail || "Google Drive"}</strong>. Setiap bukti pembayaran transfer penarikan akan otomatis diunggah dan disimpan ke folder <code className="bg-neutral-soft px-1 py-0.5 rounded text-[11px] font-mono">JokiDay/bukti-penarikan</code>.
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-text-muted leading-relaxed max-w-xl">
-                Jika aktif, penarikan saldo oleh freelancer dengan lencana terverifikasi (Verified) akan otomatis disetujui tanpa perlu konfirmasi manual admin. Admin dapat mematikan fitur ini kapan saja.
-              </p>
-            </div>
 
-            <button
-              onClick={handleToggleAutoPayout}
-              disabled={isUpdatingConfig}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-md font-semibold text-xs border transition-colors shrink-0 ${
-                autoPayoutEnabled
-                  ? "bg-success-soft text-success border-success/30 hover:bg-success-soft/80"
-                  : "bg-neutral-soft text-text-muted border-border hover:bg-border"
-              }`}
-            >
-              {autoPayoutEnabled ? (
-                <>
-                  <ToggleRight className="w-5 h-5 text-success" />
-                  <span>Status: Aktif</span>
-                </>
-              ) : (
-                <>
-                  <ToggleLeft className="w-5 h-5 text-text-muted" />
-                  <span>Status: Nonaktif</span>
-                </>
-              )}
-            </button>
-          </div>
+              <a
+                href="/api/auth/google/connect?redirect=/admin/withdrawals"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold border border-border hover:bg-neutral-soft text-text transition-colors shrink-0"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Ganti Akun Drive</span>
+              </a>
+            </div>
+          ) : (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="p-2.5 bg-amber-500/20 text-amber-600 rounded-lg shrink-0">
+                  <Cloud className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm sm:text-base text-text">
+                      Google Drive Admin Belum Terhubung
+                    </span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-700 px-2 py-0.5 rounded-full font-bold">
+                      Wajib untuk Approve
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-muted leading-relaxed max-w-xl">
+                    Admin wajib menghubungkan akun Google Drive untuk menyimpan file bukti transfer pembayaran saat menyetujui penarikan saldo freelancer.
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="/api/auth/google/connect?redirect=/admin/withdrawals"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md text-xs font-bold bg-primary text-white hover:bg-primary-hover shadow-sm transition-colors shrink-0"
+              >
+                <Cloud className="w-4 h-4" />
+                <span>Hubungkan Google Drive Admin</span>
+              </a>
+            </div>
+          )}
 
           {/* Tabel Riwayat & Permintaan Penarikan Freelancer */}
           <div className="space-y-3">
@@ -362,9 +469,29 @@ export function AdminWithdrawalClient({
                                   ? "Menunggu Cek Admin"
                                   : "Ditolak"}
                               </Badge>
-                              {w.reviewedBy === "SYSTEM_AUTO_VERIFIED" && (
-                                <span className="block text-[10px] text-text-muted mt-0.5 font-mono">
-                                  Auto-Approved
+                              {w.status === "SUCCESS" && (
+                                <div className="mt-1 space-y-0.5">
+                                  {w.proofUrl && (
+                                    <a
+                                      href={w.proofUrl.startsWith("/") ? w.proofUrl : `/api/withdrawals/${w.id}/proof`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] text-primary font-bold hover:underline"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Lihat Bukti Transfer</span>
+                                    </a>
+                                  )}
+                                  {w.gatewayRef && (
+                                    <span className="block text-[10px] text-text-muted font-mono">
+                                      Ref: {w.gatewayRef}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {w.rejectionReason && (
+                                <span className="block text-[11px] text-danger mt-1">
+                                  Alasan: {w.rejectionReason}
                                 </span>
                               )}
                             </td>
@@ -374,12 +501,11 @@ export function AdminWithdrawalClient({
                                   <Button
                                     variant="primary"
                                     size="sm"
-                                    isLoading={actionLoadingId === w.id}
-                                    onClick={() => handleApprove(w.id)}
-                                    className="h-8 px-2.5 text-xs"
+                                    onClick={() => handleOpenApproveModal(w)}
+                                    className="h-8 px-2.5 text-xs font-bold"
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                                    <span>Konfirmasi</span>
+                                    <span>Konfirmasi & Bukti</span>
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -393,7 +519,20 @@ export function AdminWithdrawalClient({
                                   </Button>
                                 </div>
                               ) : (
-                                <span className="text-xs text-text-muted">Selesai</span>
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-xs text-text-muted font-medium">Selesai</span>
+                                  {w.status === "SUCCESS" && w.proofUrl && (
+                                    <a
+                                      href={w.proofUrl.startsWith("/") ? w.proofUrl : `/api/withdrawals/${w.id}/proof`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Bukti Transfer</span>
+                                    </a>
+                                  )}
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -817,6 +956,255 @@ export function AdminWithdrawalClient({
                   isLoading={isSubmittingWithdraw}
                 >
                   Konfirmasi & Cairkan Saldo
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Transfer Dana & Unggah Bukti Pembayaran */}
+      {approveModalWithdrawal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-surface border border-border rounded-xl shadow-floating max-w-lg w-full max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-border bg-neutral-soft/60 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-primary-soft text-primary rounded-lg shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-text">
+                    Konfirmasi Transfer & Unggah Bukti
+                  </h3>
+                  <p className="text-[11px] text-text-muted">
+                    Pastikan dana telah ditransfer ke rekening desainer sebelum konfirmasi
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseApproveModal}
+                disabled={isSubmittingApprove}
+                className="p-1.5 text-text-muted hover:text-text rounded-md hover:bg-neutral-soft transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmitApproveWithProof} className="flex-1 overflow-y-auto flex flex-col min-h-0">
+              <div className="p-4 sm:p-6 space-y-4 flex-1">
+                {approveError && (
+                  <div className="p-3 bg-danger-soft text-danger text-xs rounded-md border border-danger/20 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{approveError}</span>
+                  </div>
+                )}
+
+                {/* Box Rincian Rekening Tujuan */}
+                {(() => {
+                  let dest: Record<string, string> = {};
+                  try {
+                    dest = JSON.parse(approveModalWithdrawal.destination || "{}");
+                  } catch {
+                    dest = {};
+                  }
+                  return (
+                    <div className="bg-neutral-soft/80 border border-border rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-text uppercase tracking-wider">
+                          Rekening Tujuan Transfer
+                        </span>
+                        <span className="text-[10px] bg-primary-soft text-primary px-2 py-0.5 rounded-full font-bold">
+                          {dest.bankName || "Bank / E-Wallet"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div className="flex items-center justify-between py-1 border-b border-border/60">
+                          <span className="text-text-muted">Penerima</span>
+                          <span className="font-bold text-text">
+                            {approveModalWithdrawal.user?.displayName || "Desainer"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between py-1 border-b border-border/60">
+                          <span className="text-text-muted">Atas Nama</span>
+                          <span className="font-bold text-text">
+                            {dest.accountHolder || approveModalWithdrawal.user?.displayName}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between py-1 border-b border-border/60">
+                          <span className="text-text-muted">Nomor Rekening / No. HP</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-sm text-text">
+                              {dest.accountNumber}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyText(dest.accountNumber, "account")}
+                              className="p-1 rounded hover:bg-background text-text-muted hover:text-text transition-colors"
+                              title="Salin Nomor Rekening"
+                            >
+                              {copiedField === "account" ? (
+                                <Check className="w-3.5 h-3.5 text-success" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between py-1.5 bg-surface px-3 rounded-lg border border-border">
+                          <span className="text-text-muted font-medium">Nominal Transfer</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-money font-bold text-base text-primary">
+                              {formatRupiah(approveModalWithdrawal.amount)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyText(String(approveModalWithdrawal.amount), "amount")}
+                              className="p-1 rounded hover:bg-neutral-soft text-text-muted hover:text-text transition-colors"
+                              title="Salin Nominal"
+                            >
+                              {copiedField === "amount" ? (
+                                <Check className="w-3.5 h-3.5 text-success" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Status Google Drive Admin */}
+                {adminDrive?.isConnected ? (
+                  <div className="p-3 bg-success-soft/50 border border-success/30 rounded-lg flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <Cloud className="w-4 h-4 text-success shrink-0" />
+                      <span className="text-text">
+                        Bukti tersimpan ke Drive: <strong>{adminDrive.googleEmail}</strong>
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-success font-bold font-mono">
+                      JokiDay/bukti-penarikan
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+                    <div className="flex items-start gap-2 text-xs text-amber-700">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                      <span>
+                        Akun Google Drive admin belum tersambung. Anda wajib menyambungkan Google Drive untuk menyimpan bukti transfer.
+                      </span>
+                    </div>
+                    <a
+                      href="/api/auth/google/connect?redirect=/admin/withdrawals"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-primary text-white hover:bg-primary-hover shadow-xs transition-colors"
+                    >
+                      <Cloud className="w-3.5 h-3.5" />
+                      <span>Sambungkan Google Drive Admin</span>
+                    </a>
+                  </div>
+                )}
+
+                {/* Upload Bukti Pembayaran */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-text">
+                    Unggah Bukti Transfer Pembayaran <span className="text-danger">*</span>
+                  </label>
+                  <p className="text-[11px] text-text-muted">
+                    Format: JPG, PNG, WEBP, atau PDF (Maksimal 10MB).
+                  </p>
+
+                  <div className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-primary/50 transition-colors bg-background/50">
+                    <input
+                      type="file"
+                      id="proof-upload-input"
+                      accept="image/jpeg,image/png,image/webp,image/jpg,application/pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      required
+                    />
+                    <label
+                      htmlFor="proof-upload-input"
+                      className="cursor-pointer flex flex-col items-center justify-center space-y-2"
+                    >
+                      {proofPreviewUrl ? (
+                        <div className="relative group">
+                          <img
+                            src={proofPreviewUrl}
+                            alt="Preview Bukti"
+                            className="max-h-36 rounded-lg object-contain shadow-xs border border-border"
+                          />
+                          <div className="text-[11px] text-primary font-bold mt-2 flex items-center justify-center gap-1">
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Ganti File Bukti</span>
+                          </div>
+                        </div>
+                      ) : proofFile ? (
+                        <div className="flex items-center gap-2 text-xs font-bold text-text">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <span>{proofFile.name} ({(proofFile.size / 1024).toFixed(0)} KB)</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="p-3 bg-primary-soft text-primary rounded-full">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-bold text-primary hover:underline">
+                              Klik untuk memilih file bukti transfer
+                            </span>
+                            <span className="block text-[10px] text-text-muted mt-0.5">
+                              atau seret foto struk transfer ke sini
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                {/* Nomor Referensi Transfer */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-text">
+                    Nomor Referensi Bank / Catatan (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={proofRefNumber}
+                    onChange={(e) => setProofRefNumber(e.target.value)}
+                    placeholder="Contoh: REF987654321 / Transfer m-Banking BCA"
+                    className="w-full p-2.5 bg-background border border-border rounded-md text-xs text-text focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 sm:p-5 border-t border-border bg-surface flex items-center justify-end gap-3 shrink-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCloseApproveModal}
+                  disabled={isSubmittingApprove}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  isLoading={isSubmittingApprove}
+                  disabled={!proofFile || !adminDrive?.isConnected}
+                >
+                  Setujui & Unggah Bukti
                 </Button>
               </div>
             </form>

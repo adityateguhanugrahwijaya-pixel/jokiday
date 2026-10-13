@@ -59,16 +59,6 @@ export async function POST(req: NextRequest) {
       throw new ConflictError("Saldo dompet tidak mencukupi untuk penarikan ini");
     }
 
-    // Cek konfigurasi auto payout dari admin
-    const autoPayoutConfig = await prisma.appConfig.findUnique({
-      where: { key: "auto_payout_verified" },
-    });
-    const isAutoPayoutEnabled = autoPayoutConfig?.value === "true";
-
-    // Cek apakah desainer terverifikasi
-    const isVerifiedDesigner = user.designerProfile?.isVerified === true;
-    const canAutoConfirm = isAutoPayoutEnabled && isVerifiedDesigner;
-
     const withdrawalId = crypto.randomUUID();
     const idempotencyKey = `withdrawal-${withdrawalId}`;
 
@@ -101,49 +91,23 @@ export async function POST(req: NextRequest) {
         tx as any
       );
 
-      // 2. Jika desainer terverifikasi dan auto-payout aktif -> langsung konfirmasi sukses
-      if (canAutoConfirm) {
-        await LedgerService.recordWithdrawalSuccess(
-          user.id,
-          amountNum,
-          `auto-payout-success-${withdrawalId}`,
-          tx as any
-        );
-
-        await tx.withdrawal.create({
-          data: {
-            id: withdrawalId,
-            userId: user.id,
-            amount: amountNum,
-            method: cleanMethod,
-            destination: JSON.stringify(cleanDestination),
-            status: "SUCCESS",
-            reviewedBy: "SYSTEM_AUTO_VERIFIED",
-            reviewedAt: new Date(),
-          },
-        });
-      } else {
-        // Belum terverifikasi atau auto-confirm dimatikan admin -> status REQUESTED menunggu admin
-        await tx.withdrawal.create({
-          data: {
-            id: withdrawalId,
-            userId: user.id,
-            amount: amountNum,
-            method: cleanMethod,
-            destination: JSON.stringify(cleanDestination),
-            status: "REQUESTED",
-          },
-        });
-      }
+      // 2. Catat penarikan dalam status REQUESTED untuk verifikasi transfer manual oleh admin
+      await tx.withdrawal.create({
+        data: {
+          id: withdrawalId,
+          userId: user.id,
+          amount: amountNum,
+          method: cleanMethod,
+          destination: JSON.stringify(cleanDestination),
+          status: "REQUESTED",
+        },
+      });
     });
 
     return NextResponse.json({
       success: true,
       withdrawalId,
-      autoConfirmed: canAutoConfirm,
-      message: canAutoConfirm
-        ? "Penarikan otomatis disetujui untuk desainer terverifikasi dan dana sedang ditransfer."
-        : "Permintaan penarikan saldo berhasil diajukan dan sedang menunggu pemeriksaan manual admin.",
+      message: "Permintaan penarikan saldo berhasil diajukan dan sedang menunggu pemeriksaan serta transfer oleh admin.",
     });
   } catch (err) {
     const { status, body } = handleApiError(err);

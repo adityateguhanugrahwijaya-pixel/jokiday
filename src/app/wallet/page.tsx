@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { LedgerService } from "@/server/ledger/ledger.service";
 import { formatRupiah, formatDate, formatTime } from "@/lib/format";
-import { Wallet, ShieldAlert, ArrowDownLeft, ArrowUpRight, ShieldCheck, AlertCircle, Building2, Smartphone, CheckCircle2 } from "lucide-react";
+import { Wallet, ShieldAlert, ArrowDownLeft, ArrowUpRight, ShieldCheck, AlertCircle, Building2, Smartphone, CheckCircle2, ExternalLink } from "lucide-react";
 import { WithdrawalModalButton } from "./WithdrawalModalButton";
 import { PayoutAccountCard } from "./PayoutAccountCard";
 import { redirect } from "next/navigation";
@@ -383,6 +383,17 @@ export default async function WalletPage() {
                                 <span className="block text-[11px] text-danger">
                                   Alasan: {w.rejectionReason}
                                 </span>
+                              )}
+                              {isSuccess && w.proofUrl && (
+                                <a
+                                  href={`/api/withdrawals/${w.id}/proof`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline mt-1"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Lihat Bukti Transfer</span>
+                                </a>
                               )}
                             </div>
                           </td>

@@ -152,6 +152,42 @@ export class DriveService {
   }
 
   /**
+   * Menyiapkan struktur folder JokiDay di Google Drive milik admin untuk bukti pencairan dana:
+   * JokiDay/
+   * └── bukti-penarikan/
+   */
+  static async setupAdminFolders(refreshTokenEnc: string): Promise<{ rootFolderId: string; proofsFolderId: string }> {
+    const refreshToken = decryptToken(refreshTokenEnc);
+    const accessToken = await this.getAccessToken(refreshToken);
+
+    const rootFolderId = await this.ensureFolder(accessToken, "JokiDay");
+    const proofsFolderId = await this.ensureFolder(accessToken, "bukti-penarikan", rootFolderId);
+
+    return { rootFolderId, proofsFolderId };
+  }
+
+  /**
+   * Mengatur izin akses publik file bukti transfer Google Drive agar dapat dilihat oleh desainer
+   */
+  static async makeFilePublic(accessToken: string, fileId: string): Promise<void> {
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          role: "reader",
+          type: "anyone",
+        }),
+      });
+    } catch (err) {
+      console.warn("[Google Drive] Warning granting public permission:", err);
+    }
+  }
+
+  /**
    * Mengunggah file langsung ke Google Drive milik desainer menggunakan Multipart Upload v3
    */
   static async uploadFile(params: DriveUploadParams): Promise<DriveUploadResult> {

@@ -21,13 +21,8 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    const autoPayoutConfig = await prisma.appConfig.findUnique({
-      where: { key: "auto_payout_verified" },
-    });
-
     return NextResponse.json({
       withdrawals,
-      autoPayoutVerified: autoPayoutConfig?.value === "true",
     });
   } catch (err) {
     const { status, body } = handleApiError(err);

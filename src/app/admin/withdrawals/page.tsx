@@ -16,9 +16,14 @@ export default async function AdminWithdrawalsPage() {
       })
     : null;
 
+  const adminDrive = session
+    ? await prisma.driveConnection.findUnique({
+        where: { userId: session.userId },
+      })
+    : null;
+
   const [
     withdrawals,
-    autoPayoutConfig,
     platformBalance,
     totalPlatformRevenueAllTime,
     totalPlatformWithdrawnAllTime,
@@ -31,9 +36,6 @@ export default async function AdminWithdrawalsPage() {
         },
       },
       orderBy: { createdAt: "desc" },
-    }),
-    prisma.appConfig.findUnique({
-      where: { key: "auto_payout_verified" },
     }),
     LedgerService.getPlatformBalance(),
     LedgerService.getTotalPlatformRevenueAllTime(),
@@ -53,13 +55,20 @@ export default async function AdminWithdrawalsPage() {
             Panel Admin: Manajemen Penarikan Saldo
           </h1>
           <p className="text-sm text-text-muted mt-1">
-            Verifikasi transfer pencairan dana freelancer dan konfigurasi otomatisasi persetujuan.
+            Verifikasi transfer pencairan dana desainer dan unggah bukti transfer ke Google Drive admin.
           </p>
         </div>
 
         <AdminWithdrawalClient
           initialWithdrawals={withdrawals}
-          initialAutoPayout={autoPayoutConfig?.value === "true"}
+          initialAdminDrive={
+            adminDrive
+              ? {
+                  isConnected: adminDrive.status === "ACTIVE",
+                  googleEmail: adminDrive.googleEmail,
+                }
+              : null
+          }
           initialPlatformBalance={platformBalance}
           initialTotalPlatformRevenueAllTime={totalPlatformRevenueAllTime}
           initialTotalPlatformWithdrawnAllTime={totalPlatformWithdrawnAllTime}

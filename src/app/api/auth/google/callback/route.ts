@@ -8,7 +8,8 @@ import { DriveService } from "@/server/drive/drive.service";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const profileUrl = new URL("/profile", req.url);
+  const savedRedirect = req.cookies.get("google_oauth_redirect")?.value || "/profile";
+  const profileUrl = new URL(savedRedirect, req.url);
 
   try {
     const session = await AuthService.getCurrentUser();
@@ -100,11 +101,16 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 4. Siapkan folder JokiDay di Drive desainer
+    // 4. Siapkan folder JokiDay di Drive (admin atau desainer)
     let rootFolderId = "root";
     try {
-      const folders = await DriveService.setupDesignerFolders(refreshTokenEnc);
-      rootFolderId = folders.rootFolderId;
+      if (session.isAdmin) {
+        const adminFolders = await DriveService.setupAdminFolders(refreshTokenEnc);
+        rootFolderId = adminFolders.rootFolderId;
+      } else {
+        const folders = await DriveService.setupDesignerFolders(refreshTokenEnc);
+        rootFolderId = folders.rootFolderId;
+      }
     } catch (folderErr) {
       console.warn("[Google Drive] Folder setup warning:", folderErr);
     }
@@ -131,6 +137,7 @@ export async function GET(req: NextRequest) {
     profileUrl.searchParams.set("drive", "connected");
     const response = NextResponse.redirect(profileUrl);
     response.cookies.delete("google_oauth_state");
+    response.cookies.delete("google_oauth_redirect");
     return response;
   } catch (err: any) {
     console.error("[Google OAuth] Callback error:", err);

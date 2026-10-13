@@ -27,8 +27,14 @@ export async function POST(
     });
 
     if (!withdrawal) throw new NotFoundError("Permintaan penarikan tidak ditemukan");
+    if (withdrawal.status === "FAILED") {
+      return NextResponse.json({
+        success: true,
+        message: "Penarikan sudah ditolak sebelumnya.",
+      });
+    }
     if (withdrawal.status !== "REQUESTED") {
-      throw new ConflictError(`Penarikan sudah dalam status ${withdrawal.status}`);
+      throw new ConflictError(`Penarikan tidak dapat ditolak karena berstatus ${withdrawal.status}`);
     }
 
     const idempotencyKey = `admin-reject-withdrawal-${withdrawal.id}`;

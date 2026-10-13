@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
     // Buat token state acak untuk proteksi CSRF
     const state = crypto.randomBytes(24).toString("hex");
 
+    const redirectParam = req.nextUrl.searchParams.get("redirect") || (session.isAdmin ? "/admin/withdrawals" : "/profile");
+
     const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     authUrl.searchParams.set("client_id", clientId);
     authUrl.searchParams.set("redirect_uri", redirectUri);
@@ -45,13 +47,20 @@ export async function GET(req: NextRequest) {
 
     const response = NextResponse.redirect(authUrl.toString());
 
-    // Simpan state di cookie httpOnly
+    // Simpan state dan target redirect di cookie httpOnly
     const isHttps = req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https" || process.env.NODE_ENV === "production";
     response.cookies.set("google_oauth_state", state, {
       httpOnly: true,
       secure: isHttps,
       sameSite: "lax",
       maxAge: 10 * 60, // 10 menit
+      path: "/",
+    });
+    response.cookies.set("google_oauth_redirect", redirectParam, {
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: "lax",
+      maxAge: 10 * 60,
       path: "/",
     });
 
