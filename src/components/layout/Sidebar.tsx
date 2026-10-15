@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { useUnreadChatCount } from "@/components/chat/ChatNotificationListener";
+import { ADMIN_NAV_ITEMS } from "@/lib/constants/admin-nav";
 
 export interface SidebarProps {
   role?: "CUSTOMER" | "DESIGNER";
@@ -62,12 +63,7 @@ export function Sidebar({ role = "CUSTOMER", isAdmin }: SidebarProps) {
     { label: "Profil Desainer", href: "/profile", icon: User },
   ];
 
-  const adminNav = [
-    { label: "Dashboard Admin", href: "/admin", icon: Layers },
-    { label: "Undangan Desainer", href: "/admin/invites", icon: UserPlus },
-    { label: "Penarikan Saldo", href: "/admin/withdrawals", icon: Wallet },
-    { label: "Monitoring Order", href: "/orders", icon: Clock },
-  ];
+  const adminNav = ADMIN_NAV_ITEMS;
 
   const currentNav = isAdminState
     ? adminNav

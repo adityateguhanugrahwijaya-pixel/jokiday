@@ -108,13 +108,19 @@ export function OrdersViewClient({
   const countCompleted = orders.filter((o) => o.status === "COMPLETED").length;
   const countCancelled = orders.filter((o) => o.status === "CANCELLED" || o.status === "REFUNDED").length;
 
+  React.useEffect(() => {
+    if (isAdmin) {
+      document.title = "Monitoring Order - JokiDay";
+    }
+  }, [isAdmin]);
+
   return (
     <AppShell role={role} displayName={displayName} isAdmin={isAdmin}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-text">
             {isAdmin
-              ? "Monitoring Transaksi Platform"
+              ? "Monitoring Order"
               : role === "DESIGNER"
               ? "Kelola Pekerjaan Desain"
               : "Daftar Pesanan Saya"}

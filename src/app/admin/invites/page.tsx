@@ -1,10 +1,15 @@
 import React from "react";
+import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { AdminInvitesClient, AdminInviteItem } from "./AdminInvitesClient";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Undangan Desainer - JokiDay",
+};
 
 export default async function AdminInvitesPage() {
   const invites = await prisma.designerInvite.findMany({
@@ -47,7 +52,7 @@ export default async function AdminInvitesPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-text">
-            Panel Admin: Kelola Undangan Desainer
+            Undangan Desainer
           </h1>
           <p className="text-sm text-text-muted mt-1 leading-relaxed">
             Hanya desainer yang menerima tautan undangan khusus satu kali pakai (one-time link) yang dapat membuka jasa di JokiDay.

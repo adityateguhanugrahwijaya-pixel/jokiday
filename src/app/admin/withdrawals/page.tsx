@@ -1,4 +1,5 @@
 import React from "react";
+import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
@@ -7,6 +8,10 @@ import { getWithdrawalSettings } from "@/server/withdrawal/withdrawal-settings.s
 import { AdminWithdrawalClient } from "./AdminWithdrawalClient";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Penarikan Saldo - JokiDay",
+};
 
 export default async function AdminWithdrawalsPage() {
   const session = await AuthService.getCurrentUser();
@@ -55,7 +60,7 @@ export default async function AdminWithdrawalsPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-text">
-            Panel Admin: Manajemen Penarikan Saldo
+            Penarikan Saldo
           </h1>
           <p className="text-sm text-text-muted mt-1">
             Verifikasi transfer pencairan dana desainer dan unggah bukti transfer ke Google Drive admin.

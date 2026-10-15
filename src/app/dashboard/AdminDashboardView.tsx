@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
@@ -12,13 +11,12 @@ import {
   Users,
   Palette,
   Clock,
-  ArrowUpRight,
   UserPlus,
   Wallet,
   CheckCircle2,
+  ChevronRight,
   ExternalLink,
   Layers,
-  ChevronRight,
   AlertTriangle,
   SlidersHorizontal,
   AlertCircle,
@@ -161,28 +159,11 @@ export function AdminDashboardView({
               <span className="text-xs text-text-muted">JokiDay Prod</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-text tracking-tight">
-              Dashboard Administrator
+              Dashboard Admin
             </h1>
             <p className="text-sm text-text-muted mt-1">
               Pusat kendali ekosistem JokiDay: kelola undangan desainer, persetujuan pencairan saldo, dan pantau seluruh transaksi platform.
             </p>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <Link
-              href="/admin/invites"
-              className="inline-flex items-center justify-center h-10 px-4 rounded-md bg-secondary text-on-secondary font-bold text-sm hover:bg-secondary-hover transition-colors shadow-sm"
-            >
-              <UserPlus className="w-4 h-4 mr-1.5" />
-              <span>Kelola Undangan</span>
-            </Link>
-            <Link
-              href="/admin/withdrawals"
-              className="inline-flex items-center justify-center h-10 px-4 rounded-md bg-surface border border-border text-text font-bold text-sm hover:bg-background transition-colors"
-            >
-              <Wallet className="w-4 h-4 mr-1.5 text-primary" />
-              <span>Penarikan Saldo</span>
-            </Link>
           </div>
         </div>
 
@@ -367,16 +348,6 @@ export function AdminDashboardView({
                 Akumulasi fee 5% platform dari pesanan selesai. Dilacak penuh di buku besar double-entry ledger.
               </p>
             </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <Link
-                href="/admin/withdrawals"
-                className="inline-flex items-center justify-center h-9 px-4 rounded-md bg-primary text-white font-bold text-xs hover:bg-primary/90 transition-colors shadow-sm"
-              >
-                <span>Cairkan Saldo Platform</span>
-                <ChevronRight className="w-3.5 h-3.5 ml-1" />
-              </Link>
-            </div>
           </div>
 
           {/* Card 2: Total Saldo Customer (Refund / Batal) */}
@@ -512,13 +483,6 @@ export function AdminDashboardView({
                   </p>
                 </div>
               </div>
-              <Link
-                href="/admin/withdrawals"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500 text-slate-900 font-bold text-xs hover:bg-amber-400 transition-colors"
-              >
-                <span>Buka Panel Penarikan</span>
-                <ChevronRight className="w-4 h-4" />
-              </Link>
             </div>
 
             <div className="space-y-2 pt-2">
@@ -546,16 +510,6 @@ export function AdminDashboardView({
                 </div>
               ))}
             </div>
-
-            <div className="sm:hidden pt-2">
-              <Link
-                href="/admin/withdrawals"
-                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md bg-amber-500 text-slate-900 font-bold text-xs hover:bg-amber-400 transition-colors"
-              >
-                <span>Periksa Semua di Panel Penarikan</span>
-                <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
           </div>
         )}
 
@@ -572,13 +526,6 @@ export function AdminDashboardView({
                   Aktivitas transaksi terkini di JokiDay
                 </p>
               </div>
-              <Link
-                href="/orders"
-                className="text-xs font-bold text-secondary hover:underline flex items-center gap-1"
-              >
-                <span>Lihat Semua</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </Link>
             </div>
 
             {recentOrders.length === 0 ? (
@@ -626,25 +573,12 @@ export function AdminDashboardView({
                   Status tautan undangan pendaftaran (invite-only)
                 </p>
               </div>
-              <Link
-                href="/admin/invites"
-                className="text-xs font-bold text-secondary hover:underline flex items-center gap-1"
-              >
-                <span>Kelola Undangan</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </Link>
             </div>
 
             {recentInvites.length === 0 ? (
               <div className="text-center py-8 text-text-muted text-sm space-y-2">
                 <Palette className="w-8 h-8 mx-auto opacity-40" />
                 <p>Belum ada tautan undangan yang dibuat.</p>
-                <Link
-                  href="/admin/invites"
-                  className="inline-block mt-2 text-xs font-bold text-primary hover:underline"
-                >
-                  + Buat Undangan Pertama
-                </Link>
               </div>
             ) : (
               <div className="space-y-3">
@@ -758,20 +692,6 @@ export function AdminDashboardView({
                 Semua menu proteksi khusus admin aktif untuk akun Anda di domain resmi production.
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/admin/invites"
-              className="px-3 py-1.5 rounded-md bg-background border border-border text-xs font-semibold text-text hover:bg-surface transition-colors"
-            >
-              Undangan Desainer
-            </Link>
-            <Link
-              href="/admin/withdrawals"
-              className="px-3 py-1.5 rounded-md bg-background border border-border text-xs font-semibold text-text hover:bg-surface transition-colors"
-            >
-              Persetujuan Penarikan
-            </Link>
           </div>
         </div>
 

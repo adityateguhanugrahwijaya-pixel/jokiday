@@ -1,4 +1,5 @@
 import React from "react";
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { LedgerService } from "@/server/ledger/ledger.service";
@@ -6,6 +7,10 @@ import { redirect } from "next/navigation";
 import { AdminDashboardView } from "@/app/dashboard/AdminDashboardView";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Dashboard Admin - JokiDay",
+};
 
 export default async function AdminDashboardPage() {
   const session = await AuthService.getCurrentUser();

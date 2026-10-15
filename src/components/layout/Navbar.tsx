@@ -25,6 +25,7 @@ import {
 import { RoleSwitchModal } from "@/components/ui/RoleSwitchModal";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ChatNotificationListener, useUnreadChatCount } from "@/components/chat/ChatNotificationListener";
+import { ADMIN_NAV_ITEMS } from "@/lib/constants/admin-nav";
 
 export interface NavbarProps {
   initialRole?: "CUSTOMER" | "DESIGNER";
@@ -233,12 +234,7 @@ export function Navbar({
     { label: "Dompet", href: "/wallet", icon: Wallet },
   ];
 
-  const adminNav = [
-    { label: "Dashboard", href: "/admin", icon: Layers },
-    { label: "Undangan", href: "/admin/invites", icon: ShieldCheck },
-    { label: "Penarikan", href: "/admin/withdrawals", icon: Wallet },
-    { label: "Semua Order", href: "/orders", icon: Clock },
-  ];
+  const adminNav = ADMIN_NAV_ITEMS;
 
   const currentNav = user?.isAdmin
     ? adminNav
@@ -252,7 +248,7 @@ export function Navbar({
       {/* Topbar untuk Tablet & Desktop */}
       <header className="sticky top-0 z-40 bg-surface border-b border-border h-16 px-4 md:px-8 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href={user?.isAdmin ? "/admin" : "/"} className="flex items-center gap-2 group">
             <div className="w-9 h-9 rounded-md bg-primary text-white flex items-center justify-center font-bold text-lg">
               J
             </div>
@@ -271,79 +267,38 @@ export function Navbar({
             />
           </div>
 
-          {/* Quick Links Desktop */}
-          <nav className="hidden lg:flex items-center gap-1 text-sm font-semibold">
-            {user?.isAdmin ? (
-              <>
-                <Link
-                  href="/admin"
-                  className={clsx(
-                    "px-3 py-1.5 rounded-md transition-colors",
-                    pathname === "/admin" ? "text-primary bg-primary-soft font-bold" : "text-text-muted hover:text-text hover:bg-background"
-                  )}
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/admin/invites"
-                  className={clsx(
-                    "px-3 py-1.5 rounded-md transition-colors",
-                    pathname.startsWith("/admin/invites") ? "text-secondary font-bold bg-secondary-soft" : "text-text-muted hover:text-text hover:bg-background"
-                  )}
-                >
-                  Undangan Desainer
-                </Link>
-                <Link
-                  href="/admin/withdrawals"
-                  className={clsx(
-                    "px-3 py-1.5 rounded-md transition-colors",
-                    pathname.startsWith("/admin/withdrawals") ? "text-secondary font-bold bg-secondary-soft" : "text-text-muted hover:text-text hover:bg-background"
-                  )}
-                >
-                  Penarikan Saldo
-                </Link>
-                <Link
-                  href="/orders"
-                  className={clsx(
-                    "px-3 py-1.5 rounded-md transition-colors",
-                    pathname.startsWith("/orders") ? "text-primary bg-primary-soft font-bold" : "text-text-muted hover:text-text hover:bg-background"
-                  )}
-                >
-                  Semua Order
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/"
-                  className={clsx(
-                    "px-3 py-1.5 rounded-md transition-colors",
-                    pathname === "/" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
-                  )}
-                >
-                  Beranda
-                </Link>
-                <Link
-                  href="/portfolio"
-                  className={clsx(
-                    "px-3 py-1.5 rounded-md transition-colors",
-                    pathname === "/portfolio" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
-                  )}
-                >
-                  Feed Karya
-                </Link>
-                <Link
-                  href="/market"
-                  className={clsx(
-                    "px-3 py-1.5 rounded-md transition-colors",
-                    pathname === "/market" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
-                  )}
-                >
-                  Pasar Brief
-                </Link>
-              </>
-            )}
-          </nav>
+          {/* Quick Links Desktop (Hanya untuk non-admin; Navigasi admin eksklusif lewat Sidebar) */}
+          {!user?.isAdmin && (
+            <nav className="hidden lg:flex items-center gap-1 text-sm font-semibold">
+              <Link
+                href="/"
+                className={clsx(
+                  "px-3 py-1.5 rounded-md transition-colors",
+                  pathname === "/" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
+                )}
+              >
+                Beranda
+              </Link>
+              <Link
+                href="/portfolio"
+                className={clsx(
+                  "px-3 py-1.5 rounded-md transition-colors",
+                  pathname === "/portfolio" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
+                )}
+              >
+                Feed Karya
+              </Link>
+              <Link
+                href="/market"
+                className={clsx(
+                  "px-3 py-1.5 rounded-md transition-colors",
+                  pathname === "/market" ? "text-primary bg-primary-soft" : "text-text-muted hover:text-text hover:bg-background"
+                )}
+              >
+                Pasar Brief
+              </Link>
+            </nav>
+          )}
         </div>
 
         {/* Action & Role Switcher */}
@@ -455,42 +410,7 @@ export function Navbar({
                       </div>
                     </div>
 
-                    {user.isAdmin ? (
-                      <>
-                        <Link
-                          href="/admin"
-                          onClick={() => setShowMenu(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors font-medium"
-                        >
-                          <Layers className="w-4 h-4 text-primary" />
-                          <span>Dashboard Administrator</span>
-                        </Link>
-                        <Link
-                          href="/admin/invites"
-                          onClick={() => setShowMenu(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-secondary font-bold hover:bg-background transition-colors"
-                        >
-                          <ShieldCheck className="w-4 h-4" />
-                          <span>Panel Undangan Desainer</span>
-                        </Link>
-                        <Link
-                          href="/admin/withdrawals"
-                          onClick={() => setShowMenu(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-secondary font-bold hover:bg-background transition-colors"
-                        >
-                          <Wallet className="w-4 h-4" />
-                          <span>Panel Penarikan Saldo</span>
-                        </Link>
-                        <Link
-                          href="/orders"
-                          onClick={() => setShowMenu(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
-                        >
-                          <Clock className="w-4 h-4 text-text-muted" />
-                          <span>Monitoring Order</span>
-                        </Link>
-                      </>
-                    ) : (
+                    {!user.isAdmin && (
                       <>
                         <Link
                           href={role === "DESIGNER" ? "/dashboard/designer" : "/dashboard/customer"}
@@ -596,11 +516,11 @@ export function Navbar({
                 )}
               </div>
 
-              {/* Mobile Burger Menu Button */}
+              {/* Mobile / Tablet Burger Menu Button */}
               <button
                 type="button"
                 onClick={() => setIsMobileDrawerOpen(true)}
-                className="md:hidden flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-surface text-text transition-colors touch-target shrink-0"
+                className="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-surface text-text transition-colors touch-target shrink-0"
                 aria-label="Buka menu navigasi"
               >
                 <Menu className="w-5 h-5" />
@@ -624,7 +544,7 @@ export function Navbar({
               <button
                 type="button"
                 onClick={() => setIsMobileDrawerOpen(true)}
-                className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-background hover:bg-surface text-text transition-colors touch-target shrink-0"
+                className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-background hover:bg-surface text-text transition-colors touch-target shrink-0"
                 aria-label="Buka menu navigasi"
               >
                 <Menu className="w-5 h-5" />
@@ -635,9 +555,11 @@ export function Navbar({
       </header>
 
       {/* Bottom Navigation untuk Layar HP (xs - sm) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] px-2 flex items-center justify-around">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] px-1 sm:px-2 flex items-center justify-around">
         {currentNav.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/" && item.href !== "/admin" && pathname.startsWith(item.href));
           const Icon = item.icon;
           const isChat = item.href === "/chat";
           return (
@@ -646,7 +568,7 @@ export function Navbar({
               href={item.href}
               onClick={isChat ? handleChatNavClick : undefined}
               className={clsx(
-                "flex flex-col items-center justify-center flex-1 h-full touch-target transition-colors",
+                "flex flex-col items-center justify-center flex-1 h-full touch-target transition-colors min-w-0 px-0.5",
                 isActive ? "text-primary font-bold" : "text-text-muted hover:text-text"
               )}
             >
@@ -658,15 +580,17 @@ export function Navbar({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] tracking-tight">{item.label}</span>
+              <span className="text-[10px] tracking-tight text-center truncate max-w-full leading-tight">
+                {item.label}
+              </span>
             </Link>
           );
         })}
       </nav>
 
-      {/* Mobile Navigation Drawer / Burger Sheet */}
+      {/* Mobile & Tablet Navigation Drawer / Burger Sheet */}
       {isMobileDrawerOpen && (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
@@ -780,64 +704,31 @@ export function Navbar({
                     </p>
 
                     {user.isAdmin ? (
-                      <>
-                        <Link
-                          href="/admin"
-                          onClick={() => setIsMobileDrawerOpen(false)}
-                          className={clsx(
-                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
-                            pathname === "/admin" ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Layers className="w-4 h-4" />
-                            <span>Dashboard Admin</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-text-muted" />
-                        </Link>
-                        <Link
-                          href="/admin/invites"
-                          onClick={() => setIsMobileDrawerOpen(false)}
-                          className={clsx(
-                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
-                            pathname.startsWith("/admin/invites") ? "bg-secondary-soft text-secondary font-bold" : "text-text hover:bg-background"
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <ShieldCheck className="w-4 h-4" />
-                            <span>Undangan Desainer</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-text-muted" />
-                        </Link>
-                        <Link
-                          href="/admin/withdrawals"
-                          onClick={() => setIsMobileDrawerOpen(false)}
-                          className={clsx(
-                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
-                            pathname.startsWith("/admin/withdrawals") ? "bg-secondary-soft text-secondary font-bold" : "text-text hover:bg-background"
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Wallet className="w-4 h-4" />
-                            <span>Penarikan Saldo</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-text-muted" />
-                        </Link>
-                        <Link
-                          href="/orders"
-                          onClick={() => setIsMobileDrawerOpen(false)}
-                          className={clsx(
-                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
-                            pathname.startsWith("/orders") ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Clock className="w-4 h-4" />
-                            <span>Semua Order</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-text-muted" />
-                        </Link>
-                      </>
+                      ADMIN_NAV_ITEMS.map((item) => {
+                        const Icon = item.icon;
+                        const isActive =
+                          pathname === item.href ||
+                          (item.href !== "/admin" && pathname.startsWith(item.href));
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setIsMobileDrawerOpen(false)}
+                            className={clsx(
+                              "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                              isActive
+                                ? "bg-primary-soft text-primary font-bold"
+                                : "text-text hover:bg-background"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Icon className="w-4 h-4" />
+                              <span>{item.label}</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-text-muted" />
+                          </Link>
+                        );
+                      })
                     ) : (
                       <>
                         <Link
