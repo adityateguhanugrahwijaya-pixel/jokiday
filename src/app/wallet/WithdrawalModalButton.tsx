@@ -4,8 +4,14 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { formatRupiah } from "@/lib/format";
-import { ArrowDownLeft, AlertCircle, Building2, Smartphone, CheckCircle2, ShieldCheck, X } from "lucide-react";
+import { ArrowDownLeft, AlertCircle, Building2, Smartphone, CheckCircle2, ShieldCheck, X, Info } from "lucide-react";
 import { PAYOUT_CHANNELS } from "@/lib/payout-channels";
+import {
+  MIN_WITHDRAWAL_AMOUNT,
+  WITHDRAWAL_NOTICE_TEXT,
+  calculateWithdrawalFee,
+  calculateNetAmount,
+} from "@/lib/constants/withdrawal";
 
 interface WithdrawalModalButtonProps {
   availableBalance: number;
@@ -18,7 +24,7 @@ interface WithdrawalModalButtonProps {
 
 export function WithdrawalModalButton({
   availableBalance,
-  minWithdrawal = 5000,
+  minWithdrawal = MIN_WITHDRAWAL_AMOUNT,
   savedBankName,
   savedAccountNumber,
   savedAccountHolder,
@@ -53,6 +59,13 @@ export function WithdrawalModalButton({
   // Pengelompokan kanal
   const categories = Array.from(new Set(PAYOUT_CHANNELS.map((c) => c.category)));
 
+  // Rincian realtime nominal & biaya
+  const numAmount = parseInt(amount, 10) || 0;
+  const transferFee = calculateWithdrawalFee(selectedChannel.code || selectedChannel.name);
+  const isFree = transferFee === 0;
+  const netAmount = numAmount - transferFee;
+  const isAmountValid = numAmount >= minWithdrawal && numAmount <= availableBalance && netAmount > 0;
+
   const handleOpenModal = () => {
     setAmount(
       availableBalance >= minWithdrawal ? String(availableBalance) : String(minWithdrawal)
@@ -63,13 +76,18 @@ export function WithdrawalModalButton({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numAmount = parseInt(amount, 10);
-    if (isNaN(numAmount) || numAmount < minWithdrawal) {
+    const parsedAmount = parseInt(amount, 10);
+    if (isNaN(parsedAmount) || parsedAmount < minWithdrawal) {
       setErrorMsg(`Batas minimal penarikan dana adalah ${formatRupiah(minWithdrawal)}`);
       return;
     }
-    if (numAmount > availableBalance) {
-      setErrorMsg("Saldo tidak mencukupi untuk penarikan ini");
+    if (parsedAmount > availableBalance) {
+      setErrorMsg("Nominal penarikan melebihi saldo tersedia");
+      return;
+    }
+    const currentFee = calculateWithdrawalFee(selectedChannel.code || selectedChannel.name);
+    if (parsedAmount - currentFee <= 0) {
+      setErrorMsg("Nominal penarikan setelah dikurangi biaya transfer tidak boleh Rp0 atau minus");
       return;
     }
     if (!accountNumber.trim() || !accountHolder.trim()) {
@@ -88,7 +106,7 @@ export function WithdrawalModalButton({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: numAmount,
+          amount: parsedAmount,
           method: isEWallet ? "EWALLET" : "BANK",
           destination: {
             bankName: selectedChannel.name,
@@ -124,15 +142,15 @@ export function WithdrawalModalButton({
       </Button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-surface border border-border rounded-xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-floating my-8">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-surface border border-border rounded-xl max-w-lg w-full p-5 sm:p-7 space-y-4 shadow-floating my-auto max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center">
                   <ArrowDownLeft className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg text-text">
+                  <h3 className="font-bold text-base sm:text-lg text-text">
                     Tarik Saldo Freelancer
                   </h3>
                   <p className="text-xs text-text-muted">
@@ -143,15 +161,22 @@ export function WithdrawalModalButton({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="text-text-muted hover:text-text p-1 rounded-md"
+                className="text-text-muted hover:text-text p-1 rounded-md touch-target"
+                aria-label="Tutup modal penarikan"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
+            {/* Notice Resmi Ketentuan Penarikan Saldo */}
+            <div className="p-3.5 bg-primary-soft/70 border border-primary/20 rounded-lg flex items-start gap-2.5 text-xs text-text leading-relaxed shrink-0">
+              <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <span>{WITHDRAWAL_NOTICE_TEXT}</span>
+            </div>
+
             {/* Banner Informasi Batas Penarikan jika saldo kurang */}
             {isBalanceInsufficient && (
-              <div className="p-3.5 bg-neutral-soft border border-border rounded-xl flex items-start gap-2.5 text-xs text-text">
+              <div className="p-3.5 bg-neutral-soft border border-border rounded-xl flex items-start gap-2.5 text-xs text-text shrink-0">
                 <AlertCircle className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p className="font-bold text-text">
@@ -165,13 +190,13 @@ export function WithdrawalModalButton({
             )}
 
             {errorMsg && (
-              <div className="p-3 bg-danger-soft text-danger text-xs rounded-md border border-danger/20 flex items-center gap-2">
+              <div className="p-3 bg-danger-soft text-danger text-xs rounded-md border border-danger/20 flex items-center gap-2 shrink-0">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+            <form onSubmit={handleSubmit} className="space-y-4 text-sm overflow-y-auto pr-1 flex-1">
               {/* Nominal */}
               <div>
                 <label className="block font-semibold text-text mb-1">
@@ -228,19 +253,64 @@ export function WithdrawalModalButton({
                     ))}
                   </select>
                 </div>
-                <span className="text-[11px] text-text-muted mt-1 flex items-center gap-1">
-                  {isEWallet ? (
-                    <>
-                      <Smartphone className="w-3 h-3 text-secondary" />
-                      <span>Kategori Uang Elektronik (E-Wallet)</span>
-                    </>
-                  ) : (
-                    <>
-                      <Building2 className="w-3 h-3 text-primary" />
-                      <span>Kategori Transfer Bank</span>
-                    </>
-                  )}
+                <div className="text-[11px] text-text-muted mt-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    {isEWallet ? (
+                      <>
+                        <Smartphone className="w-3 h-3 text-secondary" />
+                        <span>Kategori Uang Elektronik (E-Wallet)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Building2 className="w-3 h-3 text-primary" />
+                        <span>Kategori Transfer Bank</span>
+                      </>
+                    )}
+                  </span>
+                  <span className={`font-semibold ${isFree ? "text-success" : "text-text-muted"}`}>
+                    {isFree ? "Gratis Biaya Transfer" : "Biaya BI-FAST Rp4.000"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Rincian Realtime Nominal Penarikan */}
+              <div className="p-3.5 bg-background border border-border rounded-lg space-y-2 text-xs">
+                <span className="font-bold text-text block text-[11px] uppercase tracking-wider text-text-muted">
+                  Rincian Penarikan
                 </span>
+                <div className="flex items-center justify-between text-text-muted">
+                  <span>Nominal penarikan:</span>
+                  <span className="font-semibold text-text font-money">
+                    {formatRupiah(numAmount)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-text-muted">
+                  <span>Biaya transfer:</span>
+                  <span className={`font-semibold font-money ${isFree ? "text-success font-bold" : "text-text"}`}>
+                    {isFree ? "Rp0 (Gratis)" : `${formatRupiah(transferFee)} (BI-FAST)`}
+                  </span>
+                </div>
+                <div className="border-t border-border pt-2 flex items-center justify-between font-bold">
+                  <span className="text-text">Estimasi diterima:</span>
+                  <span className="text-primary text-sm font-money">
+                    {formatRupiah(Math.max(0, netAmount))}
+                  </span>
+                </div>
+                {numAmount > 0 && numAmount < minWithdrawal && (
+                  <p className="text-[11px] text-danger font-medium pt-1">
+                    Minimal penarikan adalah {formatRupiah(minWithdrawal)}.
+                  </p>
+                )}
+                {numAmount > availableBalance && (
+                  <p className="text-[11px] text-danger font-medium pt-1">
+                    Nominal melebihi saldo tersedia ({formatRupiah(availableBalance)}).
+                  </p>
+                )}
+                {numAmount >= minWithdrawal && netAmount <= 0 && (
+                  <p className="text-[11px] text-danger font-medium pt-1">
+                    Nominal penarikan setelah dikurangi biaya transfer tidak boleh Rp0 atau minus.
+                  </p>
+                )}
               </div>
 
               {/* Nomor Rekening / Nomor HP */}
@@ -292,10 +362,19 @@ export function WithdrawalModalButton({
               </div>
 
               {/* Ringkasan & Tombol Aksi */}
-              <div className="pt-2 border-t border-border flex items-center justify-between gap-3">
+              <div className="pt-3 border-t border-border flex items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                  <ShieldCheck className="w-4 h-4 text-success" />
-                  <span>Bebas biaya admin</span>
+                  {isFree ? (
+                    <>
+                      <ShieldCheck className="w-4 h-4 text-success shrink-0" />
+                      <span className="text-success font-medium">Gratis biaya transfer</span>
+                    </>
+                  ) : (
+                    <>
+                      <Info className="w-4 h-4 text-text-muted shrink-0" />
+                      <span>Biaya BI-FAST Rp4.000</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -309,7 +388,7 @@ export function WithdrawalModalButton({
                   <Button
                     type="submit"
                     variant="cta"
-                    disabled={isBalanceInsufficient}
+                    disabled={isBalanceInsufficient || !isAmountValid}
                     isLoading={isLoading}
                   >
                     {isBalanceInsufficient ? "Saldo Belum Mencukupi" : "Konfirmasi Penarikan"}

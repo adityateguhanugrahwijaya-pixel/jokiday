@@ -6,9 +6,10 @@ import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { LedgerService } from "@/server/ledger/ledger.service";
 import { formatRupiah, formatDate, formatTime } from "@/lib/format";
-import { Wallet, ShieldAlert, ArrowDownLeft, ArrowUpRight, ShieldCheck, AlertCircle, Building2, Smartphone, CheckCircle2, ExternalLink } from "lucide-react";
+import { Wallet, ShieldAlert, ArrowDownLeft, ArrowUpRight, ShieldCheck, AlertCircle, Building2, Smartphone, CheckCircle2, ExternalLink, Info } from "lucide-react";
 import { WithdrawalModalButton } from "./WithdrawalModalButton";
 import { PayoutAccountCard } from "./PayoutAccountCard";
+import { MIN_WITHDRAWAL_AMOUNT } from "@/lib/constants/withdrawal";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -214,8 +215,8 @@ export default async function WalletPage() {
     where: { key: "min_withdrawal" },
   });
   const minWithdrawal = minWithdrawalCfg
-    ? parseInt(minWithdrawalCfg.value, 10) || 5000
-    : 5000;
+    ? parseInt(minWithdrawalCfg.value, 10) || MIN_WITHDRAWAL_AMOUNT
+    : MIN_WITHDRAWAL_AMOUNT;
 
   return (
     <AppShell role="DESIGNER" displayName={user.displayName}>
@@ -294,6 +295,42 @@ export default async function WalletPage() {
               Kombinasi saldo aktif dan proyek yang sedang berjalan.
             </p>
           </Card>
+        </div>
+
+        {/* Ringkasan Ketentuan Penarikan Saldo (Transparan) */}
+        <div className="bg-surface border border-border rounded-xl p-5 sm:p-6 space-y-3.5">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-bold text-text">
+              Ketentuan Penarikan Saldo
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="p-3.5 rounded-lg bg-background border border-border/70 space-y-1">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
+                Proses
+              </span>
+              <p className="text-xs text-text font-medium leading-relaxed">
+                Dikirim manual oleh admin, biasanya di hari yang sama
+              </p>
+            </div>
+            <div className="p-3.5 rounded-lg bg-background border border-border/70 space-y-1">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
+                Minimal Penarikan
+              </span>
+              <p className="text-xs text-text font-bold font-money">
+                {formatRupiah(minWithdrawal)}
+              </p>
+            </div>
+            <div className="p-3.5 rounded-lg bg-background border border-border/70 space-y-1">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
+                Biaya
+              </span>
+              <p className="text-xs text-text font-medium leading-relaxed">
+                BCA & DANA = <span className="text-success font-bold font-money">Rp0</span> (gratis); bank/e-wallet lain = <span className="font-bold font-money">Rp4.000</span> (BI-FAST)
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Riwayat Penarikan Dana */}

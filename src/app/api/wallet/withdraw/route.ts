@@ -4,6 +4,7 @@ import { AuthService } from "@/server/auth/auth.service";
 import { LedgerService } from "@/server/ledger/ledger.service";
 import { handleApiError, ValidationError, ConflictError, ForbiddenError, UnauthorizedError } from "@/lib/errors";
 import { sanitizeInput } from "@/lib/security";
+import { MIN_WITHDRAWAL_AMOUNT, calculateWithdrawalFee } from "@/lib/constants/withdrawal";
 import crypto from "node:crypto";
 
 export async function POST(req: NextRequest) {
@@ -20,12 +21,12 @@ export async function POST(req: NextRequest) {
       where: { key: "min_withdrawal" },
     });
     const minWithdrawal = minWithdrawalCfg
-      ? parseInt(minWithdrawalCfg.value, 10) || 5000
-      : 5000;
+      ? parseInt(minWithdrawalCfg.value, 10) || MIN_WITHDRAWAL_AMOUNT
+      : MIN_WITHDRAWAL_AMOUNT;
 
     const amountNum = parseInt(amount, 10);
     if (isNaN(amountNum) || amountNum < minWithdrawal) {
-      throw new ValidationError(`Batas minimal penarikan saldo adalah Rp ${minWithdrawal.toLocaleString("id-ID")}`);
+      throw new ValidationError(`Batas minimal penarikan saldo adalah Rp${minWithdrawal.toLocaleString("id-ID")}`);
     }
 
     const cleanMethod = method === "EWALLET" ? "EWALLET" : "BANK";
@@ -37,6 +38,18 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+
+    // Validasi biaya transfer & estimasi nominal diterima
+    const bankOrChannel = cleanDestination.bankName || "";
+    const transferFee = calculateWithdrawalFee(bankOrChannel);
+    const netAmount = amountNum - transferFee;
+
+    if (netAmount <= 0) {
+      throw new ValidationError("Nominal penarikan setelah dikurangi biaya transfer tidak boleh Rp0 atau minus");
+    }
+
+    cleanDestination.transferFee = String(transferFee);
+    cleanDestination.netAmount = String(netAmount);
 
     const user = await prisma.user.findUnique({
       where: { id: session.userId },

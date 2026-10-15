@@ -4,8 +4,9 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Building2, Smartphone, CreditCard, Edit3, Plus, CheckCircle2, AlertCircle, X, ShieldCheck } from "lucide-react";
+import { Building2, Smartphone, CreditCard, Edit3, Plus, CheckCircle2, AlertCircle, X, ShieldCheck, Info } from "lucide-react";
 import { PAYOUT_CHANNELS } from "@/lib/payout-channels";
+import { WITHDRAWAL_NOTICE_TEXT } from "@/lib/constants/withdrawal";
 
 interface PayoutAccountCardProps {
   initialBank?: string | null;
@@ -209,7 +210,13 @@ export function PayoutAccountCard({
               </div>
             )}
 
-            <form onSubmit={handleSave} className="space-y-4 text-sm">
+            {/* Notice Resmi Ketentuan Penarikan Saldo */}
+            <div className="p-3.5 bg-primary-soft/70 border border-primary/20 rounded-lg flex items-start gap-2.5 text-xs text-text leading-relaxed">
+              <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <span>{WITHDRAWAL_NOTICE_TEXT}</span>
+            </div>
+
+            <form onSubmit={handleSave} className="space-y-4 text-sm overflow-y-auto pr-1 flex-1">
               <div>
                 <label className="block font-semibold text-text mb-1 text-xs">
                   Pilihan Bank / Dompet Digital (E-Money)
