@@ -57,6 +57,8 @@ describe("Ledger Service - Business Rules & Double-Entry Accounting", () => {
     expect(debit?.amount).toBe(50000);
     expect(credit?.account).toBe(`ESCROW:${orderId}`);
     expect(credit?.amount).toBe(50000);
+
+    await prisma.ledgerEntry.deleteMany({ where: { orderId } });
   });
 
   it("records completed order release and platform fee with exact balanced entries", async () => {

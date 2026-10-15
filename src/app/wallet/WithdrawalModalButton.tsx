@@ -274,7 +274,7 @@ export function WithdrawalModalButton({
                     )}
                   </span>
                   <span className={`font-semibold ${isFree ? "text-success" : "text-text-muted"}`}>
-                    {isFree ? "Gratis Biaya Transfer" : "Biaya BI-FAST Rp4.000"}
+                    {isFree ? "Gratis Biaya Transfer" : `Biaya BI-FAST ${formatRupiah(transferFee)}`}
                   </span>
                 </div>
               </div>
@@ -302,9 +302,9 @@ export function WithdrawalModalButton({
                     {formatRupiah(Math.max(0, netAmount))}
                   </span>
                 </div>
-                {numAmount > 0 && numAmount < minWithdrawal && (
+                {numAmount > 0 && numAmount < effectiveMinWithdrawal && (
                   <p className="text-[11px] text-danger font-medium pt-1">
-                    Minimal penarikan adalah {formatRupiah(minWithdrawal)}.
+                    Minimal penarikan adalah {formatRupiah(effectiveMinWithdrawal)}.
                   </p>
                 )}
                 {numAmount > availableBalance && (
@@ -312,7 +312,7 @@ export function WithdrawalModalButton({
                     Nominal melebihi saldo tersedia ({formatRupiah(availableBalance)}).
                   </p>
                 )}
-                {numAmount >= minWithdrawal && netAmount <= 0 && (
+                {numAmount >= effectiveMinWithdrawal && netAmount <= 0 && (
                   <p className="text-[11px] text-danger font-medium pt-1">
                     Nominal penarikan setelah dikurangi biaya transfer tidak boleh Rp0 atau minus.
                   </p>
@@ -378,7 +378,7 @@ export function WithdrawalModalButton({
                   ) : (
                     <>
                       <Info className="w-4 h-4 text-text-muted shrink-0" />
-                      <span>Biaya BI-FAST Rp4.000</span>
+                      <span>Biaya BI-FAST {formatRupiah(transferFee)}</span>
                     </>
                   )}
                 </div>

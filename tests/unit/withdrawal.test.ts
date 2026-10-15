@@ -98,6 +98,56 @@ describe("Dynamic Withdrawal Settings & Template Generation", () => {
     );
   });
 
+  it("formats 3 free destinations as 'BCA, BRI & DANA' dynamically when added", () => {
+    const generated = generateWithdrawalNoticeText({
+      minWithdrawal: 10000,
+      defaultFee: 4000,
+      feeOverrides: [
+        { destination: "BCA", fee: 0 },
+        { destination: "BRI", fee: 0 },
+        { destination: "DANA", fee: 0 },
+      ],
+    });
+    expect(generated).toBe(
+      "Penarikan dikirim manual oleh admin ke rekening pencairanmu, biasanya di hari yang sama. Minimal Rp10.000. Ke BCA, BRI & DANA gratis; ke bank/e-wallet lain biaya transfer BI-FAST Rp4.000"
+    );
+  });
+
+  it("does not include deleted free destinations when admin removes BCA from feeOverrides", () => {
+    const generated = generateWithdrawalNoticeText({
+      minWithdrawal: 10000,
+      defaultFee: 4000,
+      feeOverrides: [
+        { destination: "BRI", fee: 0 },
+        { destination: "DANA", fee: 0 },
+      ],
+    });
+    expect(generated).toBe(
+      "Penarikan dikirim manual oleh admin ke rekening pencairanmu, biasanya di hari yang sama. Minimal Rp10.000. Ke BRI & DANA gratis; ke bank/e-wallet lain biaya transfer BI-FAST Rp4.000"
+    );
+    // BCA yang sudah dihapus dari overrides kini dikenakan biaya default Rp4.000
+    expect(calculateWithdrawalFee("BCA", {
+      feeOverrides: [
+        { destination: "BRI", fee: 0 },
+        { destination: "DANA", fee: 0 },
+      ],
+    })).toBe(4000);
+  });
+
+  it("handles zero free destinations gracefully", () => {
+    const generated = generateWithdrawalNoticeText({
+      minWithdrawal: 10000,
+      defaultFee: 4000,
+      feeOverrides: [
+        { destination: "BCA", fee: 2000 },
+        { destination: "DANA", fee: 2000 },
+      ],
+    });
+    expect(generated).toBe(
+      "Penarikan dikirim manual oleh admin ke rekening pencairanmu, biasanya di hari yang sama. Minimal Rp10.000. Biaya transfer BI-FAST ke semua bank/e-wallet Rp4.000"
+    );
+  });
+
   it("calculates fee based on custom fee_overrides per destination", () => {
     const customSettings = {
       minWithdrawal: 10000,

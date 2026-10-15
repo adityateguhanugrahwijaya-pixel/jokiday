@@ -9,7 +9,11 @@ import { formatRupiah, formatDate, formatTime } from "@/lib/format";
 import { Wallet, ShieldAlert, ArrowDownLeft, ArrowUpRight, ShieldCheck, AlertCircle, Building2, Smartphone, CheckCircle2, ExternalLink, Info } from "lucide-react";
 import { WithdrawalModalButton } from "./WithdrawalModalButton";
 import { PayoutAccountCard } from "./PayoutAccountCard";
-import { MIN_WITHDRAWAL_AMOUNT } from "@/lib/constants/withdrawal";
+import {
+  MIN_WITHDRAWAL_AMOUNT,
+  getEffectiveFreeDestinations,
+  formatFreeDestinationsList,
+} from "@/lib/constants/withdrawal";
 import { getWithdrawalSettings } from "@/server/withdrawal/withdrawal-settings.service";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -215,21 +219,8 @@ export default async function WalletPage() {
   const withdrawalSettings = await getWithdrawalSettings();
   const minWithdrawal = withdrawalSettings.minWithdrawal;
 
-  const freeList = Array.from(
-    new Set([
-      ...(withdrawalSettings.freeDestinations || []),
-      ...(withdrawalSettings.feeOverrides || [])
-        .filter((o) => o.fee === 0)
-        .map((o) => o.destination),
-    ])
-  ).filter(Boolean);
-
-  const freeChannelsText =
-    freeList.length === 0
-      ? ""
-      : freeList.length === 1
-      ? freeList[0]
-      : freeList.slice(0, -1).join(", ") + " & " + freeList[freeList.length - 1];
+  const freeList = getEffectiveFreeDestinations(withdrawalSettings);
+  const freeChannelsText = formatFreeDestinationsList(freeList);
 
   return (
     <AppShell role="DESIGNER" displayName={user.displayName}>
