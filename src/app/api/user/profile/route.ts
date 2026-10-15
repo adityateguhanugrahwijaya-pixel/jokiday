@@ -104,7 +104,8 @@ export async function PATCH(req: NextRequest) {
       user: updatedUser,
     });
   } catch (error) {
-    return handleApiError(error);
+    const { status, body } = handleApiError(error);
+    return NextResponse.json(body, { status });
   }
 }
 
