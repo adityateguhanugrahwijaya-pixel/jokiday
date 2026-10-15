@@ -5,6 +5,7 @@ import { LedgerService } from "@/server/ledger/ledger.service";
 import { handleApiError, ValidationError, ConflictError, ForbiddenError, UnauthorizedError } from "@/lib/errors";
 import { sanitizeInput } from "@/lib/security";
 import { MIN_WITHDRAWAL_AMOUNT, calculateWithdrawalFee } from "@/lib/constants/withdrawal";
+import { getWithdrawalSettings } from "@/server/withdrawal/withdrawal-settings.service";
 import crypto from "node:crypto";
 
 export async function POST(req: NextRequest) {
@@ -17,12 +18,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { amount, method, destination } = body;
 
-    const minWithdrawalCfg = await prisma.appConfig.findUnique({
-      where: { key: "min_withdrawal" },
-    });
-    const minWithdrawal = minWithdrawalCfg
-      ? parseInt(minWithdrawalCfg.value, 10) || MIN_WITHDRAWAL_AMOUNT
-      : MIN_WITHDRAWAL_AMOUNT;
+    const settings = await getWithdrawalSettings();
+    const minWithdrawal = settings.minWithdrawal;
 
     const amountNum = parseInt(amount, 10);
     if (isNaN(amountNum) || amountNum < minWithdrawal) {
@@ -39,9 +36,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Validasi biaya transfer & estimasi nominal diterima
+    // Validasi biaya transfer & estimasi nominal diterima menggunakan dynamic settings
     const bankOrChannel = cleanDestination.bankName || "";
-    const transferFee = calculateWithdrawalFee(bankOrChannel);
+    const transferFee = calculateWithdrawalFee(bankOrChannel, settings);
     const netAmount = amountNum - transferFee;
 
     if (netAmount <= 0) {
@@ -50,6 +47,12 @@ export async function POST(req: NextRequest) {
 
     cleanDestination.transferFee = String(transferFee);
     cleanDestination.netAmount = String(netAmount);
+    cleanDestination.snapshotFee = String(transferFee);
+    cleanDestination.settingsSnapshot = JSON.stringify({
+      minWithdrawal: settings.minWithdrawal,
+      defaultFee: settings.defaultFee,
+      calculatedAt: new Date().toISOString(),
+    });
 
     const user = await prisma.user.findUnique({
       where: { id: session.userId },

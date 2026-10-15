@@ -18,8 +18,11 @@ async function main() {
     { key: "offer_expires_days", value: "3", description: "Masa berlaku penawaran designer jika tidak direspons" },
     { key: "overdue_grace_hours", value: "24", description: "Tenggang waktu setelah deadline sebelum auto-refund" },
     { key: "dispute_response_hours", value: "48", description: "Batas waktu respons dispute sebelum diputuskan sepihak" },
-    { key: "min_withdrawal", value: "50000", description: "Batas minimum penarikan saldo dompet dalam rupiah" },
-    { key: "withdrawal_fee", value: "0", description: "Biaya penarikan saldo" },
+    { key: "min_withdrawal", value: "10000", description: "Batas minimum penarikan saldo dompet dalam rupiah" },
+    { key: "withdrawal_default_fee", value: "4000", description: "Biaya transfer penarikan default BI-FAST (Rp)" },
+    { key: "withdrawal_free_destinations", value: JSON.stringify(["BCA", "DANA"]), description: "Daftar kanal penarikan bebas biaya transfer (JSON array)" },
+    { key: "withdrawal_fee_overrides", value: JSON.stringify([{ destination: "BCA", fee: 0 }, { destination: "DANA", fee: 0 }]), description: "Daftar penyesuaian biaya penarikan per tujuan (JSON array)" },
+    { key: "withdrawal_fee", value: "0", description: "Biaya penarikan saldo (legacy)" },
     { key: "max_upload_mb", value: "100", description: "Maksimal ukuran upload file dalam megabyte" },
     { key: "preview_max_px", value: "1200", description: "Dimensi maksimum sisi panjang gambar pratinjau watermark" },
   ];

@@ -10,6 +10,7 @@ import { Wallet, ShieldAlert, ArrowDownLeft, ArrowUpRight, ShieldCheck, AlertCir
 import { WithdrawalModalButton } from "./WithdrawalModalButton";
 import { PayoutAccountCard } from "./PayoutAccountCard";
 import { MIN_WITHDRAWAL_AMOUNT } from "@/lib/constants/withdrawal";
+import { getWithdrawalSettings } from "@/server/withdrawal/withdrawal-settings.service";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -211,12 +212,24 @@ export default async function WalletPage() {
     take: 30,
   });
 
-  const minWithdrawalCfg = await prisma.appConfig.findUnique({
-    where: { key: "min_withdrawal" },
-  });
-  const minWithdrawal = minWithdrawalCfg
-    ? parseInt(minWithdrawalCfg.value, 10) || MIN_WITHDRAWAL_AMOUNT
-    : MIN_WITHDRAWAL_AMOUNT;
+  const withdrawalSettings = await getWithdrawalSettings();
+  const minWithdrawal = withdrawalSettings.minWithdrawal;
+
+  const freeList = Array.from(
+    new Set([
+      ...(withdrawalSettings.freeDestinations || []),
+      ...(withdrawalSettings.feeOverrides || [])
+        .filter((o) => o.fee === 0)
+        .map((o) => o.destination),
+    ])
+  ).filter(Boolean);
+
+  const freeChannelsText =
+    freeList.length === 0
+      ? ""
+      : freeList.length === 1
+      ? freeList[0]
+      : freeList.slice(0, -1).join(", ") + " & " + freeList[freeList.length - 1];
 
   return (
     <AppShell role="DESIGNER" displayName={user.displayName}>
@@ -238,6 +251,7 @@ export default async function WalletPage() {
             savedAccountNumber={user.designerProfile?.payoutAccount}
             savedAccountHolder={user.designerProfile?.payoutHolderName}
             userDisplayName={user.displayName}
+            settings={withdrawalSettings}
           />
         </div>
 
@@ -247,6 +261,7 @@ export default async function WalletPage() {
           initialAccount={user.designerProfile?.payoutAccount}
           initialHolder={user.designerProfile?.payoutHolderName}
           userDisplayName={user.displayName}
+          settings={withdrawalSettings}
         />
 
         {/* Tiga Kartu Angka Saldo */}
@@ -327,7 +342,15 @@ export default async function WalletPage() {
                 Biaya
               </span>
               <p className="text-xs text-text font-medium leading-relaxed">
-                BCA & DANA = <span className="text-success font-bold font-money">Rp0</span> (gratis); bank/e-wallet lain = <span className="font-bold font-money">Rp4.000</span> (BI-FAST)
+                {freeChannelsText ? (
+                  <>
+                    {freeChannelsText} = <span className="text-success font-bold font-money">Rp0</span> (gratis); bank/e-wallet lain = <span className="font-bold font-money">{formatRupiah(withdrawalSettings.defaultFee)}</span> (BI-FAST)
+                  </>
+                ) : (
+                  <>
+                    Semua bank/e-wallet = <span className="font-bold font-money">{formatRupiah(withdrawalSettings.defaultFee)}</span> (BI-FAST)
+                  </>
+                )}
               </p>
             </div>
           </div>

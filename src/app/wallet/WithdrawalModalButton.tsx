@@ -8,7 +8,8 @@ import { ArrowDownLeft, AlertCircle, Building2, Smartphone, CheckCircle2, Shield
 import { PAYOUT_CHANNELS } from "@/lib/payout-channels";
 import {
   MIN_WITHDRAWAL_AMOUNT,
-  WITHDRAWAL_NOTICE_TEXT,
+  WithdrawalSettings,
+  generateWithdrawalNoticeText,
   calculateWithdrawalFee,
   calculateNetAmount,
 } from "@/lib/constants/withdrawal";
@@ -20,6 +21,7 @@ interface WithdrawalModalButtonProps {
   savedAccountNumber?: string | null;
   savedAccountHolder?: string | null;
   userDisplayName?: string;
+  settings?: WithdrawalSettings | null;
 }
 
 export function WithdrawalModalButton({
@@ -29,11 +31,15 @@ export function WithdrawalModalButton({
   savedAccountNumber,
   savedAccountHolder,
   userDisplayName = "",
+  settings,
 }: WithdrawalModalButtonProps) {
   const router = useRouter();
+  const effectiveMinWithdrawal = settings?.minWithdrawal ?? minWithdrawal ?? MIN_WITHDRAWAL_AMOUNT;
+  const noticeText = generateWithdrawalNoticeText(settings);
+
   const [isOpen, setIsOpen] = useState(false);
   const [amount, setAmount] = useState<string>(
-    availableBalance >= minWithdrawal ? String(availableBalance) : String(minWithdrawal)
+    availableBalance >= effectiveMinWithdrawal ? String(availableBalance) : String(effectiveMinWithdrawal)
   );
 
   const [bankCode, setBankCode] = useState<string>(
@@ -61,14 +67,14 @@ export function WithdrawalModalButton({
 
   // Rincian realtime nominal & biaya
   const numAmount = parseInt(amount, 10) || 0;
-  const transferFee = calculateWithdrawalFee(selectedChannel.code || selectedChannel.name);
+  const transferFee = calculateWithdrawalFee(selectedChannel.code || selectedChannel.name, settings);
   const isFree = transferFee === 0;
   const netAmount = numAmount - transferFee;
-  const isAmountValid = numAmount >= minWithdrawal && numAmount <= availableBalance && netAmount > 0;
+  const isAmountValid = numAmount >= effectiveMinWithdrawal && numAmount <= availableBalance && netAmount > 0;
 
   const handleOpenModal = () => {
     setAmount(
-      availableBalance >= minWithdrawal ? String(availableBalance) : String(minWithdrawal)
+      availableBalance >= effectiveMinWithdrawal ? String(availableBalance) : String(effectiveMinWithdrawal)
     );
     setErrorMsg("");
     setIsOpen(true);
@@ -77,15 +83,15 @@ export function WithdrawalModalButton({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseInt(amount, 10);
-    if (isNaN(parsedAmount) || parsedAmount < minWithdrawal) {
-      setErrorMsg(`Batas minimal penarikan dana adalah ${formatRupiah(minWithdrawal)}`);
+    if (isNaN(parsedAmount) || parsedAmount < effectiveMinWithdrawal) {
+      setErrorMsg(`Batas minimal penarikan dana adalah ${formatRupiah(effectiveMinWithdrawal)}`);
       return;
     }
     if (parsedAmount > availableBalance) {
       setErrorMsg("Nominal penarikan melebihi saldo tersedia");
       return;
     }
-    const currentFee = calculateWithdrawalFee(selectedChannel.code || selectedChannel.name);
+    const currentFee = calculateWithdrawalFee(selectedChannel.code || selectedChannel.name, settings);
     if (parsedAmount - currentFee <= 0) {
       setErrorMsg("Nominal penarikan setelah dikurangi biaya transfer tidak boleh Rp0 atau minus");
       return;
@@ -128,7 +134,7 @@ export function WithdrawalModalButton({
     }
   };
 
-  const isBalanceInsufficient = availableBalance < minWithdrawal;
+  const isBalanceInsufficient = availableBalance < effectiveMinWithdrawal;
 
   return (
     <>
@@ -171,7 +177,7 @@ export function WithdrawalModalButton({
             {/* Notice Resmi Ketentuan Penarikan Saldo */}
             <div className="p-3.5 bg-primary-soft/70 border border-primary/20 rounded-lg flex items-start gap-2.5 text-xs text-text leading-relaxed shrink-0">
               <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <span>{WITHDRAWAL_NOTICE_TEXT}</span>
+              <span>{noticeText}</span>
             </div>
 
             {/* Banner Informasi Batas Penarikan jika saldo kurang */}
@@ -183,7 +189,7 @@ export function WithdrawalModalButton({
                     Saldo Belum Mencapai Batas Minimum
                   </p>
                   <p className="text-text-muted leading-relaxed">
-                    Saldo siap tarik Anda saat ini adalah <strong className="text-text">{formatRupiah(availableBalance)}</strong>. Batas minimum pencairan dana adalah <strong className="text-text">{formatRupiah(minWithdrawal)}</strong>. Anda dapat mencairkan saldo setelah menyelesaikan order berikutnya.
+                    Saldo siap tarik Anda saat ini adalah <strong className="text-text">{formatRupiah(availableBalance)}</strong>. Batas minimum pencairan dana adalah <strong className="text-text">{formatRupiah(effectiveMinWithdrawal)}</strong>. Anda dapat mencairkan saldo setelah menyelesaikan order berikutnya.
                   </p>
                 </div>
               </div>
@@ -208,7 +214,7 @@ export function WithdrawalModalButton({
                   </span>
                   <input
                     type="number"
-                    min={minWithdrawal}
+                    min={effectiveMinWithdrawal}
                     max={availableBalance}
                     step={1000}
                     disabled={isBalanceInsufficient}
@@ -218,8 +224,8 @@ export function WithdrawalModalButton({
                   />
                 </div>
                 <div className="flex items-center justify-between text-xs text-text-muted mt-1.5">
-                  <span>Minimal: {formatRupiah(minWithdrawal)}</span>
-                  {availableBalance >= minWithdrawal && (
+                  <span>Minimal: {formatRupiah(effectiveMinWithdrawal)}</span>
+                  {availableBalance >= effectiveMinWithdrawal && (
                     <button
                       type="button"
                       onClick={() => setAmount(String(availableBalance))}

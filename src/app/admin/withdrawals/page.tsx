@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { LedgerService } from "@/server/ledger/ledger.service";
+import { getWithdrawalSettings } from "@/server/withdrawal/withdrawal-settings.service";
 import { AdminWithdrawalClient } from "./AdminWithdrawalClient";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,7 @@ export default async function AdminWithdrawalsPage() {
     totalPlatformRevenueAllTime,
     totalPlatformWithdrawnAllTime,
     platformLedgerEntries,
+    withdrawalSettings,
   ] = await Promise.all([
     prisma.withdrawal.findMany({
       include: {
@@ -45,6 +47,7 @@ export default async function AdminWithdrawalsPage() {
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
+    getWithdrawalSettings(),
   ]);
 
   return (
@@ -73,6 +76,7 @@ export default async function AdminWithdrawalsPage() {
           initialTotalPlatformRevenueAllTime={totalPlatformRevenueAllTime}
           initialTotalPlatformWithdrawnAllTime={totalPlatformWithdrawnAllTime}
           initialPlatformLedgerEntries={platformLedgerEntries}
+          initialSettings={withdrawalSettings}
         />
       </div>
     </AppShell>

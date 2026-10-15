@@ -26,7 +26,17 @@ import {
   Upload,
   FileText,
   RotateCcw,
+  Settings,
+  Trash2,
+  Plus,
+  Sparkles,
 } from "lucide-react";
+import {
+  WithdrawalSettings,
+  DestinationFeeOverride,
+  DEFAULT_WITHDRAWAL_SETTINGS,
+  generateWithdrawalNoticeText,
+} from "@/lib/constants/withdrawal";
 
 export interface AdminWithdrawalClientProps {
   initialWithdrawals: any[];
@@ -35,6 +45,7 @@ export interface AdminWithdrawalClientProps {
   initialTotalPlatformRevenueAllTime?: number;
   initialTotalPlatformWithdrawnAllTime?: number;
   initialPlatformLedgerEntries?: any[];
+  initialSettings?: WithdrawalSettings;
 }
 
 const SUPPORTED_BANKS = [
@@ -61,9 +72,10 @@ export function AdminWithdrawalClient({
   initialTotalPlatformRevenueAllTime = 0,
   initialTotalPlatformWithdrawnAllTime = 0,
   initialPlatformLedgerEntries = [],
+  initialSettings = DEFAULT_WITHDRAWAL_SETTINGS,
 }: AdminWithdrawalClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"FREELANCER" | "PLATFORM">("FREELANCER");
+  const [activeTab, setActiveTab] = useState<"FREELANCER" | "PLATFORM" | "SETTINGS">("FREELANCER");
   const [withdrawals, setWithdrawals] = useState(initialWithdrawals);
   const [adminDrive, setAdminDrive] = useState(initialAdminDrive);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -74,6 +86,143 @@ export function AdminWithdrawalClient({
   const [totalPlatformRevenue, setTotalPlatformRevenue] = useState(initialTotalPlatformRevenueAllTime);
   const [totalPlatformWithdrawn, setTotalPlatformWithdrawn] = useState(initialTotalPlatformWithdrawnAllTime);
   const [platformEntries, setPlatformEntries] = useState(initialPlatformLedgerEntries);
+
+  // State untuk Pengaturan Ketentuan & Biaya Penarikan
+  const [settings, setSettings] = useState<WithdrawalSettings>(
+    initialSettings || DEFAULT_WITHDRAWAL_SETTINGS
+  );
+  const [settingsMinWithdrawal, setSettingsMinWithdrawal] = useState<number>(
+    (initialSettings || DEFAULT_WITHDRAWAL_SETTINGS).minWithdrawal
+  );
+  const [settingsDefaultFee, setSettingsDefaultFee] = useState<number>(
+    (initialSettings || DEFAULT_WITHDRAWAL_SETTINGS).defaultFee
+  );
+  const [settingsOverrides, setSettingsOverrides] = useState<DestinationFeeOverride[]>(
+    (initialSettings || DEFAULT_WITHDRAWAL_SETTINGS).feeOverrides || []
+  );
+  const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
+  const [settingsError, setSettingsError] = useState<string>("");
+  const [settingsSuccessMsg, setSettingsSuccessMsg] = useState<string>("");
+
+  const handleAddOverride = () => {
+    setSettingsOverrides((prev) => [...prev, { destination: "", fee: 0 }]);
+  };
+
+  const handleRemoveOverride = (index: number) => {
+    setSettingsOverrides((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateOverride = (
+    index: number,
+    field: "destination" | "fee",
+    value: string | number
+  ) => {
+    setSettingsOverrides((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        if (field === "fee") {
+          const num = parseInt(String(value), 10);
+          return { ...item, fee: isNaN(num) ? 0 : Math.max(0, num) };
+        }
+        return { ...item, destination: String(value) };
+      })
+    );
+  };
+
+  const handleResetSettingsToDefault = () => {
+    if (confirm("Kembalikan pengaturan biaya & ketentuan penarikan ke nilai default awal?")) {
+      setSettingsMinWithdrawal(DEFAULT_WITHDRAWAL_SETTINGS.minWithdrawal);
+      setSettingsDefaultFee(DEFAULT_WITHDRAWAL_SETTINGS.defaultFee);
+      setSettingsOverrides([...DEFAULT_WITHDRAWAL_SETTINGS.feeOverrides]);
+      setSettingsError("");
+      setSettingsSuccessMsg("");
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsError("");
+    setSettingsSuccessMsg("");
+
+    const minNum = Number(settingsMinWithdrawal);
+    if (isNaN(minNum) || minNum <= 0) {
+      setSettingsError("Minimal penarikan harus lebih besar dari Rp0");
+      return;
+    }
+
+    const defaultFeeNum = Number(settingsDefaultFee);
+    if (isNaN(defaultFeeNum) || defaultFeeNum < 0) {
+      setSettingsError("Biaya default transfer tidak boleh negatif");
+      return;
+    }
+
+    if (defaultFeeNum >= minNum) {
+      setSettingsError(
+        `Biaya transfer default (${formatRupiah(defaultFeeNum)}) tidak boleh sama dengan atau melebihi minimal penarikan (${formatRupiah(minNum)})`
+      );
+      return;
+    }
+
+    // Validasi overrides
+    const seen = new Set<string>();
+    for (let i = 0; i < settingsOverrides.length; i++) {
+      const item = settingsOverrides[i];
+      const dest = item.destination.trim();
+      if (!dest) {
+        setSettingsError(`Nama bank/e-wallet baris ke-${i + 1} tidak boleh kosong`);
+        return;
+      }
+      const upper = dest.toUpperCase();
+      if (seen.has(upper)) {
+        setSettingsError(`Tujuan transfer '${dest}' terdaftar lebih dari satu kali (duplikat) di baris ke-${i + 1}`);
+        return;
+      }
+      seen.add(upper);
+
+      if (item.fee < 0) {
+        setSettingsError(`Biaya untuk '${dest}' tidak boleh negatif`);
+        return;
+      }
+      if (item.fee >= minNum) {
+        setSettingsError(
+          `Biaya transfer untuk '${dest}' (${formatRupiah(item.fee)}) tidak boleh sama atau melebihi minimal penarikan (${formatRupiah(minNum)})`
+        );
+        return;
+      }
+    }
+
+    setIsSavingSettings(true);
+    try {
+      const res = await fetch("/api/admin/withdrawals/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          minWithdrawal: minNum,
+          defaultFee: defaultFeeNum,
+          feeOverrides: settingsOverrides.map((o) => ({
+            destination: o.destination.trim(),
+            fee: Number(o.fee) || 0,
+          })),
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setSettings(data.settings);
+        setSettingsMinWithdrawal(data.settings.minWithdrawal);
+        setSettingsDefaultFee(data.settings.defaultFee);
+        setSettingsOverrides(data.settings.feeOverrides || []);
+        setSettingsSuccessMsg(data.message || "Pengaturan berhasil diperbarui!");
+        router.refresh();
+      } else {
+        setSettingsError(data.error?.message || data.message || "Gagal menyimpan pengaturan");
+      }
+    } catch (err: any) {
+      setSettingsError(err.message || "Terjadi kesalahan jaringan saat menyimpan pengaturan");
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   // State Modal Pencairan Saldo Platform
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -285,6 +434,12 @@ export function AdminWithdrawalClient({
     }
   };
 
+  const liveNoticePreview = generateWithdrawalNoticeText({
+    minWithdrawal: Number(settingsMinWithdrawal) || 0,
+    defaultFee: Number(settingsDefaultFee) || 0,
+    feeOverrides: settingsOverrides,
+  });
+
   return (
     <div className="space-y-6">
       {/* Tab Navigasi Admin */}
@@ -315,6 +470,19 @@ export function AdminWithdrawalClient({
           <span className="px-1.5 py-0.5 text-[10px] bg-primary text-white rounded-full font-bold">
             {formatRupiah(platformBalance)}
           </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("SETTINGS")}
+          className={`px-4 py-2 rounded-t-md text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5 ${
+            activeTab === "SETTINGS"
+              ? "text-primary border-b-2 border-primary bg-primary-soft/30"
+              : "text-text-muted hover:text-text"
+          }`}
+        >
+          <Settings className="w-3.5 h-3.5 text-primary" />
+          <span>Pengaturan</span>
         </button>
       </div>
 
@@ -757,6 +925,301 @@ export function AdminWithdrawalClient({
         </div>
       )}
 
+      {/* TAMPILAN TAB 3: PENGATURAN BIAYA & KETENTUAN PENARIKAN */}
+      {activeTab === "SETTINGS" && (
+        <div className="space-y-6 pb-12">
+          {/* Header & Deskripsi Pengaturan */}
+          <div className="bg-surface border border-border rounded-xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-primary-soft text-primary rounded-lg shrink-0">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <h2 className="text-base sm:text-lg font-bold text-text">
+                  Pengaturan Biaya & Ketentuan Penarikan
+                </h2>
+              </div>
+              <p className="text-xs text-text-muted max-w-2xl leading-relaxed">
+                Konfigurasikan minimal penarikan, biaya transfer default BI-FAST, serta daftar rekening/e-wallet bebas biaya atau bertarif khusus tanpa perlu deploy ulang kode aplikasi.
+              </p>
+            </div>
+
+            {/* Audit Status */}
+            <div className="bg-neutral-soft/80 border border-border rounded-lg p-3 text-xs text-text-muted space-y-1 shrink-0">
+              <span className="text-[10px] uppercase font-bold text-text tracking-wider block">
+                Audit Terakhir
+              </span>
+              <p className="text-[11px] font-medium text-text">
+                Oleh: <strong className="text-primary">{settings.updatedBy || "Sistem"}</strong>
+              </p>
+              <p className="text-[10px] text-text-muted">
+                {settings.updatedAt ? `${formatDate(settings.updatedAt)} ${formatTime(settings.updatedAt)}` : "-"}
+              </p>
+            </div>
+          </div>
+
+          {/* Alert Sukses / Gagal */}
+          {settingsSuccessMsg && (
+            <div className="p-4 bg-success-soft text-success text-xs rounded-xl border border-success/30 flex items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 shrink-0" />
+                <span className="font-medium">{settingsSuccessMsg}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettingsSuccessMsg("")}
+                className="text-success hover:opacity-80 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {settingsError && (
+            <div className="p-4 bg-danger-soft text-danger text-xs rounded-xl border border-danger/30 flex items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <span className="font-medium">{settingsError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettingsError("")}
+                className="text-danger hover:opacity-80 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Realtime Live Preview Teks Notice Designer */}
+          <div className="bg-primary-soft/60 border border-primary/25 rounded-xl p-5 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold text-text uppercase tracking-wider">
+                  Pratinjau Notice Ketentuan di Sisi Desainer (Realtime)
+                </span>
+              </div>
+              <span className="text-[10px] bg-primary text-white font-bold px-2 py-0.5 rounded-full">
+                Pratinjau Otomatis
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm font-medium text-text bg-surface/90 border border-primary/20 rounded-lg p-3.5 leading-relaxed shadow-xs">
+              &ldquo;{liveNoticePreview}&rdquo;
+            </p>
+            <p className="text-[11px] text-text-muted">
+              Teks ini dirakit secara otomatis dan akan tampil di form penarikan, modal rekening, dan kartu informasi saldo desainer.
+            </p>
+          </div>
+
+          {/* Form Pengaturan */}
+          <form onSubmit={handleSaveSettings} className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              {/* Minimal Penarikan */}
+              <div className="bg-surface border border-border rounded-xl p-4 sm:p-5 space-y-2">
+                <label className="block text-xs font-bold text-text uppercase tracking-wider">
+                  Minimal Penarikan (Rp) *
+                </label>
+                <p className="text-xs text-text-muted">
+                  Batas nominal minimum yang diperbolehkan saat desainer mengajukan pencairan saldo.
+                </p>
+                <div className="relative mt-2">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-text-muted font-money">
+                    Rp
+                  </span>
+                  <input
+                    type="number"
+                    min="1000"
+                    step="1000"
+                    value={settingsMinWithdrawal}
+                    onChange={(e) => setSettingsMinWithdrawal(parseInt(e.target.value, 10) || 0)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-sm font-money font-bold text-text focus:outline-hidden focus:border-primary"
+                    required
+                  />
+                </div>
+                <div className="text-[11px] text-text-muted flex justify-between items-center pt-1">
+                  <span>Format:</span>
+                  <span className="font-money font-bold text-text">
+                    {formatRupiah(Number(settingsMinWithdrawal) || 0)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Biaya Default Transfer BI-FAST */}
+              <div className="bg-surface border border-border rounded-xl p-4 sm:p-5 space-y-2">
+                <label className="block text-xs font-bold text-text uppercase tracking-wider">
+                  Biaya Default BI-FAST (Rp) *
+                </label>
+                <p className="text-xs text-text-muted">
+                  Biaya transfer antar bank/e-wallet untuk tujuan yang tidak terdaftar bebas biaya transfer.
+                </p>
+                <div className="relative mt-2">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-text-muted font-money">
+                    Rp
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="500"
+                    value={settingsDefaultFee}
+                    onChange={(e) => setSettingsDefaultFee(parseInt(e.target.value, 10) || 0)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-sm font-money font-bold text-text focus:outline-hidden focus:border-primary"
+                    required
+                  />
+                </div>
+                <div className="text-[11px] text-text-muted flex justify-between items-center pt-1">
+                  <span>Format:</span>
+                  <span className="font-money font-bold text-text">
+                    {formatRupiah(Number(settingsDefaultFee) || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabel Penyesuaian Biaya per Tujuan */}
+            <div className="bg-surface border border-border rounded-xl p-4 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-text">
+                    Daftar Biaya Transfer per Tujuan (Bank / E-Wallet)
+                  </h3>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Biaya <strong className="text-success">Rp0</strong> menandakan tujuan tersebut <strong>Bebas Biaya (Gratis)</strong>. Tujuan di luar tabel ini akan otomatis menggunakan biaya default.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddOverride}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold self-start sm:self-auto shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5 text-primary" />
+                  <span>Tambah Tujuan</span>
+                </Button>
+              </div>
+
+              {settingsOverrides.length === 0 ? (
+                <div className="p-8 text-center text-text-muted text-xs bg-neutral-soft/50 rounded-lg border border-dashed border-border space-y-2">
+                  <p>Belum ada tujuan khusus yang diatur.</p>
+                  <p className="text-[11px]">Semua bank dan e-wallet akan dikenakan biaya default {formatRupiah(Number(settingsDefaultFee) || 0)}.</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleAddOverride}
+                    className="text-xs text-primary font-bold mt-1"
+                  >
+                    + Tambah Tujuan Baru
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[500px]">
+                    <thead>
+                      <tr className="bg-neutral-soft border-b border-border text-xs text-text-muted uppercase tracking-wider">
+                        <th className="py-2.5 px-3 font-semibold">Tujuan (Nama Bank / E-Wallet)</th>
+                        <th className="py-2.5 px-3 font-semibold w-40">Biaya Transfer (Rp)</th>
+                        <th className="py-2.5 px-3 font-semibold w-36 text-center">Status</th>
+                        <th className="py-2.5 px-3 font-semibold w-16 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border text-sm">
+                      {settingsOverrides.map((item, idx) => {
+                        const isFree = Number(item.fee) === 0;
+                        return (
+                          <tr key={idx} className="hover:bg-background/80 transition-colors">
+                            <td className="py-2 px-3">
+                              <input
+                                type="text"
+                                value={item.destination}
+                                placeholder="Contoh: BCA, DANA, BRI, BNI"
+                                onChange={(e) =>
+                                  handleUpdateOverride(idx, "destination", e.target.value)
+                                }
+                                className="w-full px-3 py-1.5 bg-background border border-border rounded-md text-xs font-bold text-text focus:outline-hidden focus:border-primary"
+                                required
+                              />
+                            </td>
+                            <td className="py-2 px-3">
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-text-muted font-money">
+                                  Rp
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="500"
+                                  value={item.fee}
+                                  onChange={(e) =>
+                                    handleUpdateOverride(idx, "fee", e.target.value)
+                                  }
+                                  className="w-full pl-8 pr-2.5 py-1.5 bg-background border border-border rounded-md text-xs font-money font-bold text-text focus:outline-hidden focus:border-primary"
+                                  required
+                                />
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              {isFree ? (
+                                <span className="inline-block text-[10px] bg-success-soft text-success px-2 py-0.5 rounded-full font-bold">
+                                  Gratis (Rp0)
+                                </span>
+                              ) : (
+                                <span className="inline-block text-[10px] bg-neutral-soft text-text px-2 py-0.5 rounded-full font-bold">
+                                  Biaya Khusus
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveOverride(idx)}
+                                className="p-1.5 text-text-muted hover:text-danger hover:bg-danger-soft rounded-md transition-colors"
+                                title="Hapus Tujuan"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Tombol Simpan & Reset */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleResetSettingsToDefault}
+                disabled={isSavingSettings}
+                className="text-xs text-text-muted hover:text-text w-full sm:w-auto"
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                <span>Reset ke Default Awal</span>
+              </Button>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  isLoading={isSavingSettings}
+                  className="font-bold text-xs px-6 py-2.5 w-full sm:w-auto flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Simpan Pengaturan</span>
+                </Button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* MODAL PENCAIRAN SALDO PLATFORM */}
       {showWithdrawModal && (
         <div
@@ -1050,26 +1513,51 @@ export function AdminWithdrawalClient({
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between py-1.5 bg-surface px-3 rounded-lg border border-border">
-                          <span className="text-text-muted font-medium">Nominal Transfer</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-money font-bold text-base text-primary">
-                              {formatRupiah(approveModalWithdrawal.amount)}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyText(String(approveModalWithdrawal.amount), "amount")}
-                              className="p-1 rounded hover:bg-neutral-soft text-text-muted hover:text-text transition-colors"
-                              title="Salin Nominal"
-                            >
-                              {copiedField === "amount" ? (
-                                <Check className="w-3.5 h-3.5 text-success" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
+                        {(() => {
+                          const netVal = dest.netAmount ? parseInt(dest.netAmount, 10) : approveModalWithdrawal.amount;
+                          const feeVal = dest.transferFee ? parseInt(dest.transferFee, 10) : 0;
+                          return (
+                            <>
+                              {dest.transferFee !== undefined && (
+                                <>
+                                  <div className="flex items-center justify-between py-1 border-b border-border/60">
+                                    <span className="text-text-muted">Nominal Diajukan</span>
+                                    <span className="font-money font-semibold text-text">
+                                      {formatRupiah(approveModalWithdrawal.amount)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between py-1 border-b border-border/60">
+                                    <span className="text-text-muted">Biaya Transfer</span>
+                                    <span className="font-money font-semibold text-text">
+                                      {feeVal === 0 ? "Rp0 (Bebas Biaya)" : formatRupiah(feeVal)}
+                                    </span>
+                                  </div>
+                                </>
                               )}
-                            </button>
-                          </div>
-                        </div>
+
+                              <div className="flex items-center justify-between py-1.5 bg-surface px-3 rounded-lg border border-border">
+                                <span className="text-text-muted font-medium">Nominal Bersih yang Ditransfer</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-money font-bold text-base text-primary">
+                                    {formatRupiah(netVal)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyText(String(netVal), "amount")}
+                                    className="p-1 rounded hover:bg-neutral-soft text-text-muted hover:text-text transition-colors"
+                                    title="Salin Nominal Bersih"
+                                  >
+                                    {copiedField === "amount" ? (
+                                      <Check className="w-3.5 h-3.5 text-success" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
