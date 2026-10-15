@@ -60,3 +60,11 @@ temp/
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Graphify knowledge graph
+graphify-out/
+.graphify*
+
+# Agent
+.agent/
+.agents/

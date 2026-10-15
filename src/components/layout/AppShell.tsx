@@ -34,7 +34,9 @@ export function AppShell({
             "flex-1 min-w-0",
             fullBleed
               ? "w-full p-0 md:p-6 lg:p-8 pb-0 md:pb-8"
-              : `${hideSidebar ? "w-full p-4 sm:p-6 lg:p-8" : "p-4 sm:p-6 lg:p-8"} pb-24 md:pb-8`
+              : `${hideSidebar ? "w-full p-4 sm:p-6 lg:p-8" : "p-4 sm:p-6 lg:p-8"} ${
+                  hideFooter ? "pb-[calc(4rem+1.5rem+env(safe-area-inset-bottom,0px))] md:pb-8" : "pb-8"
+                }`
           )}
         >
           {children}
@@ -42,7 +44,7 @@ export function AppShell({
       </div>
 
       {!hideFooter && (
-        <footer className="border-t border-border py-6 px-4 bg-surface text-center text-xs text-text-muted">
+        <footer className="border-t border-border pt-6 px-4 pb-[calc(1.5rem+4rem+env(safe-area-inset-bottom,0px))] md:pb-6 bg-surface text-center text-xs text-text-muted">
           <div className="max-w-content mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <p>© 2026 JokiDay by AgentKikir. Hak cipta dilindungi.</p>
             <div className="flex items-center gap-4">

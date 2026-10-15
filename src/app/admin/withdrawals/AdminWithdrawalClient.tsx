@@ -316,13 +316,6 @@ export function AdminWithdrawalClient({
             {formatRupiah(platformBalance)}
           </span>
         </button>
-
-        <Link
-          href="/admin/invites"
-          className="px-4 py-2 rounded-t-md text-xs font-semibold text-text-muted hover:text-text transition-colors shrink-0"
-        >
-          Undangan Desainer (Invite-Only)
-        </Link>
       </div>
 
       {msg && (

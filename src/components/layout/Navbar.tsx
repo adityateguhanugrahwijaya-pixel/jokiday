@@ -635,7 +635,7 @@ export function Navbar({
       </header>
 
       {/* Bottom Navigation untuk Layar HP (xs - sm) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border h-16 px-2 flex items-center justify-around">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] px-2 flex items-center justify-around">
         {currentNav.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;

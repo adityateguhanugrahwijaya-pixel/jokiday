@@ -24,6 +24,7 @@ import {
   Trash2,
   Camera,
   Loader2,
+  Pencil,
 } from "lucide-react";
 
 export interface ProfilePost {
@@ -352,15 +353,35 @@ export function DesignerProfileClient({
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-text-muted mt-0.5 font-mono">
-                  @{designer.username}
-                </p>
+                <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-0.5">
+                  <p className="text-xs text-text-muted font-mono">
+                    @{designer.username}
+                  </p>
+                  {isOwner && (
+                    <Link
+                      href="/profile"
+                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-semibold ml-1"
+                      title="Edit username dan profil di Pengaturan"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Edit Username</span>
+                    </Link>
+                  )}
+                </div>
               </div>
 
               {/* Action Buttons */}
               <div className="flex items-center justify-center sm:justify-end gap-2 shrink-0">
                 {isOwner ? (
                   <>
+                    <Link
+                      href="/profile"
+                      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-surface border border-border text-text font-bold text-xs hover:border-primary hover:text-primary transition-colors"
+                      title="Edit Username & Profil"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-text-muted" />
+                      <span>Edit Profil</span>
+                    </Link>
                     <button
                       type="button"
                       onClick={() => setIsAddPostOpen(true)}

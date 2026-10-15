@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -116,22 +115,6 @@ export function AdminInvitesClient({
 
   return (
     <div className="space-y-8">
-      {/* Tab Navigasi Admin */}
-      <div className="flex items-center gap-2 border-b border-border pb-1">
-        <Link
-          href="/admin/withdrawals"
-          className="px-4 py-2 rounded-t-md text-xs font-semibold text-text-muted hover:text-text transition-colors"
-        >
-          Penarikan Saldo Freelancer
-        </Link>
-        <Link
-          href="/admin/invites"
-          className="px-4 py-2 rounded-t-md text-xs font-bold text-primary border-b-2 border-primary bg-primary-soft/30 transition-colors"
-        >
-          Undangan Desainer (Invite-Only)
-        </Link>
-      </div>
-
       {/* Banner & Form Buat Undangan */}
       <div className="bg-surface border border-border rounded-xl p-6 sm:p-8 space-y-6">
         <div>

@@ -5,6 +5,8 @@ import { AuthService } from "@/server/auth/auth.service";
 import { ProfileRoleClient } from "./ProfileRoleClient";
 import { ProfileDriveClient } from "./ProfileDriveClient";
 import { ProfileAvatarClient } from "./ProfileAvatarClient";
+import { ProfileInfoClient } from "./ProfileInfoClient";
+import { generateUniqueUsername } from "@/lib/user";
 import { Cloud, UserCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 
@@ -27,6 +29,16 @@ export default async function ProfilePage() {
     redirect("/login?redirect=/profile");
   }
 
+  // Pastikan akun memiliki username jika sebelumnya bernilai null
+  if (user && !user.username) {
+    const generatedUsername = await generateUniqueUsername(user.displayName, user.id);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { username: generatedUsername },
+    });
+    user.username = generatedUsername;
+  }
+
   const driveConnectionData = user.driveConnection
     ? {
         isConnected: user.driveConnection.status === "ACTIVE",
@@ -36,6 +48,8 @@ export default async function ProfilePage() {
       }
     : null;
 
+  const isDesignerMode = user.isDesigner && user.activeRole === "DESIGNER";
+
   return (
     <AppShell role={user?.activeRole as any || "CUSTOMER"}>
       <div className="max-w-form mx-auto space-y-8">
@@ -44,7 +58,9 @@ export default async function ProfilePage() {
             Profil & Pengaturan Akun
           </h1>
           <p className="text-sm text-text-muted mt-1">
-            Kelola identitas, ganti peran aktif, dan integrasi penyimpanan file Google Drive.
+            {isDesignerMode
+              ? "Kelola identitas, ganti peran aktif, dan integrasi penyimpanan file Google Drive."
+              : "Atur profil nama dan profil."}
           </p>
         </div>
 
@@ -55,10 +71,15 @@ export default async function ProfilePage() {
               currentAvatarUrl={user?.avatarUrl || null}
               displayName={user?.displayName || "Pengguna"}
             />
-            <div className="space-y-1 text-center sm:text-left">
-              <h2 className="text-xl sm:text-2xl font-bold text-text">
-                {user?.displayName || "Pengguna JokiDay"}
-              </h2>
+            <div className="space-y-1 text-center sm:text-left flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
+                <h2 className="text-xl sm:text-2xl font-bold text-text truncate">
+                  {user?.displayName || "Pengguna JokiDay"}
+                </h2>
+                <span className="text-xs sm:text-sm font-mono font-medium text-text-muted">
+                  @{user?.username}
+                </span>
+              </div>
               <p className="text-xs sm:text-sm text-text-muted font-mono">
                 {user?.email || "user@jokiday.com"}
               </p>
@@ -67,6 +88,28 @@ export default async function ProfilePage() {
                 <span>Akun Terverifikasi</span>
               </div>
             </div>
+          </div>
+
+          {/* Pengaturan Username & Nama Profil */}
+          <div className="pt-6 border-t border-border">
+            <div className="mb-4">
+              <h3 className="text-sm font-bold text-text">
+                {isDesignerMode
+                  ? "Atur Username & Identitas Desainer"
+                  : "Atur Username & Nama Profil"}
+              </h3>
+              <p className="text-xs text-text-muted mt-0.5">
+                Perbarui nama tampilan dan username unik untuk identitas akun Anda di JokiDay.
+              </p>
+            </div>
+            <ProfileInfoClient
+              userId={user.id}
+              initialDisplayName={user.displayName}
+              initialUsername={user.username || ""}
+              email={user.email}
+              isDesigner={user.isDesigner}
+              activeRole={user.activeRole as any || "CUSTOMER"}
+            />
           </div>
 
           {/* Pengaturan Peran Akun */}
@@ -90,8 +133,8 @@ export default async function ProfilePage() {
           )}
         </div>
 
-        {/* Status Google Drive (Khusus Desainer untuk penyerahan file hasil kerja) */}
-        {user?.isDesigner && (
+        {/* Status Google Drive (Khusus Desainer saat aktif dalam peran Desainer) */}
+        {isDesignerMode && (
           <div className="bg-surface border border-border rounded-lg p-6 sm:p-8 space-y-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-primary-soft text-primary rounded-md">
