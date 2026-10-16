@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { ShieldCheck, Layers } from "lucide-react";
 import { AuthService } from "@/server/auth/auth.service";
 import { PortfolioFeedGrid, PortfolioGridPost } from "./PortfolioFeedGrid";
+import { resolvePreviewUrl } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
 
@@ -48,9 +49,7 @@ export default async function PortfolioPage() {
       id: post.id,
       caption: post.caption,
       category: post.category,
-      previewUrl: post.previewAsset.id
-        ? `/api/previews/${post.previewAsset.id}`
-        : post.previewAsset.driveFileId,
+      previewUrl: resolvePreviewUrl(post.previewAsset),
       createdAt: post.createdAt.toISOString(),
       startingPrice,
       designer: {

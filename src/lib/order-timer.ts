@@ -3,6 +3,8 @@
  * Semua perhitungan waktu berbasis UTC di backend dan ditampilkan dalam zona waktu WIB (Asia/Jakarta).
  */
 
+import { formatDateTime } from "@/lib/format";
+
 export type OrderTimerType = "ACTIVE" | "COMPLETED" | "CANCELLED_OR_FAILED" | "AWAITING_PAYMENT";
 
 export interface OrderTimerData {
@@ -76,30 +78,14 @@ export function formatDurationMs(ms: number): string {
 }
 
 /**
- * Format tanggal dan jam dalam zona waktu WIB (Asia/Jakarta):
- * Contoh: "13 Okt 2026, 17.16 WIB"
+ * Format tanggal dan jam dalam zona waktu standar platform (Asia/Jayapura, WIT):
+ * Contoh: "13 Okt 2026 17.16 WIT"
  */
-export function formatDateTimeWIB(date: Date | string | number | null | undefined): string {
-  if (!date) return "-";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "-";
-
-  const datePart = d.toLocaleDateString("id-ID", {
-    timeZone: "Asia/Jakarta",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
-  const timePart = d.toLocaleTimeString("id-ID", {
-    timeZone: "Asia/Jakarta",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).replace(":", ".");
-
-  return `${datePart}, ${timePart} WIB`;
+export function formatDateTimeWIT(date: Date | string | number | null | undefined): string {
+  return formatDateTime(date);
 }
+
+export const formatDateTimeWIB = formatDateTimeWIT;
 
 /**
  * Perhitungan informasi timer dan durasi order secara deterministik.

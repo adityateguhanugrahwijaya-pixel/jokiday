@@ -158,13 +158,29 @@ export function FeedCard<T extends FeedCardPost = FeedCardPost>({
             )}
           </div>
 
-          {/* Tombol Pesan Jasa */}
-          <Link
-            href={`/briefs/new?designerId=${post.designer.id}&sourcePostId=${post.id}`}
-            className="inline-flex items-center justify-center h-9 px-3.5 rounded-lg bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors touch-target shrink-0"
-          >
-            Pesan Jasa
-          </Link>
+          {/* Tombol Aksi: Sembunyikan Pesan Jasa untuk Pemilik; Tampilkan Kirim Pesan jika belum ada paket */}
+          {isOwner ? (
+            <Link
+              href={designerProfileUrl}
+              className="inline-flex items-center justify-center h-9 px-3.5 rounded-lg bg-surface border border-border text-text font-bold text-xs hover:bg-background transition-colors touch-target shrink-0"
+            >
+              Kelola Karya
+            </Link>
+          ) : hasStartingPrice ? (
+            <Link
+              href={`/briefs/new?designerId=${post.designer.id}&sourcePostId=${post.id}`}
+              className="inline-flex items-center justify-center h-9 px-3.5 rounded-lg bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors touch-target shrink-0"
+            >
+              Pesan Jasa
+            </Link>
+          ) : (
+            <Link
+              href={`/chat?designerId=${post.designer.id}&name=${encodeURIComponent(post.designer.displayName)}`}
+              className="inline-flex items-center justify-center h-9 px-3.5 rounded-lg bg-primary-soft text-primary font-bold text-xs hover:bg-primary/20 transition-colors touch-target shrink-0"
+            >
+              Kirim Pesan
+            </Link>
+          )}
         </div>
       </div>
     </div>

@@ -23,7 +23,7 @@ export default async function AdminDashboardPage() {
   });
 
   if (!user || !user.isAdmin) {
-    redirect("/dashboard/customer");
+    return null;
   }
 
   const [

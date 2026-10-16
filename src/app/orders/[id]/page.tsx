@@ -181,7 +181,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 </div>
                 <div className="flex items-center justify-between text-xs text-text-muted flex-wrap gap-2 pt-1">
                   <span>
-                    Diajukan pada: {formatDate(latestRevision.createdAt)} {formatTime(latestRevision.createdAt)}
+                    Diajukan pada: {formatDate(latestRevision.createdAt)} {formatTime(latestRevision.createdAt, true)}
                   </span>
                   {order.customerId && order.designerId && (
                     <Link
@@ -223,7 +223,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                           Pengiriman Putaran {delivery.round}
                         </span>
                         <span className="text-xs text-text-muted">
-                          {formatDate(delivery.createdAt)}
+                          {formatDate(delivery.createdAt)} {formatTime(delivery.createdAt, true)}
                         </span>
                       </div>
 

@@ -96,11 +96,13 @@ export function UploadProductModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    const originalOverflow = document.body.style.overflow;
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
     const originalPaddingRight = document.body.style.paddingRight;
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
 
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     if (scrollbarWidth > 0) {
       document.body.style.paddingRight = `${scrollbarWidth}px`;
     }
@@ -115,7 +117,8 @@ export function UploadProductModal({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
       document.body.style.paddingRight = originalPaddingRight;
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -300,12 +303,21 @@ export function UploadProductModal({
     }
   };
 
+  const handleContainerWheel = (e: React.WheelEvent) => {
+    // Jika scrolling terjadi di luar body yang scrollable (misal di header, footer, atau backdrop),
+    // gulung isi bodyRef secara halus tanpa mempengaruhi halaman di belakang
+    if (bodyRef.current && e.target !== bodyRef.current && !bodyRef.current.contains(e.target as Node)) {
+      bodyRef.current.scrollTop += e.deltaY;
+    }
+  };
+
   const modalContent = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-black/70 backdrop-blur-xs overscroll-none"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-black/70 backdrop-blur-xs overscroll-none overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="upload-product-modal-title"
+      onWheel={handleContainerWheel}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           requestClose();
@@ -315,6 +327,7 @@ export function UploadProductModal({
       <div
         className="relative w-full max-w-xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
+        onWheel={handleContainerWheel}
       >
         {/* 1. HEADER (Fixed, pinned at top) */}
         <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-surface shrink-0">

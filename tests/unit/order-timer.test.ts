@@ -38,12 +38,12 @@ describe("Order Timer & Duration Calculation Helper", () => {
       expect(formatDateTimeWIB("invalid-date-string")).toBe("-");
     });
 
-    it("formats UTC dates to WIB (UTC+7) consistently", () => {
-      // 2026-10-13 10:16:00 UTC -> 2026-10-13 17:16:00 WIB
+    it("formats UTC dates to WIT (Asia/Jayapura, UTC+9) consistently", () => {
+      // 2026-10-13 10:16:00 UTC -> 2026-10-13 19:16:00 WIT
       const utcDate = new Date("2026-10-13T10:16:00.000Z");
       const formatted = formatDateTimeWIB(utcDate);
       expect(formatted).toContain("13 Okt 2026");
-      expect(formatted).toContain("17.16 WIB");
+      expect(formatted).toContain("19.16 WIT");
     });
   });
 
@@ -101,8 +101,8 @@ describe("Order Timer & Duration Calculation Helper", () => {
       expect(result.badgeLabel).toBe("Selesai 3 jam lebih cepat");
       expect(result.deadlineDiffText).toBe("Selesai 3 jam lebih cepat");
       expect(result.durationFormatted).toBe("1 jam 30 menit");
-      expect(result.startTimeFormatted).toContain("WIB");
-      expect(result.endTimeFormatted).toContain("WIB");
+      expect(result.startTimeFormatted).toContain("WIT");
+      expect(result.endTimeFormatted).toContain("WIT");
     });
 
     it("reports completed on-time if difference is less than 1 minute", () => {
@@ -181,8 +181,8 @@ describe("Order Timer & Duration Calculation Helper", () => {
       expect(result.type).toBe("CANCELLED_OR_FAILED");
       expect(result.badgeVariant).toBe("neutral");
       expect(result.badgeLabel).toContain("Dibatalkan");
-      expect(result.badgeLabel).toContain("12.23 WIB");
-      expect(result.stoppedAtFormatted).toContain("12.23 WIB");
+      expect(result.badgeLabel).toContain("14.23 WIT");
+      expect(result.stoppedAtFormatted).toContain("14.23 WIT");
     });
 
     it("displays Refund label for refunded orders", () => {
@@ -197,7 +197,7 @@ describe("Order Timer & Duration Calculation Helper", () => {
       const result = getOrderTimerInfo(order);
       expect(result.type).toBe("CANCELLED_OR_FAILED");
       expect(result.badgeLabel).toContain("Refund");
-      expect(result.badgeLabel).toContain("12.06 WIB");
+      expect(result.badgeLabel).toContain("14.06 WIT");
     });
 
     it("displays Gagal label when endedReason is FAILED", () => {

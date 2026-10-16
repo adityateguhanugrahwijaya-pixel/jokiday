@@ -10,6 +10,7 @@ import {
   ProfilePackage,
   DesignerProfileData,
 } from "./DesignerProfileClient";
+import { resolvePreviewUrl } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
 
@@ -175,9 +176,7 @@ export default async function DesignerPage({
     id: p.id,
     caption: p.caption,
     category: p.category,
-    previewUrl: p.previewAsset.id
-      ? `/api/previews/${p.previewAsset.id}`
-      : p.previewAsset.driveFileId,
+    previewUrl: resolvePreviewUrl(p.previewAsset),
     createdAt: p.createdAt.toISOString(),
     archivedAt: p.archivedAt?.toISOString() || null,
     status: p.status,
@@ -199,9 +198,7 @@ export default async function DesignerPage({
       id: p.id,
       caption: p.caption,
       category: p.category,
-      previewUrl: p.previewAsset?.id
-        ? `/api/previews/${p.previewAsset.id}`
-        : p.previewAsset?.driveFileId,
+      previewUrl: resolvePreviewUrl(p.previewAsset),
       createdAt: p.createdAt.toISOString(),
       archivedAt: p.archivedAt?.toISOString() || null,
       status: p.status,

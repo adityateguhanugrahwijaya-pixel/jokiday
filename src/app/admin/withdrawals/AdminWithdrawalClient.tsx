@@ -590,7 +590,7 @@ export function AdminWithdrawalClient({
                         return (
                           <tr key={w.id} className="hover:bg-background transition-colors">
                             <td className="py-3.5 px-4 text-xs text-text-muted">
-                              {formatDate(w.createdAt)} {formatTime(w.createdAt)}
+                              {formatDate(w.createdAt)} {formatTime(w.createdAt, true)}
                             </td>
                             <td className="py-3.5 px-4">
                               <div className="font-bold text-text flex items-center gap-1.5">
@@ -866,7 +866,7 @@ export function AdminWithdrawalClient({
                         return (
                           <tr key={entry.id} className="hover:bg-background transition-colors">
                             <td className="py-3.5 px-4 text-xs text-text-muted whitespace-nowrap">
-                              {formatDate(entry.createdAt)} {formatTime(entry.createdAt)}
+                              {formatDate(entry.createdAt)} {formatTime(entry.createdAt, true)}
                             </td>
                             <td className="py-3.5 px-4">
                               {isCredit ? (
@@ -953,7 +953,7 @@ export function AdminWithdrawalClient({
                 Oleh: <strong className="text-primary">{settings.updatedBy || "Sistem"}</strong>
               </p>
               <p className="text-[10px] text-text-muted">
-                {settings.updatedAt ? `${formatDate(settings.updatedAt)} ${formatTime(settings.updatedAt)}` : "-"}
+                {settings.updatedAt ? `${formatDate(settings.updatedAt)} ${formatTime(settings.updatedAt, true)}` : "-"}
               </p>
             </div>
           </div>

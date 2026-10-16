@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { DiscoverExperience, DiscoverPost, DiscoverDesigner } from "./DiscoverExperience";
+import { resolvePreviewUrl } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
 
@@ -59,9 +60,7 @@ export default async function HomePage() {
       id: p.id,
       caption: p.caption,
       category: p.category,
-      previewUrl: p.previewAsset.id
-        ? `/api/previews/${p.previewAsset.id}`
-        : p.previewAsset.driveFileId,
+      previewUrl: resolvePreviewUrl(p.previewAsset),
       createdAt: p.createdAt.toISOString(),
       startingPrice,
       designer: {

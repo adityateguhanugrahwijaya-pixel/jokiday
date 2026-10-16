@@ -24,22 +24,56 @@ export function formatRupiahCompact(amount: number): string {
 }
 
 /**
- * Format tanggal Indonesia sesuai DESIGN.md: "12 Okt 2026"
+ * Standar zona waktu tunggal seluruh platform JokiDay: Asia/Jayapura (WIT, UTC+9).
+ * Semua waktu di database disimpan dalam UTC dan selalu dirender dengan zona waktu ini.
  */
-export function formatDate(date: Date | string | number): string {
+export const APP_TIMEZONE = "Asia/Jayapura";
+export const APP_TIMEZONE_LABEL = "WIT";
+
+/**
+ * Format tanggal Indonesia dalam zona waktu tunggal Asia/Jayapura (WIT): "12 Okt 2026"
+ */
+export function formatDate(date: Date | string | number | null | undefined): string {
+  if (!date) return "-";
   const d = typeof date === "object" ? date : new Date(date);
-  const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  if (isNaN(d.getTime())) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: APP_TIMEZONE,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(d);
 }
 
 /**
- * Format waktu 24 jam sesuai DESIGN.md: "14.30"
+ * Format waktu 24 jam dalam zona waktu tunggal Asia/Jayapura (WIT): "14.30" atau "14.30 WIT"
  */
-export function formatTime(date: Date | string | number): string {
+export function formatTime(
+  date: Date | string | number | null | undefined,
+  includeZone = false
+): string {
+  if (!date) return "-";
   const d = typeof date === "object" ? date : new Date(date);
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  return `${hours}.${minutes}`;
+  if (isNaN(d.getTime())) return "-";
+  const timeStr = new Intl.DateTimeFormat("id-ID", {
+    timeZone: APP_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .format(d)
+    .replace(":", ".");
+  return includeZone ? `${timeStr} ${APP_TIMEZONE_LABEL}` : timeStr;
+}
+
+/**
+ * Format tanggal & waktu lengkap dalam zona waktu tunggal Asia/Jayapura (WIT): "12 Okt 2026 14.30 WIT"
+ */
+export function formatDateTime(date: Date | string | number | null | undefined): string {
+  if (!date) return "-";
+  const d = typeof date === "object" ? date : new Date(date);
+  if (isNaN(d.getTime())) return "-";
+  return `${formatDate(d)} ${formatTime(d, true)}`;
 }
 
 /**

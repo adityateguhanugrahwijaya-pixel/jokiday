@@ -139,7 +139,7 @@ export default async function WalletPage() {
                             className="hover:bg-background transition-colors"
                           >
                             <td className="py-3.5 px-4 text-xs text-text-muted">
-                              {formatDate(entry.createdAt)} {formatTime(entry.createdAt)}
+                              {formatDate(entry.createdAt)} {formatTime(entry.createdAt, true)}
                             </td>
                             <td className="py-3.5 px-4 text-text font-medium">
                               {entry.reason}
@@ -207,14 +207,21 @@ export default async function WalletPage() {
 
   const ledgerEntries = await prisma.ledgerEntry.findMany({
     where: {
-      OR: [
-        { account: `WALLET_AVAILABLE:${designerId}` },
-        { userId: designerId },
-      ],
+      account: `WALLET_AVAILABLE:${designerId}`,
     },
     orderBy: { createdAt: "desc" },
-    take: 30,
+    take: 50,
   });
+
+  const orderIds = ledgerEntries.map((e) => e.orderId).filter(Boolean) as string[];
+  const relatedOrders =
+    orderIds.length > 0
+      ? await prisma.order.findMany({
+          where: { id: { in: orderIds } },
+          include: { brief: true },
+        })
+      : [];
+  const orderMap = new Map(relatedOrders.map((o) => [o.id, o]));
 
   const withdrawalSettings = await getWithdrawalSettings();
   const minWithdrawal = withdrawalSettings.minWithdrawal;
@@ -393,7 +400,7 @@ export default async function WalletPage() {
                           className="hover:bg-background transition-colors"
                         >
                           <td className="py-3.5 px-4 text-xs text-text-muted">
-                            {formatDate(w.createdAt)} {formatTime(w.createdAt)}
+                            {formatDate(w.createdAt)} {formatTime(w.createdAt, true)}
                           </td>
                           <td className="py-3.5 px-4">
                             <div className="font-semibold text-text text-sm">
@@ -463,15 +470,25 @@ export default async function WalletPage() {
           )}
         </div>
 
-        {/* Tabel Riwayat Transaksi */}
+        {/* Tabel Riwayat Transaksi (Single-Event Presentation Layer) */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-text">
-            Riwayat Mutasi Transaksi
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-text">
+                Riwayat Mutasi Saldo Dompet
+              </h2>
+              <p className="text-xs text-text-muted mt-0.5">
+                Catatan penambahan dan penarikan saldo tersedia Anda (1 baris per kejadian riil).
+              </p>
+            </div>
+            <div className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-surface border border-border text-text self-start sm:self-auto">
+              Total Saldo Sesuai Mutasi: <strong className="text-primary font-money">{formatRupiah(availableBalance)}</strong>
+            </div>
+          </div>
 
           {ledgerEntries.length === 0 ? (
             <div className="bg-surface border border-border rounded-lg p-10 text-center text-text-muted text-sm">
-              Belum ada riwayat transaksi. Mutasi akan tercatat otomatis saat ada transaksi proyek.
+              Belum ada riwayat mutasi saldo. Mutasi pendapatan akan tercatat otomatis saat pesanan selesai disetujui.
             </div>
           ) : (
             <div className="bg-surface border border-border rounded-lg overflow-hidden">
@@ -480,7 +497,7 @@ export default async function WalletPage() {
                   <thead>
                     <tr className="bg-neutral-soft border-b border-border text-xs text-text-muted uppercase tracking-wider">
                       <th className="py-3 px-4 font-semibold">Tanggal & Waktu</th>
-                      <th className="py-3 px-4 font-semibold">Keterangan</th>
+                      <th className="py-3 px-4 font-semibold">Keterangan Transaksi</th>
                       <th className="py-3 px-4 font-semibold">Tipe</th>
                       <th className="py-3 px-4 font-semibold text-right">Nominal</th>
                     </tr>
@@ -488,23 +505,77 @@ export default async function WalletPage() {
                   <tbody className="divide-y divide-border text-sm">
                     {ledgerEntries.map((entry) => {
                       const isCredit = entry.direction === "CREDIT";
+                      const order = entry.orderId ? orderMap.get(entry.orderId) : null;
+
+                      let title = entry.reason;
+                      let subtitle: React.ReactNode = null;
+                      let orderLinkNode: React.ReactNode = null;
+
+                      if (order) {
+                        const orderNumber = order.id.slice(0, 8).toUpperCase();
+                        title = entry.reason.includes("split")
+                          ? "Penyelesaian Sengketa Pesanan"
+                          : "Pendapatan Pesanan Selesai";
+                        orderLinkNode = (
+                          <Link
+                            href={`/orders/${order.id}`}
+                            className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline mt-0.5"
+                          >
+                            <span>Order #{orderNumber} • {order.brief?.title || "Pesanan Desain"}</span>
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                          </Link>
+                        );
+                        if (order.fee > 0) {
+                          subtitle = (
+                            <span className="text-[11px] text-text-muted block mt-0.5">
+                              Harga total: {formatRupiah(order.price)} (Fee platform 5%: {formatRupiah(order.fee)})
+                            </span>
+                          );
+                        }
+                      } else if (entry.reason.includes("penarikan") || entry.direction === "DEBIT") {
+                        title = "Penarikan Saldo Dompet";
+                        subtitle = (
+                          <span className="text-xs text-text-muted block mt-0.5">
+                            Pengajuan penarikan dana ke rekening atau e-wallet desainer
+                          </span>
+                        );
+                      } else if (entry.reason.includes("produk premade") || entry.reason.includes("premade")) {
+                        title = "Penjualan Produk Premade";
+                        subtitle = (
+                          <span className="text-xs text-text-muted block mt-0.5">
+                            Pendapatan bersih penjualan aset digital premade
+                          </span>
+                        );
+                      } else if (entry.reason.includes("gagal") || entry.reason.includes("ditolak")) {
+                        title = "Pengembalian Saldo Penarikan";
+                        subtitle = (
+                          <span className="text-xs text-text-muted block mt-0.5">
+                            Pengembalian dana penarikan yang gagal atau ditolak
+                          </span>
+                        );
+                      }
+
                       return (
                         <tr
                           key={entry.id}
                           className="hover:bg-background transition-colors"
                         >
-                          <td className="py-3.5 px-4 text-xs text-text-muted">
-                            {formatDate(entry.createdAt)} {formatTime(entry.createdAt)}
+                          <td className="py-3.5 px-4 text-xs text-text-muted whitespace-nowrap">
+                            {formatDate(entry.createdAt)} {formatTime(entry.createdAt, true)}
                           </td>
-                          <td className="py-3.5 px-4 text-text font-medium">
-                            {entry.reason}
+                          <td className="py-3.5 px-4">
+                            <div className="font-semibold text-text text-sm">
+                              {title}
+                            </div>
+                            {orderLinkNode}
+                            {subtitle}
                           </td>
                           <td className="py-3.5 px-4">
                             <Badge variant={isCredit ? "success" : "neutral"}>
-                              {isCredit ? "Masuk" : "Keluar"}
+                              {isCredit ? "Masuk (+)" : "Keluar (-)"}
                             </Badge>
                           </td>
-                          <td className="py-3.5 px-4 text-right">
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
                             <span
                               className={`font-money font-bold ${
                                 isCredit ? "text-success" : "text-text"

@@ -138,14 +138,31 @@ export function WithdrawalModalButton({
 
   return (
     <>
-      <Button
-        variant="cta"
-        onClick={handleOpenModal}
-        className="flex items-center gap-2 font-bold shadow-sm"
-      >
-        <ArrowDownLeft className="w-4 h-4" />
-        <span>Tarik Saldo</span>
-      </Button>
+      <div className="flex flex-col items-start sm:items-end gap-1.5">
+        <Button
+          variant="cta"
+          onClick={handleOpenModal}
+          disabled={isBalanceInsufficient}
+          title={
+            isBalanceInsufficient
+              ? `Saldo belum mencapai minimal ${formatRupiah(effectiveMinWithdrawal)}`
+              : "Ajukan penarikan saldo ke rekening atau e-wallet"
+          }
+          className={`flex items-center gap-2 font-bold shadow-sm ${
+            isBalanceInsufficient
+              ? "opacity-50 cursor-not-allowed hover:bg-secondary"
+              : ""
+          }`}
+        >
+          <ArrowDownLeft className="w-4 h-4" />
+          <span>Tarik Saldo</span>
+        </Button>
+        {isBalanceInsufficient && (
+          <span className="text-[11px] font-medium text-text-muted">
+            Saldo belum mencapai minimal {formatRupiah(effectiveMinWithdrawal)}
+          </span>
+        )}
+      </div>
 
       {isOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">

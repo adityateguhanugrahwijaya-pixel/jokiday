@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Bell, Check, ExternalLink, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { formatDate, formatTime } from "@/lib/format";
 
 interface NotificationItem {
   id: string;
@@ -267,10 +268,7 @@ export function NotificationBell() {
                         {n.title}
                       </p>
                       <span className="text-[10px] text-text-muted shrink-0">
-                        {new Date(n.createdAt).toLocaleDateString("id-ID", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatDate(n.createdAt)} {formatTime(n.createdAt)} WIT
                       </span>
                     </div>
                     <p className="text-text-muted text-[11px] mt-0.5 line-clamp-2 leading-relaxed">

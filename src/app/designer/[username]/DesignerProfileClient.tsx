@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { formatRupiah, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
 import { FeedPreviewImage } from "@/components/feed/FeedPreviewImage";
+import { resolvePreviewUrl } from "@/lib/media";
 import {
   Grid,
   Package,
@@ -1311,9 +1312,7 @@ export function DesignerProfileClient({
             id: createdPostData.id,
             caption: createdPostData.caption,
             category: createdPostData.category,
-            previewUrl: createdPostData.previewAsset?.id
-              ? `/api/previews/${createdPostData.previewAsset.id}`
-              : createdPostData.previewAsset?.driveFileId,
+            previewUrl: resolvePreviewUrl(createdPostData.previewAsset),
             createdAt: createdPostData.createdAt,
           };
           setPosts((prev) => [createdPost, ...prev]);

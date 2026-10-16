@@ -6,6 +6,7 @@ import { AuthService } from "@/server/auth/auth.service";
 import { redirect } from "next/navigation";
 import { ArrowLeft, ArrowRightLeft } from "lucide-react";
 import { BriefForm } from "./BriefForm";
+import { resolvePreviewUrl } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
 
@@ -76,9 +77,7 @@ export default async function NewBriefPage({
         caption: post.caption,
         category: post.category,
         isAvailable,
-        previewUrl: post.previewAsset?.id
-          ? `/api/previews/${post.previewAsset.id}`
-          : post.previewAsset?.driveFileId,
+        previewUrl: resolvePreviewUrl(post.previewAsset),
       };
     } else {
       sourcePostInfo = {

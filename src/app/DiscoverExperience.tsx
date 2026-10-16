@@ -49,7 +49,7 @@ export function DiscoverExperience({
   const [posts, setPosts] = useState<DiscoverPost[]>(initialPosts);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [sortBy, setSortBy] = useState<"popular" | "newest" | "price_asc" | "price_desc">("popular");
+  const [sortBy, setSortBy] = useState<"popular" | "newest">("popular");
 
   // State Hapus & Arsip
   const [postToDelete, setPostToDelete] = useState<DiscoverPost | null>(null);
@@ -216,25 +216,13 @@ export function DiscoverExperience({
         if (sortBy === "newest") {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
-        if (sortBy === "price_asc") {
-          const priceA = a.startingPrice ?? Number.MAX_SAFE_INTEGER;
-          const priceB = b.startingPrice ?? Number.MAX_SAFE_INTEGER;
-          if (priceA !== priceB) return priceA - priceB;
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        }
-        if (sortBy === "price_desc") {
-          const priceA = a.startingPrice ?? -1;
-          const priceB = b.startingPrice ?? -1;
-          if (priceA !== priceB) return priceB - priceA;
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        }
         // popular (rating * completedCount) - data riil tanpa mock default
         const scoreA = (a.designer.ratingAvg || 0) * (a.designer.completedCount || 0);
         const scoreB = (b.designer.ratingAvg || 0) * (b.designer.completedCount || 0);
         if (scoreB !== scoreA) return scoreB - scoreA;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
-  }, [initialPosts, selectedCategory, searchQuery, sortBy]);
+  }, [posts, selectedCategory, searchQuery, sortBy]);
 
   return (
     <div className="space-y-12 pb-8">
@@ -372,8 +360,6 @@ export function DiscoverExperience({
             >
               <option value="popular">Paling Populer</option>
               <option value="newest">Karya Terbaru</option>
-              <option value="price_asc">Harga Terendah</option>
-              <option value="price_desc">Harga Tertinggi</option>
             </select>
           </div>
         </div>

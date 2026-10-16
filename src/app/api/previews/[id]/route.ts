@@ -187,33 +187,12 @@ export async function GET(
         }
       }
 
-      // 2c. Jika driveFileId adalah URL remote (misal ImageKit CDN)
+      // 2c. Jika driveFileId adalah URL remote (misal ImageKit CDN), alihkan langsung ke CDN
       if (
         asset.driveFileId.startsWith("http://") ||
         asset.driveFileId.startsWith("https://")
       ) {
-        const remoteBuffer = await fetchRemoteImageWithDohFallback(
-          asset.driveFileId
-        );
-
-        if (remoteBuffer && remoteBuffer.length > 0) {
-          // Simpan ke cache lokal agar request berikutnya langsung cepat
-          try {
-            await fs.mkdir(uploadsDir, { recursive: true });
-            const cacheFilename = `wm_order_${asset.id}.jpg`;
-            await fs.writeFile(path.join(uploadsDir, cacheFilename), remoteBuffer);
-          } catch (writeErr) {
-            console.warn("[PreviewProxy] Gagal simpan cache lokal:", writeErr);
-          }
-
-          return new NextResponse(new Uint8Array(remoteBuffer), {
-            status: 200,
-            headers: {
-              "Content-Type": "image/jpeg",
-              "Cache-Control": "public, max-age=31536000, immutable",
-            },
-          });
-        }
+        return NextResponse.redirect(asset.driveFileId, 307);
       }
     }
 
