@@ -159,6 +159,13 @@ export function FeedPreviewImage({
           isLoading ? "opacity-0 scale-98" : "opacity-100 scale-100 group-hover:scale-102"
         }`}
       />
+
+      {/* Lapisan Transparan Pelindung (Anti-Drag & Anti-Klik Kanan sesuai DESIGN.md) */}
+      <div
+        className="absolute inset-0 z-10 select-none bg-transparent pointer-events-auto"
+        onContextMenu={(e) => e.preventDefault()}
+        aria-hidden="true"
+      />
     </div>
   );
 }

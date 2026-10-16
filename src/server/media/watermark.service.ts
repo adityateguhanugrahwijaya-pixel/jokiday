@@ -42,9 +42,10 @@ export interface WatermarkOptions {
 export class WatermarkService {
   /**
    * Menambahkan watermark diagonal berulang ke dalam gambar sesuai DESIGN.md:
-   * - Teks format: @username + JokiDay (aman glyph ASCII, tanpa tofu kotak-kotak)
+   * - Teks format: JokiDay • @username (aman glyph ASCII, tanpa tofu)
    * - Sudut diagonal -30 derajat
-   * - Dua lapis bergantian (putih 30% dan navy #0B1F4A 25%)
+   * - Dua lapis kontras ganda (putih dan navy #0B1F4A) agar terbaca jelas di latar terang maupun gelap
+   * - Pola bersilang (staggered / brick lattice) rapat tanpa celah kosong, melindungi seluruh kanvas dari screenshot/crop
    * - Font Noto Sans TTF tersemat via base64 font-face agar konsisten di semua platform
    * - Sisi terpanjang di-resize maksimum maxPx (default 1200px)
    */
@@ -72,19 +73,24 @@ export class WatermarkService {
     }
 
     const shortSide = Math.min(width, height);
-    const fontSize = Math.max(14, Math.round(shortSide * 0.04));
+    // Skala ukuran font proporsional (±4.2% dari sisi terpendek sesuai DESIGN.md)
+    const fontSize = Math.max(15, Math.round(shortSide * 0.042));
 
     // Bersihkan username dari karakter @ di depan jika ada, lalu sanitasi XML
     const rawUsername = options.username.trim().replace(/^@+/, "");
-    const safeUsername = escapeXml(rawUsername || "Desainer");
-    const textLabel = `@${safeUsername} + JokiDay`;
+    const safeUsername = escapeXml(rawUsername || "designer");
+    const textLabel = `JokiDay • @${safeUsername}`;
 
-    // Kalkulasi dimensi pattern SVG agar teks tidak tumpang tindih
-    const estimatedTextWidth = Math.ceil(textLabel.length * fontSize * 0.72);
-    const patternWidth = Math.max(260, Math.round(estimatedTextWidth * 1.6));
-    const patternHeight = Math.max(120, Math.round(fontSize * 5));
+    // Kalkulasi dimensi teks dan tile pattern bersilang rapat (brick layout)
+    const charWidth = fontSize * 0.64;
+    const textWidth = Math.ceil(textLabel.length * charWidth);
+    const horizontalGap = Math.max(36, Math.round(fontSize * 1.8));
+    const tileWidth = textWidth + horizontalGap;
+    const rowHeight = Math.max(38, Math.round(fontSize * 2.3));
+    const tileHeight = rowHeight * 2;
 
     const fontBase64 = getEmbeddedFontBase64();
+    const strokeWidth = Math.max(1.5, Number((fontSize * 0.08).toFixed(1)));
 
     const svgOverlay = Buffer.from(`
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
@@ -95,19 +101,43 @@ export class WatermarkService {
                   @font-face {
                     font-family: 'JokiDayWatermarkFont';
                     src: url('data:font/ttf;base64,${fontBase64}');
-                    font-weight: bold;
+                    font-weight: 700;
                     font-style: normal;
                   }
+                  .wm-txt {
+                    font-family: 'JokiDayWatermarkFont', Arial, 'Segoe UI', Helvetica, sans-serif;
+                    font-size: ${fontSize}px;
+                    font-weight: 700;
+                    letter-spacing: 0.2px;
+                  }
                 </style>`
-              : ""
+              : `<style>
+                  .wm-txt {
+                    font-family: Arial, 'Segoe UI', Helvetica, sans-serif;
+                    font-size: ${fontSize}px;
+                    font-weight: 700;
+                    letter-spacing: 0.2px;
+                  }
+                </style>`
           }
-          <pattern id="wm" width="${patternWidth}" height="${patternHeight}" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
-            <!-- Lapis 1: Navy #0B1F4A 25% -->
-            <text x="2" y="${patternHeight / 2 + 2}" font-family="'JokiDayWatermarkFont', Arial, 'Segoe UI', Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold" fill="rgba(11, 31, 74, 0.25)">
+          <pattern id="wm" width="${tileWidth}" height="${tileHeight}" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
+            <!-- Baris 1: x = 0 -->
+            <!-- Lapis 1: Navy (#0B1F4A) untuk kontras di latar terang -->
+            <text x="1.5" y="${rowHeight * 0.72 + 1.5}" class="wm-txt" fill="#0B1F4A" fill-opacity="0.38" stroke="#0B1F4A" stroke-width="${strokeWidth}" stroke-opacity="0.35">
               ${textLabel}
             </text>
-            <!-- Lapis 2: Putih 30% -->
-            <text x="0" y="${patternHeight / 2}" font-family="'JokiDayWatermarkFont', Arial, 'Segoe UI', Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold" fill="rgba(255, 255, 255, 0.30)">
+            <!-- Lapis 2: Putih (#FFFFFF) untuk kontras di latar gelap -->
+            <text x="0" y="${rowHeight * 0.72}" class="wm-txt" fill="#FFFFFF" fill-opacity="0.48" stroke="#FFFFFF" stroke-width="${strokeWidth * 0.5}" stroke-opacity="0.30">
+              ${textLabel}
+            </text>
+
+            <!-- Baris 2: x = tileWidth / 2 (Staggered offset 50%) -->
+            <!-- Lapis 1: Navy (#0B1F4A) -->
+            <text x="${tileWidth / 2 + 1.5}" y="${rowHeight * 1.72 + 1.5}" class="wm-txt" fill="#0B1F4A" fill-opacity="0.38" stroke="#0B1F4A" stroke-width="${strokeWidth}" stroke-opacity="0.35">
+              ${textLabel}
+            </text>
+            <!-- Lapis 2: Putih (#FFFFFF) -->
+            <text x="${tileWidth / 2}" y="${rowHeight * 1.72}" class="wm-txt" fill="#FFFFFF" fill-opacity="0.48" stroke="#FFFFFF" stroke-width="${strokeWidth * 0.5}" stroke-opacity="0.30">
               ${textLabel}
             </text>
           </pattern>
@@ -135,4 +165,3 @@ export class WatermarkService {
     };
   }
 }
-
