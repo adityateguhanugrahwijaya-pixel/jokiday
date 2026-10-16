@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Package,
   FileBox,
+  X,
 } from "lucide-react";
 import { MIN_SERVICE_PACKAGE_PRICE, validateServicePackagePrice } from "@/lib/constants/packages";
 import { ProductCard, ProductItem } from "@/components/products/ProductCard";
@@ -71,6 +72,15 @@ export function DesignerDashboardView({
   const [showProductModal, setShowProductModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ id: string; message: string; type: "success" | "error" } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => {
+      setToast(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   // Form State untuk Tambah / Edit Paket
   const [pkgTitle, setPkgTitle] = useState("");
@@ -810,6 +820,11 @@ export function DesignerDashboardView({
         onSuccess={(newProd) => {
           setProducts((prev) => [newProd, ...prev]);
           setActiveManagementTab("products");
+          setToast({
+            id: crypto.randomUUID(),
+            message: "Produk premade berhasil diterbitkan!",
+            type: "success",
+          });
         }}
         isDriveConnected={Boolean(isDriveConnected)}
       />
@@ -821,6 +836,29 @@ export function DesignerDashboardView({
         onClose={() => setSelectedProduct(null)}
         isLoggedIn={true}
       />
+
+      {/* Toast Notifikasi */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-5">
+          <div
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium ${
+              toast.type === "error"
+                ? "bg-danger"
+                : "bg-surface-dark border border-white/10"
+            }`}
+          >
+            <span>{toast.message}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="ml-1 text-white/60 hover:text-white"
+              aria-label="Tutup notifikasi"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
