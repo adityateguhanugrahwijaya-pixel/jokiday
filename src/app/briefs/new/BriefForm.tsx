@@ -5,19 +5,29 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle } from "lucide-react";
 
+export interface BriefSourcePost {
+  id: string;
+  caption: string;
+  category: string;
+  isAvailable: boolean;
+  previewUrl?: string;
+}
+
 export function BriefForm({
   initialDesignerId,
   designers,
+  sourcePost,
 }: {
   initialDesignerId?: string;
   designers: Array<{ id: string; displayName: string }>;
+  sourcePost?: BriefSourcePost | null;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"DIRECT" | "MARKET">(initialDesignerId ? "DIRECT" : "MARKET");
   const [targetDesignerId, setTargetDesignerId] = useState(initialDesignerId || designers[0]?.id || "");
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(sourcePost?.caption ? `Karya Serupa: ${sourcePost.caption}` : "");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("logo");
+  const [category, setCategory] = useState(sourcePost?.category || "logo");
   const [desiredDeadlineDays, setDesiredDeadlineDays] = useState("3");
   const [revisionQuota, setRevisionQuota] = useState("2");
   const [budgetHint, setBudgetHint] = useState("");
@@ -44,6 +54,7 @@ export function BriefForm({
         body: JSON.stringify({
           mode,
           targetDesignerId: mode === "DIRECT" ? targetDesignerId : undefined,
+          sourcePostId: sourcePost?.isAvailable ? sourcePost.id : undefined,
           title,
           description,
           category,
@@ -66,6 +77,35 @@ export function BriefForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 text-sm">
+      {/* Banner Informasi Referensi Karya */}
+      {sourcePost && !sourcePost.isAvailable && (
+        <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="space-y-0.5 leading-relaxed">
+            <span className="font-bold block">Karya Referensi Tidak Lagi Tersedia</span>
+            <p>
+              Karya desain yang sebelumnya Anda pilih telah diarsipkan atau dihapus oleh desainer. Namun, Anda tetap dapat melanjutkan pemesanan dengan mengisi deskripsi kebutuhan Anda di bawah ini.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {sourcePost && sourcePost.isAvailable && (
+        <div className="p-3 bg-surface-alt border border-border rounded-lg flex items-center gap-3">
+          {sourcePost.previewUrl && (
+            <img
+              src={sourcePost.previewUrl}
+              alt={sourcePost.caption}
+              className="w-12 h-12 object-cover rounded border border-border shrink-0"
+            />
+          )}
+          <div className="text-xs min-w-0">
+            <span className="text-[10px] uppercase font-bold text-text-muted block">Referensi Karya Dipilih</span>
+            <span className="font-bold text-text truncate block">{sourcePost.caption}</span>
+          </div>
+        </div>
+      )}
+
       {errorMsg && (
         <div className="p-3 bg-danger-soft text-danger text-xs rounded border border-danger/20 flex items-center gap-1.5">
           <AlertCircle className="w-4 h-4 shrink-0" />

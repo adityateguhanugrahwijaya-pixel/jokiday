@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -14,27 +14,15 @@ import {
   ChevronRight,
   Check,
   UserCheck,
+  X,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/format";
 import { FeedPreviewImage } from "@/components/feed/FeedPreviewImage";
+import { PostActionMenu } from "@/components/feed/PostActionMenu";
+import { DeletePostConfirmModal } from "@/components/feed/DeletePostConfirmModal";
+import { FeedCard, FeedCardPost } from "@/components/feed/FeedCard";
 
-export interface DiscoverPost {
-  id: string;
-  caption: string;
-  category: string;
-  previewUrl: string;
-  createdAt: string;
-  startingPrice: number;
-  designer: {
-    id: string;
-    displayName: string;
-    username?: string;
-    ratingAvg: number;
-    completedCount: number;
-    bio: string;
-    isVerified: boolean;
-  };
-}
+export type DiscoverPost = FeedCardPost;
 
 export interface DiscoverDesigner {
   id: string;
@@ -50,13 +38,39 @@ export interface DiscoverDesigner {
 export function DiscoverExperience({
   initialPosts,
   topDesigners,
+  currentUserId,
+  isCurrentUserAdmin,
 }: {
   initialPosts: DiscoverPost[];
   topDesigners: DiscoverDesigner[];
+  currentUserId?: string;
+  isCurrentUserAdmin?: boolean;
 }) {
+  const [posts, setPosts] = useState<DiscoverPost[]>(initialPosts);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState<"popular" | "newest" | "price_asc" | "price_desc">("popular");
+
+  // State Hapus & Arsip
+  const [postToDelete, setPostToDelete] = useState<DiscoverPost | null>(null);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
+  const [deleteUsageCount, setDeleteUsageCount] = useState<number>(0);
+  const [toast, setToast] = useState<{
+    id: string;
+    message: string;
+    type?: "success" | "error" | "info";
+    undoAction?: () => void;
+  } | null>(null);
+
+  useEffect(() => {
+    setPosts(initialPosts);
+  }, [initialPosts]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const categories = [
     { id: "all", label: "Semua Kategori", icon: "✨" },
@@ -73,8 +87,109 @@ export function DiscoverExperience({
     "Kemasan",
   ];
 
+  const handleArchivePost = async (post: DiscoverPost) => {
+    const originalPosts = [...posts];
+    setPosts((prev) => prev.filter((p) => p.id !== post.id));
+
+    try {
+      const res = await fetch(`/api/designer/posts/${post.id}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal mengarsipkan karya");
+
+      setToast({
+        id: crypto.randomUUID(),
+        message: "Karya berhasil diarsipkan.",
+        type: "success",
+        undoAction: () => handleRestorePost(post),
+      });
+    } catch (err: any) {
+      setPosts(originalPosts);
+      setToast({
+        id: crypto.randomUUID(),
+        message: err.message || "Gagal mengarsipkan karya",
+        type: "error",
+      });
+    }
+  };
+
+  const handleRestorePost = async (post: DiscoverPost) => {
+    const originalPosts = [...posts];
+    setPosts((prev) => [post, ...prev]);
+
+    try {
+      const res = await fetch(`/api/designer/posts/${post.id}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restore" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal memulihkan karya");
+
+      setToast({
+        id: crypto.randomUUID(),
+        message: "Karya berhasil dipulihkan ke feed publik.",
+        type: "success",
+      });
+    } catch (err: any) {
+      setPosts(originalPosts);
+      setToast({
+        id: crypto.randomUUID(),
+        message: err.message || "Gagal memulihkan karya",
+        type: "error",
+      });
+    }
+  };
+
+  const promptDeletePost = async (post: DiscoverPost) => {
+    try {
+      const res = await fetch(`/api/designer/posts/${post.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDeleteUsageCount(data.relatedBriefsCount || 0);
+      } else {
+        setDeleteUsageCount(0);
+      }
+    } catch {
+      setDeleteUsageCount(0);
+    }
+    setPostToDelete(post);
+  };
+
+  const handleConfirmDeletePost = async () => {
+    if (!postToDelete) return;
+    setIsDeletingPost(true);
+    try {
+      const res = await fetch(`/api/designer/posts/${postToDelete.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal menghapus karya");
+
+      setPosts((prev) => prev.filter((p) => p.id !== postToDelete.id));
+      setPostToDelete(null);
+
+      setToast({
+        id: crypto.randomUUID(),
+        message: "Karya berhasil dihapus dari tampilan.",
+        type: "success",
+      });
+    } catch (err: any) {
+      setToast({
+        id: crypto.randomUUID(),
+        message: err.message || "Gagal menghapus karya",
+        type: "error",
+      });
+    } finally {
+      setIsDeletingPost(false);
+    }
+  };
+
   const filteredPosts = useMemo(() => {
-    return initialPosts
+    return posts
       .filter((post) => {
         // Filter Kategori
         if (selectedCategory !== "all") {
@@ -102,15 +217,22 @@ export function DiscoverExperience({
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
         if (sortBy === "price_asc") {
-          return a.startingPrice - b.startingPrice;
+          const priceA = a.startingPrice ?? Number.MAX_SAFE_INTEGER;
+          const priceB = b.startingPrice ?? Number.MAX_SAFE_INTEGER;
+          if (priceA !== priceB) return priceA - priceB;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
         if (sortBy === "price_desc") {
-          return b.startingPrice - a.startingPrice;
+          const priceA = a.startingPrice ?? -1;
+          const priceB = b.startingPrice ?? -1;
+          if (priceA !== priceB) return priceB - priceA;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
-        // popular (rating * completedCount)
-        const scoreA = (a.designer.ratingAvg || 5) * (a.designer.completedCount || 1);
-        const scoreB = (b.designer.ratingAvg || 5) * (b.designer.completedCount || 1);
-        return scoreB - scoreA;
+        // popular (rating * completedCount) - data riil tanpa mock default
+        const scoreA = (a.designer.ratingAvg || 0) * (a.designer.completedCount || 0);
+        const scoreB = (b.designer.ratingAvg || 0) * (b.designer.completedCount || 0);
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
   }, [initialPosts, selectedCategory, searchQuery, sortBy]);
 
@@ -291,91 +413,16 @@ export function DiscoverExperience({
         ) : (
           /* Grid Portofolio Responsif (Fastwork Gig Cards) */
           <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {filteredPosts.map((post) => {
-              const designerProfileUrl = `/designer/${post.designer.username || post.designer.id}`;
-
-              return (
-                <div
-                  key={post.id}
-                  className="bg-surface border border-border rounded-xl overflow-hidden flex flex-col group hover:shadow-floating hover:border-primary/50 transition-all"
-                >
-                  {/* Thumbnail Gambar */}
-                  <div className="relative group overflow-hidden">
-                    <FeedPreviewImage
-                      src={post.previewUrl}
-                      alt={post.caption}
-                      category={post.category}
-                      aspectRatio="4/3"
-                    />
-
-                    {/* Badge Kategori */}
-                    <div className="absolute top-2.5 left-2.5 z-10 bg-surface/90 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-bold text-text uppercase tracking-wider border border-border/50">
-                      {post.category}
-                    </div>
-                  </div>
-
-                  {/* Body Card */}
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                    <div className="space-y-2">
-                      {/* Profil Singkat Desainer */}
-                      <div className="flex items-center justify-between gap-2">
-                        <Link
-                          href={designerProfileUrl}
-                          className="flex items-center gap-2 min-w-0 group/designer hover:opacity-80 transition-opacity"
-                        >
-                          <div className="w-6 h-6 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center text-[10px] shrink-0">
-                            {post.designer.displayName.slice(0, 1).toUpperCase()}
-                          </div>
-                          <span className="text-xs font-semibold text-text truncate group-hover/designer:text-primary transition-colors">
-                            {post.designer.displayName}
-                          </span>
-                        </Link>
-                        {post.designer.isVerified && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-primary shrink-0">
-                            <UserCheck className="w-3 h-3" />
-                            <span>Terverifikasi</span>
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Judul Layanan / Karya */}
-                      <h3 className="font-bold text-sm text-text line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                        {post.caption}
-                      </h3>
-                    </div>
-
-                    {/* Rating & Harga Mulai */}
-                    <div className="pt-3 border-t border-border flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-1 text-xs">
-                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span className="font-bold text-text">
-                            {post.designer.ratingAvg > 0 ? post.designer.ratingAvg.toFixed(1) : "-"}
-                          </span>
-                          <span className="text-[10px] text-text-muted">
-                            ({post.designer.completedCount} pesanan)
-                          </span>
-                        </div>
-                        <div className="mt-1">
-                          <span className="text-[10px] text-text-muted block">Mulai dari</span>
-                          <span className="font-money text-sm font-extrabold text-text">
-                            {formatRupiah(post.startingPrice)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Tombol Pesan Langsung */}
-                      <Link
-                        href={`/briefs/new?designerId=${post.designer.id}&sourcePostId=${post.id}`}
-                        className="inline-flex items-center justify-center h-9 px-3.5 rounded-lg bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors touch-target shrink-0"
-                      >
-                        Pesan Jasa
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {filteredPosts.map((post) => (
+              <FeedCard
+                key={post.id}
+                post={post}
+                currentUserId={currentUserId}
+                isAdmin={isCurrentUserAdmin}
+                onArchive={handleArchivePost}
+                onDelete={promptDeletePost}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -434,12 +481,20 @@ export function DiscoverExperience({
                             <UserCheck className="w-4 h-4 text-primary shrink-0" />
                           )}
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-text-muted mt-0.5">
-                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span className="font-bold text-text">
-                            {designer.ratingAvg > 0 ? designer.ratingAvg.toFixed(1) : "-"}
-                          </span>
-                          <span>&bull; {designer.completedCount} pesanan selesai</span>
+                        <div className="flex items-center gap-1.5 text-xs text-text-muted mt-0.5">
+                          {designer.ratingAvg > 0 ? (
+                            <>
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                              <span className="font-bold text-text">
+                                {designer.ratingAvg.toFixed(1)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="font-medium text-text-muted">Desainer Baru</span>
+                          )}
+                          {designer.completedCount > 0 && (
+                            <span>&bull; {designer.completedCount} pesanan selesai</span>
+                          )}
                         </div>
                       </div>
                     </Link>
@@ -513,6 +568,53 @@ export function DiscoverExperience({
           </div>
         </div>
       </section>
+
+      {/* MODAL KONFIRMASI HAPUS KARYA */}
+      <DeletePostConfirmModal
+        isOpen={Boolean(postToDelete)}
+        postTitle={postToDelete?.caption}
+        isDeleting={isDeletingPost}
+        relatedBriefsCount={deleteUsageCount}
+        onClose={() => {
+          if (!isDeletingPost) setPostToDelete(null);
+        }}
+        onConfirm={handleConfirmDeletePost}
+      />
+
+      {/* TOAST NOTIFIKASI DENGAN AKSI URUNGKAN */}
+      {toast && (
+        <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 animate-in slide-in-from-bottom-5 duration-200">
+          <div
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-floating text-xs font-medium ${
+              toast.type === "error"
+                ? "bg-danger-soft border-danger/30 text-danger"
+                : "bg-surface border-border text-text"
+            }`}
+          >
+            <span>{toast.message}</span>
+            {toast.undoAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.undoAction?.();
+                  setToast(null);
+                }}
+                className="px-2.5 py-1 rounded-md bg-primary text-white font-bold text-[11px] hover:bg-primary-hover transition-colors touch-target"
+              >
+                Urungkan
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="p-1 rounded text-text-muted hover:text-text ml-1"
+              aria-label="Tutup notifikasi"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

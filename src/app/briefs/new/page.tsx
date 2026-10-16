@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function NewBriefPage({
   searchParams,
 }: {
-  searchParams: { designerId?: string };
+  searchParams: { designerId?: string; sourcePostId?: string };
 }) {
   const session = await AuthService.getCurrentUser();
   if (session?.isAdmin) {
@@ -63,6 +63,33 @@ export default async function NewBriefPage({
     });
   }
 
+  let sourcePostInfo = null;
+  if (searchParams.sourcePostId) {
+    const post = await prisma.post.findUnique({
+      where: { id: searchParams.sourcePostId },
+      include: { previewAsset: true },
+    });
+    if (post) {
+      const isAvailable = post.status === "PUBLISHED" && post.deletedAt === null;
+      sourcePostInfo = {
+        id: post.id,
+        caption: post.caption,
+        category: post.category,
+        isAvailable,
+        previewUrl: post.previewAsset?.id
+          ? `/api/previews/${post.previewAsset.id}`
+          : post.previewAsset?.driveFileId,
+      };
+    } else {
+      sourcePostInfo = {
+        id: searchParams.sourcePostId,
+        caption: "Karya tidak ditemukan",
+        category: "logo",
+        isAvailable: false,
+      };
+    }
+  }
+
   const allDesigners = await prisma.user.findMany({
     where: {
       isDesigner: true,
@@ -104,6 +131,7 @@ export default async function NewBriefPage({
           <BriefForm
             initialDesignerId={targetDesigner?.id}
             designers={allDesigners}
+            sourcePost={sourcePostInfo}
           />
         </div>
       </div>

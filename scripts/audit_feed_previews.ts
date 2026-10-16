@@ -21,8 +21,12 @@ async function auditFeedPreviews() {
 
   const uploadsDir = path.join(process.cwd(), "public", "uploads", "previews");
 
-  // Ambil semua Post dari database
+  // Ambil semua Post aktif dari database (PUBLISHED dan belum dihapus)
   const posts = await prisma.post.findMany({
+    where: {
+      status: "PUBLISHED",
+      deletedAt: null,
+    },
     include: {
       previewAsset: true,
       designer: {

@@ -26,7 +26,15 @@ import {
   Camera,
   Loader2,
   Pencil,
+  Archive,
 } from "lucide-react";
+import { PostActionMenu } from "@/components/feed/PostActionMenu";
+import { DeletePostConfirmModal } from "@/components/feed/DeletePostConfirmModal";
+import {
+  MIN_SERVICE_PACKAGE_PRICE,
+  validateServicePackagePrice,
+  getLowestActivePackagePrice,
+} from "@/lib/constants/packages";
 
 export interface ProfilePost {
   id: string;
@@ -34,6 +42,8 @@ export interface ProfilePost {
   category: string;
   previewUrl: string;
   createdAt: string;
+  archivedAt?: string | null;
+  status?: string;
 }
 
 export interface ProfilePackage {
@@ -66,32 +76,59 @@ export interface DesignerProfileData {
 export function DesignerProfileClient({
   designer,
   posts: initialPosts,
+  archivedPosts: initialArchivedPosts = [],
   packages: initialPackages,
   isOwner,
+  isAdmin,
   isLoggedIn,
 }: {
   designer: DesignerProfileData;
   posts: ProfilePost[];
+  archivedPosts?: ProfilePost[];
   packages: ProfilePackage[];
   isOwner: boolean;
+  isAdmin?: boolean;
   isLoggedIn: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"posts" | "packages" | "info">("posts");
+  const [activeTab, setActiveTab] = useState<"posts" | "archived" | "packages" | "info">("posts");
 
   const [posts, setPosts] = useState<ProfilePost[]>(initialPosts);
+  const [archivedPosts, setArchivedPosts] = useState<ProfilePost[]>(initialArchivedPosts);
   const [packages, setPackages] = useState<ProfilePackage[]>(initialPackages);
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(designer.avatarUrl);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const lowestPackagePrice = getLowestActivePackagePrice(packages);
 
   // Modal State
   const [selectedPost, setSelectedPost] = useState<ProfilePost | null>(null);
   const [isAddPackageOpen, setIsAddPackageOpen] = useState(false);
   const [isAddPostOpen, setIsAddPostOpen] = useState(false);
 
-  // Tangani parameter URL (?tab=portofolio / ?tab=posts / ?action=upload)
+  // State Hapus & Arsip
+  const [postToDelete, setPostToDelete] = useState<ProfilePost | null>(null);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
+  const [deleteUsageCount, setDeleteUsageCount] = useState<number>(0);
+  const [toast, setToast] = useState<{
+    id: string;
+    message: string;
+    type?: "success" | "error" | "info";
+    undoAction?: () => void;
+  } | null>(null);
+
+  // Timer pembersih toast
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => {
+      setToast(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Tangani parameter URL (?tab=portofolio / ?tab=posts / ?tab=archived / ?action=upload)
   useEffect(() => {
     if (!searchParams) return;
     const tabParam = searchParams.get("tab")?.toLowerCase();
@@ -102,6 +139,10 @@ export function DesignerProfileClient({
       setActiveTab("packages");
     } else if (tabParam === "info" || tabParam === "tentang") {
       setActiveTab("info");
+    } else if (tabParam === "archived" || tabParam === "diarsipkan" || tabParam === "arsip") {
+      if (isOwner || isAdmin) {
+        setActiveTab("archived");
+      }
     } else if (tabParam === "posts" || tabParam === "portofolio" || tabParam === "karya") {
       setActiveTab("posts");
     }
@@ -110,7 +151,7 @@ export function DesignerProfileClient({
       setActiveTab("posts");
       setIsAddPostOpen(true);
     }
-  }, [searchParams, isOwner]);
+  }, [searchParams, isOwner, isAdmin]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -219,6 +260,13 @@ export function DesignerProfileClient({
     setIsSubmittingPkg(true);
     setPkgError("");
 
+    const priceValidation = validateServicePackagePrice(pkgPrice);
+    if (!priceValidation.isValid || priceValidation.value === undefined) {
+      setPkgError(priceValidation.error || "Harga paket tidak valid");
+      setIsSubmittingPkg(false);
+      return;
+    }
+
     try {
       const deliverablesList = pkgDeliverables
         .split("\n")
@@ -232,7 +280,7 @@ export function DesignerProfileClient({
           title: pkgTitle,
           description: pkgDescription,
           category: pkgCategory,
-          price: parseInt(pkgPrice, 10),
+          price: priceValidation.value,
           durationDays: parseInt(pkgDuration, 10),
           revisionQuota: parseInt(pkgRevisions, 10),
           deliverables: deliverablesList,
@@ -304,6 +352,140 @@ export function DesignerProfileClient({
       setPostError(err.message);
     } finally {
       setIsSubmittingPost(false);
+    }
+  };
+
+  const handleArchivePost = async (post: ProfilePost) => {
+    const originalPosts = [...posts];
+    const originalArchived = [...archivedPosts];
+
+    // Optimistic UI update
+    setPosts((prev) => prev.filter((p) => p.id !== post.id));
+    const archivedItem: ProfilePost = {
+      ...post,
+      status: "ARCHIVED",
+      archivedAt: new Date().toISOString(),
+    };
+    setArchivedPosts((prev) => [archivedItem, ...prev.filter((p) => p.id !== post.id)]);
+
+    if (selectedPost?.id === post.id) {
+      setSelectedPost(null);
+    }
+
+    try {
+      const res = await fetch(`/api/designer/posts/${post.id}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal mengarsipkan karya");
+
+      setToast({
+        id: crypto.randomUUID(),
+        message: "Karya berhasil diarsipkan.",
+        type: "success",
+        undoAction: () => handleRestorePost(archivedItem),
+      });
+    } catch (err: any) {
+      setPosts(originalPosts);
+      setArchivedPosts(originalArchived);
+      setToast({
+        id: crypto.randomUUID(),
+        message: err.message || "Gagal mengarsipkan karya",
+        type: "error",
+      });
+    }
+  };
+
+  const handleRestorePost = async (post: ProfilePost) => {
+    const originalPosts = [...posts];
+    const originalArchived = [...archivedPosts];
+
+    // Optimistic UI update
+    setArchivedPosts((prev) => prev.filter((p) => p.id !== post.id));
+    const publishedItem: ProfilePost = {
+      ...post,
+      status: "PUBLISHED",
+      archivedAt: null,
+    };
+    setPosts((prev) => [publishedItem, ...prev.filter((p) => p.id !== post.id)]);
+
+    if (selectedPost?.id === post.id) {
+      setSelectedPost(null);
+    }
+
+    try {
+      const res = await fetch(`/api/designer/posts/${post.id}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restore" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal memulihkan karya");
+
+      setToast({
+        id: crypto.randomUUID(),
+        message: "Karya berhasil dipulihkan ke publik.",
+        type: "success",
+      });
+    } catch (err: any) {
+      setPosts(originalPosts);
+      setArchivedPosts(originalArchived);
+      setToast({
+        id: crypto.randomUUID(),
+        message: err.message || "Gagal memulihkan karya",
+        type: "error",
+      });
+    }
+  };
+
+  const promptDeletePost = async (post: ProfilePost) => {
+    try {
+      const res = await fetch(`/api/designer/posts/${post.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDeleteUsageCount(data.relatedBriefsCount || 0);
+      } else {
+        setDeleteUsageCount(0);
+      }
+    } catch {
+      setDeleteUsageCount(0);
+    }
+    setPostToDelete(post);
+  };
+
+  const handleConfirmDeletePost = async () => {
+    if (!postToDelete) return;
+    setIsDeletingPost(true);
+    try {
+      const res = await fetch(`/api/designer/posts/${postToDelete.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal menghapus karya");
+
+      setPosts((prev) => prev.filter((p) => p.id !== postToDelete.id));
+      setArchivedPosts((prev) => prev.filter((p) => p.id !== postToDelete.id));
+
+      if (selectedPost?.id === postToDelete.id) {
+        setSelectedPost(null);
+      }
+      setPostToDelete(null);
+
+      setToast({
+        id: crypto.randomUUID(),
+        message: "Karya berhasil dihapus dari tampilan.",
+        type: "success",
+      });
+    } catch (err: any) {
+      setToast({
+        id: crypto.randomUUID(),
+        message: err.message || "Gagal menghapus karya",
+        type: "error",
+      });
+    } finally {
+      setIsDeletingPost(false);
     }
   };
 
@@ -492,7 +674,7 @@ export function DesignerProfileClient({
       </section>
 
       {/* 2. TAB NAVIGASI GAYA INSTAGRAM */}
-      <div className="border-b border-border flex items-center justify-center gap-8 sm:gap-12">
+      <div className="border-b border-border flex items-center justify-center gap-6 sm:gap-10 flex-wrap">
         <button
           type="button"
           onClick={() => setActiveTab("posts")}
@@ -505,6 +687,21 @@ export function DesignerProfileClient({
           <Grid className="w-4 h-4" />
           <span>Karya ({posts.length})</span>
         </button>
+
+        {(isOwner || isAdmin) && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("archived")}
+            className={`pb-3 inline-flex items-center gap-2 text-xs font-bold tracking-wider uppercase transition-colors border-b-2 ${
+              activeTab === "archived"
+                ? "border-primary text-primary"
+                : "border-transparent text-text-muted hover:text-text"
+            }`}
+          >
+            <Archive className="w-4 h-4" />
+            <span>Diarsipkan ({archivedPosts.length})</span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -551,7 +748,7 @@ export function DesignerProfileClient({
                 <button
                   type="button"
                   onClick={() => setIsAddPostOpen(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-colors touch-target"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Unggah Karya Pertamamu</span>
@@ -573,14 +770,145 @@ export function DesignerProfileClient({
                     aspectRatio="square"
                   />
 
+                  {/* Tombol Opsi ⋯ jika pemilik atau admin */}
+                  {(isOwner || isAdmin) && (
+                    <div
+                      className="absolute top-2 right-2 z-20"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <PostActionMenu
+                        postId={post.id}
+                        postTitle={post.caption}
+                        isOwner={isOwner}
+                        isAdmin={isAdmin}
+                        status="PUBLISHED"
+                        onArchive={() => handleArchivePost(post)}
+                        onDelete={() => promptDeletePost(post)}
+                      />
+                    </div>
+                  )}
+
                   {/* Overlay Instagram saat Hover */}
-                  <div className="absolute inset-0 z-10 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3 select-none">
-                    <span className="self-start text-[10px] font-bold text-white bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded capitalize">
-                      {post.category}
-                    </span>
+                  <div className="absolute inset-0 z-10 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3 select-none pointer-events-none">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="self-start text-[10px] font-bold text-white bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded capitalize">
+                        {post.category}
+                      </span>
+                      {lowestPackagePrice != null && lowestPackagePrice > 0 && (
+                        <span className="text-[10px] font-bold text-white bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded font-money">
+                          Mulai {formatRupiah(lowestPackagePrice)}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs font-bold text-white line-clamp-2">
                       {post.caption}
                     </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB 1B: KARYA DIARSIPKAN (KHUSUS PEMILIK & ADMIN) */}
+      {activeTab === "archived" && (isOwner || isAdmin) && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between bg-surface border border-border rounded-xl p-4">
+            <div>
+              <h3 className="font-bold text-sm text-text">Karya yang Diarsipkan</h3>
+              <p className="text-xs text-text-muted mt-0.5">
+                Karya ini disembunyikan dari feed umum dan profil publik. Anda dapat memulihkannya kapan saja.
+              </p>
+            </div>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-surface-alt border border-border text-text">
+              {archivedPosts.length} karya
+            </span>
+          </div>
+
+          {archivedPosts.length === 0 ? (
+            <div className="bg-surface border border-border rounded-xl p-12 text-center max-w-md mx-auto space-y-3">
+              <div className="w-12 h-12 rounded-full bg-surface-alt text-text-muted mx-auto flex items-center justify-center">
+                <Archive className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-base text-text">Tidak ada karya diarsipkan</h3>
+              <p className="text-xs text-text-muted">
+                Semua karya aktif Anda tampil di tab Karya utama. Gunakan menu titik tiga (⋯) pada kartu karya untuk mengarsipkan.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {archivedPosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="bg-surface border border-border rounded-xl overflow-hidden flex flex-col justify-between group hover:border-primary/40 transition-colors shadow-xs"
+                >
+                  <div
+                    onClick={() => setSelectedPost(post)}
+                    className="relative aspect-video sm:aspect-square bg-surface-alt overflow-hidden cursor-pointer"
+                  >
+                    <FeedPreviewImage
+                      src={post.previewUrl}
+                      alt={post.caption}
+                      category={post.category}
+                      aspectRatio="square"
+                    />
+                    <div className="absolute top-2 left-2 z-10 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-wider">
+                      Diarsipkan
+                    </div>
+                    <div
+                      className="absolute top-2 right-2 z-20"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <PostActionMenu
+                        postId={post.id}
+                        postTitle={post.caption}
+                        isOwner={isOwner}
+                        isAdmin={isAdmin}
+                        status="ARCHIVED"
+                        onRestore={() => handleRestorePost(post)}
+                        onDelete={() => promptDeletePost(post)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 space-y-3 flex-1 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">
+                        {post.category}
+                      </span>
+                      <h4
+                        onClick={() => setSelectedPost(post)}
+                        className="font-bold text-xs sm:text-sm text-text line-clamp-2 mt-0.5 cursor-pointer hover:text-primary transition-colors"
+                      >
+                        {post.caption}
+                      </h4>
+                      {post.archivedAt && (
+                        <span className="text-[11px] text-text-muted block mt-1">
+                          Diarsipkan: {formatDate(post.archivedAt)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-border">
+                      <button
+                        type="button"
+                        onClick={() => handleRestorePost(post)}
+                        className="flex-1 h-8 rounded-lg bg-primary-soft text-primary hover:bg-primary hover:text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5 touch-target"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Pulihkan</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => promptDeletePost(post)}
+                        className="h-8 px-3 rounded-lg border border-danger/30 text-danger hover:bg-danger-soft font-bold text-xs transition-colors flex items-center justify-center gap-1 touch-target"
+                        title="Hapus permanen"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="hidden xs:inline">Hapus</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -816,20 +1144,67 @@ export function DesignerProfileClient({
                   <span className="text-[11px] text-text-muted block">
                     Diunggah pada {formatDate(selectedPost.createdAt)}
                   </span>
+                  {lowestPackagePrice != null && lowestPackagePrice > 0 && (
+                    <div className="pt-2">
+                      <span className="text-[10px] text-text-muted block">Mulai dari</span>
+                      <span className="font-money text-sm font-extrabold text-text">
+                        {formatRupiah(lowestPackagePrice)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-2 pt-4 border-t border-border">
-                <Link
-                  href={`/briefs/new?designerId=${designer.id}&sourcePostId=${selectedPost.id}`}
-                  className="w-full inline-flex items-center justify-center h-10 rounded-lg bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors"
-                >
-                  Pesan Desain Serupa
-                </Link>
+                {selectedPost.status !== "ARCHIVED" ? (
+                  <Link
+                    href={`/briefs/new?designerId=${designer.id}&sourcePostId=${selectedPost.id}`}
+                    className="w-full inline-flex items-center justify-center h-10 rounded-lg bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors touch-target"
+                  >
+                    Pesan Desain Serupa
+                  </Link>
+                ) : (
+                  <div className="p-2.5 bg-surface-alt border border-border rounded-lg text-center text-xs text-text-muted">
+                    Karya ini sedang diarsipkan dari publik
+                  </div>
+                )}
+
+                {(isOwner || isAdmin) && (
+                  <div className="flex items-center gap-2 pt-1">
+                    {selectedPost.status !== "ARCHIVED" ? (
+                      <button
+                        type="button"
+                        onClick={() => handleArchivePost(selectedPost)}
+                        className="flex-1 h-9 rounded-lg bg-surface border border-border text-xs font-semibold text-text hover:bg-background transition-colors flex items-center justify-center gap-1.5 touch-target"
+                      >
+                        <Archive className="w-3.5 h-3.5 text-text-muted" />
+                        <span>Arsipkan</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleRestorePost(selectedPost)}
+                        className="flex-1 h-9 rounded-lg bg-primary-soft text-primary hover:bg-primary hover:text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 touch-target"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Pulihkan ke Publik</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => promptDeletePost(selectedPost)}
+                      className="h-9 px-3.5 rounded-lg border border-danger/30 text-danger hover:bg-danger-soft text-xs font-bold transition-colors flex items-center justify-center gap-1 touch-target"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Hapus</span>
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => setSelectedPost(null)}
-                  className="w-full h-9 rounded-lg border border-border text-xs font-semibold text-text-muted hover:text-text"
+                  className="w-full h-9 rounded-lg border border-border text-xs font-semibold text-text-muted hover:text-text touch-target"
                 >
                   Tutup
                 </button>
@@ -1001,7 +1376,8 @@ export function DesignerProfileClient({
                   <input
                     type="number"
                     step={1000}
-                    min={50000}
+                    min={MIN_SERVICE_PACKAGE_PRICE}
+                    placeholder="10000"
                     value={pkgPrice}
                     onChange={(e) => setPkgPrice(e.target.value)}
                     className="w-full h-10 px-3 bg-background border border-border rounded-md text-text text-xs font-money focus:outline-none focus:ring-2 focus:ring-primary"
@@ -1082,6 +1458,53 @@ export function DesignerProfileClient({
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS KARYA */}
+      <DeletePostConfirmModal
+        isOpen={Boolean(postToDelete)}
+        postTitle={postToDelete?.caption}
+        isDeleting={isDeletingPost}
+        relatedBriefsCount={deleteUsageCount}
+        onClose={() => {
+          if (!isDeletingPost) setPostToDelete(null);
+        }}
+        onConfirm={handleConfirmDeletePost}
+      />
+
+      {/* TOAST NOTIFIKASI DENGAN AKSI URUNGKAN */}
+      {toast && (
+        <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 animate-in slide-in-from-bottom-5 duration-200">
+          <div
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-floating text-xs font-medium ${
+              toast.type === "error"
+                ? "bg-danger-soft border-danger/30 text-danger"
+                : "bg-surface border-border text-text"
+            }`}
+          >
+            <span>{toast.message}</span>
+            {toast.undoAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.undoAction?.();
+                  setToast(null);
+                }}
+                className="px-2.5 py-1 rounded-md bg-primary text-white font-bold text-[11px] hover:bg-primary-hover transition-colors touch-target"
+              >
+                Urungkan
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="p-1 rounded text-text-muted hover:text-text ml-1"
+              aria-label="Tutup notifikasi"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}

@@ -4,6 +4,8 @@ import { AuthService } from "@/server/auth/auth.service";
 import { handleApiError, UnauthorizedError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { sanitizeInput } from "@/lib/security";
 
+import { validateServicePackagePrice } from "@/lib/constants/packages";
+
 export async function POST(req: NextRequest) {
   try {
     const session = await AuthService.getCurrentUser();
@@ -33,10 +35,12 @@ export async function POST(req: NextRequest) {
     if (!cleanDesc) {
       throw new ValidationError("Deskripsi paket jasa wajib diisi");
     }
-    const priceNum = parseInt(price, 10);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      throw new ValidationError("Harga paket harus berupa angka bulat positif");
+
+    const priceValidation = validateServicePackagePrice(price);
+    if (!priceValidation.isValid || priceValidation.value === undefined) {
+      throw new ValidationError(priceValidation.error || "Harga paket tidak valid");
     }
+    const priceNum = priceValidation.value;
     const durationNum = parseInt(durationDays, 10) || 2;
     const revisionNum = parseInt(revisionQuota, 10) || 2;
 

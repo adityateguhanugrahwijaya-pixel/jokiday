@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
-import { handleApiError, UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/errors";
+import { handleApiError, UnauthorizedError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { sanitizeInput } from "@/lib/security";
+import { validateServicePackagePrice } from "@/lib/constants/packages";
 
 export async function PUT(
   req: NextRequest,
@@ -33,8 +34,11 @@ export async function PUT(
     if (description !== undefined) dataToUpdate.description = sanitizeInput(description).slice(0, 2500);
     if (category !== undefined) dataToUpdate.category = sanitizeInput(category).slice(0, 50);
     if (price !== undefined) {
-      const p = parseInt(price, 10);
-      if (!isNaN(p) && p > 0) dataToUpdate.price = p;
+      const priceValidation = validateServicePackagePrice(price);
+      if (!priceValidation.isValid || priceValidation.value === undefined) {
+        throw new ValidationError(priceValidation.error || "Harga paket tidak valid");
+      }
+      dataToUpdate.price = priceValidation.value;
     }
     if (durationDays !== undefined) {
       const d = parseInt(durationDays, 10);

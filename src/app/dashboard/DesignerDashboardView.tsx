@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Package,
 } from "lucide-react";
+import { MIN_SERVICE_PACKAGE_PRICE, validateServicePackagePrice } from "@/lib/constants/packages";
 
 interface PackageItem {
   id: string;
@@ -107,6 +108,13 @@ export function DesignerDashboardView({
     e.preventDefault();
     setIsSubmittingPkg(true);
     setPkgError("");
+
+    const priceValidation = validateServicePackagePrice(pkgPrice);
+    if (!priceValidation.isValid || priceValidation.value === undefined) {
+      setPkgError(priceValidation.error || "Harga paket tidak valid");
+      setIsSubmittingPkg(false);
+      return;
+    }
 
     const deliverablesArray = pkgDeliverables
       .split("\n")
@@ -592,11 +600,11 @@ export function DesignerDashboardView({
                   <input
                     type="number"
                     required
-                    min={10000}
-                    step={10000}
+                    min={MIN_SERVICE_PACKAGE_PRICE}
+                    step={1000}
                     value={pkgPrice}
                     onChange={(e) => setPkgPrice(e.target.value)}
-                    placeholder="150000"
+                    placeholder="10000"
                     className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary font-mono"
                   />
                 </div>

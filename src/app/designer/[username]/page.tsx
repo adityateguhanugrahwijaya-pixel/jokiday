@@ -44,6 +44,10 @@ export default async function DesignerPage({
       designerProfile: {
         include: {
           posts: {
+            where: {
+              status: "PUBLISHED",
+              deletedAt: null,
+            },
             include: { previewAsset: true },
             orderBy: { createdAt: "desc" },
           },
@@ -88,6 +92,10 @@ export default async function DesignerPage({
       },
       include: {
         posts: {
+          where: {
+            status: "PUBLISHED",
+            deletedAt: null,
+          },
           include: { previewAsset: true },
           orderBy: { createdAt: "desc" },
         },
@@ -158,6 +166,10 @@ export default async function DesignerPage({
     createdAt: designerUser.createdAt.toISOString(),
   };
 
+  const isOwner =
+    session?.userId === designerUser.id && currentUser?.activeRole === "DESIGNER";
+  const isAdmin = Boolean(session?.isAdmin);
+
   const mappedPosts: ProfilePost[] = designerUser.designerProfile.posts.map((p) => ({
     id: p.id,
     caption: p.caption,
@@ -166,7 +178,34 @@ export default async function DesignerPage({
       ? `/api/previews/${p.previewAsset.id}`
       : p.previewAsset.driveFileId,
     createdAt: p.createdAt.toISOString(),
+    archivedAt: p.archivedAt?.toISOString() || null,
+    status: p.status,
   }));
+
+  let archivedPosts: ProfilePost[] = [];
+  if (isOwner || isAdmin) {
+    const rawArchived = await prisma.post.findMany({
+      where: {
+        designerId: designerUser.id,
+        status: "ARCHIVED",
+        deletedAt: null,
+      },
+      include: { previewAsset: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    archivedPosts = rawArchived.map((p) => ({
+      id: p.id,
+      caption: p.caption,
+      category: p.category,
+      previewUrl: p.previewAsset?.id
+        ? `/api/previews/${p.previewAsset.id}`
+        : p.previewAsset?.driveFileId,
+      createdAt: p.createdAt.toISOString(),
+      archivedAt: p.archivedAt?.toISOString() || null,
+      status: p.status,
+    }));
+  }
 
   const mappedPackages: ProfilePackage[] = designerUser.designerProfile.packages.map((pkg) => {
     let deliverables: string[] = [];
@@ -190,9 +229,6 @@ export default async function DesignerPage({
     };
   });
 
-  const isOwner =
-    session?.userId === designerUser.id && currentUser?.activeRole === "DESIGNER";
-
   return (
     <AppShell
       role={currentUser?.activeRole as "CUSTOMER" | "DESIGNER" || "CUSTOMER"}
@@ -202,8 +238,10 @@ export default async function DesignerPage({
       <DesignerProfileClient
         designer={designerData}
         posts={mappedPosts}
+        archivedPosts={archivedPosts}
         packages={mappedPackages}
         isOwner={isOwner}
+        isAdmin={isAdmin}
         isLoggedIn={Boolean(session)}
       />
     </AppShell>

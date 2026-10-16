@@ -15,10 +15,23 @@ export default async function HomePage() {
     });
   }
 
-  // Ambil postingan karya desain riil dari database
+  // Ambil postingan karya desain riil dari database (hanya yang PUBLISHED dan belum dihapus)
   const posts = await prisma.post.findMany({
+    where: {
+      status: "PUBLISHED",
+      deletedAt: null,
+    },
     include: {
-      designer: { include: { user: true } },
+      designer: {
+        include: {
+          user: true,
+          packages: {
+            where: { isActive: true },
+            orderBy: { price: "asc" },
+            take: 1,
+          },
+        },
+      },
       previewAsset: true,
     },
     orderBy: { createdAt: "desc" },
@@ -38,18 +51,10 @@ export default async function HomePage() {
     take: 6,
   });
 
-  const defaultCategoryPrices: Record<string, number> = {
-    logo: 150000,
-    kemasan: 200000,
-    poster: 100000,
-    branding: 250000,
-    media: 75000,
-    ilustrasi: 125000,
-  };
-
   const mappedPosts: DiscoverPost[] = posts.map((p) => {
-    const cat = p.category.toLowerCase();
-    const price = defaultCategoryPrices[cat] || 100000;
+    const lowestPackage = p.designer.packages?.[0];
+    const startingPrice = lowestPackage ? lowestPackage.price : null;
+
     return {
       id: p.id,
       caption: p.caption,
@@ -58,7 +63,7 @@ export default async function HomePage() {
         ? `/api/previews/${p.previewAsset.id}`
         : p.previewAsset.driveFileId,
       createdAt: p.createdAt.toISOString(),
-      startingPrice: price,
+      startingPrice,
       designer: {
         id: p.designer.user.id,
         displayName: p.designer.user.displayName,
@@ -98,7 +103,12 @@ export default async function HomePage() {
       displayName={currentUser?.displayName || "Pengguna"}
       hideSidebar={true}
     >
-      <DiscoverExperience initialPosts={mappedPosts} topDesigners={mappedDesigners} />
+      <DiscoverExperience
+        initialPosts={mappedPosts}
+        topDesigners={mappedDesigners}
+        currentUserId={currentUser?.id}
+        isCurrentUserAdmin={Boolean(session?.isAdmin)}
+      />
     </AppShell>
   );
 }

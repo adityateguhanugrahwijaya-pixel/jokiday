@@ -108,17 +108,23 @@ model DesignerInvite {
 }
 
 model Post {
-  id             String   @id @default(uuid())
-  designerId     String   @map("designer_id")
+  id             String    @id @default(uuid())
+  designerId     String    @map("designer_id")
   caption        String
   category       String
-  driveFileId    String   @map("drive_file_id")
-  previewAssetId String   @map("preview_asset_id")
-  createdAt      DateTime @default(now()) @map("created_at")
+  driveFileId    String    @map("drive_file_id")
+  previewAssetId String    @map("preview_asset_id")
+  status         String    @default("PUBLISHED") // PUBLISHED | ARCHIVED | DELETED
+  archivedAt     DateTime? @map("archived_at")
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
 
   designer     DesignerProfile @relation(fields: [designerId], references: [userId], onDelete: Cascade)
   previewAsset PreviewAsset    @relation(fields: [previewAssetId], references: [id])
 
+  @@index([designerId])
+  @@index([status])
+  @@index([deletedAt])
   @@map("posts")
 }
 
