@@ -7,12 +7,16 @@ import { ProfileDriveClient } from "./ProfileDriveClient";
 import { ProfileAvatarClient } from "./ProfileAvatarClient";
 import { ProfileInfoClient } from "./ProfileInfoClient";
 import { generateUniqueUsername } from "@/lib/user";
-import { Cloud, UserCheck } from "lucide-react";
+import { Cloud, UserCheck, AlertCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams?: { notice?: string };
+}) {
   const session = await AuthService.getCurrentUser();
   let user = null;
   if (session) {
@@ -63,6 +67,18 @@ export default async function ProfilePage() {
               : "Atur profil nama dan profil."}
           </p>
         </div>
+
+        {searchParams?.notice === "complete_designer_profile" && (
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+            <div>
+              <p className="font-bold text-sm text-text">Lengkapi Username & Profil Desainer Anda</p>
+              <p className="text-xs text-text-muted mt-0.5">
+                Pastikan nama pengguna (username) dan informasi profil Anda sudah terisi agar halaman portofolio publik Anda dapat diakses dan dibagikan ke pelanggan.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Kartu Profil Utama */}
         <div className="bg-surface border border-border rounded-lg p-6 sm:p-8 space-y-6">

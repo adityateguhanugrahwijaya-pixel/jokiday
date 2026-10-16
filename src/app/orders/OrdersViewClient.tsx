@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { OrderStatusBadge } from "@/components/ui/Badge";
-import { formatRupiah, formatRelativeDeadline } from "@/lib/format";
+import { formatRupiah } from "@/lib/format";
+import { OrderTimer } from "@/components/orders/OrderTimer";
 import {
   Clock,
   ChevronRight,
@@ -23,6 +24,12 @@ interface OrderItem {
   price: number;
   designerNet: number;
   deadlineAt: string | Date | null;
+  startedAt?: string | Date | null;
+  endedAt?: string | Date | null;
+  endedReason?: string | null;
+  completedAt?: string | Date | null;
+  paidAt?: string | Date | null;
+  paymentExpiresAt?: string | Date | null;
   createdAt: string | Date;
   brief: {
     id: string;
@@ -224,10 +231,6 @@ export function OrdersViewClient({
         ) : (
           <div className="space-y-4">
             {filteredOrders.map((order) => {
-              const deadlineInfo = order.deadlineAt
-                ? formatRelativeDeadline(order.deadlineAt)
-                : null;
-
               const isAwaitingPay = order.status === "AWAITING_PAYMENT";
               const isPaid =
                 order.status === "IN_PROGRESS" ||
@@ -296,20 +299,7 @@ export function OrdersViewClient({
                         <span>Desainer: <strong className="text-text">{order.designer.displayName}</strong></span>
                       )}
 
-                      {deadlineInfo && (
-                        <span
-                          className={
-                            deadlineInfo.isOverdue
-                              ? "text-danger font-bold flex items-center gap-1"
-                              : deadlineInfo.isUrgent
-                              ? "text-secondary-text font-bold flex items-center gap-1"
-                              : "text-primary flex items-center gap-1"
-                          }
-                        >
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>{deadlineInfo.text}</span>
-                        </span>
-                      )}
+                      <OrderTimer order={order} variant="compact" />
                     </div>
 
                     {/* Note peringatan untuk Desainer jika belum dibayar */}

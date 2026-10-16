@@ -5,7 +5,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { OrderStatusBadge } from "@/components/ui/Badge";
 import { EscrowCard } from "@/components/ui/Card";
 import { prisma } from "@/lib/db";
-import { formatRupiah, formatRelativeDeadline, formatDate, formatTime } from "@/lib/format";
+import { formatRupiah, formatDate, formatTime } from "@/lib/format";
+import { OrderTimer } from "@/components/orders/OrderTimer";
 import {
   Clock,
   CheckCircle2,
@@ -70,7 +71,6 @@ export default async function OrderDetailPage({ params }: { params: { id: string
 
   const contract = JSON.parse(order.contractSnapshot || "{}");
   const deliverables = JSON.parse(order.deliverables || "[]");
-  const deadlineInfo = order.deadlineAt ? formatRelativeDeadline(order.deadlineAt) : null;
   const latestRevision = order.revisionRequests?.[0] || null;
 
   // Stepper tahap order
@@ -128,20 +128,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                   </span>
                 </div>
 
-                {deadlineInfo && (
-                  <div
-                    className={
-                      deadlineInfo.isOverdue
-                        ? "text-danger font-bold text-sm flex items-center gap-1.5"
-                        : deadlineInfo.isUrgent
-                        ? "text-secondary-text font-bold text-sm flex items-center gap-1.5"
-                        : "text-primary text-sm flex items-center gap-1.5"
-                    }
-                  >
-                    <Clock className="w-4 h-4" />
-                    <span>{deadlineInfo.text}</span>
-                  </div>
-                )}
+                <OrderTimer order={order} variant="badge" />
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-extrabold text-text">
@@ -173,6 +160,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 </div>
               </div>
             </div>
+
+            {/* Ringkasan Durasi & Ketentuan Timer Order */}
+            <OrderTimer order={order} variant="detailed" />
 
             {/* Peringatan & Info Jelas Catatan Revisi Aktif */}
             {order.status === "REVISION" && latestRevision && (

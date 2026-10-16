@@ -62,7 +62,10 @@ export class OrderStateMachine {
           nextStatus = "IN_PROGRESS";
           const deadlineDate = new Date(now.getTime() + order.durationDays * 24 * 60 * 60 * 1000);
           updatePayload.paidAt = now;
+          updatePayload.startedAt = order.startedAt || now;
           updatePayload.deadlineAt = deadlineDate;
+          updatePayload.endedAt = null;
+          updatePayload.endedReason = null;
           break;
         }
 
@@ -73,6 +76,8 @@ export class OrderStateMachine {
             );
           }
           nextStatus = "CANCELLED";
+          updatePayload.endedAt = now;
+          updatePayload.endedReason = "CANCELLED";
           updatePayload.cancelledReason = extraData?.reason || "Dibatalkan oleh user atau kedaluwarsa";
           break;
         }
@@ -131,6 +136,8 @@ export class OrderStateMachine {
           }
           nextStatus = "COMPLETED";
           updatePayload.completedAt = now;
+          updatePayload.endedAt = now;
+          updatePayload.endedReason = "COMPLETED";
 
           // Catat pelepasan dana escrow ke designer di Ledger Service
           await LedgerService.recordOrderCompleted(
@@ -165,6 +172,8 @@ export class OrderStateMachine {
           }
           nextStatus = "COMPLETED";
           updatePayload.completedAt = now;
+          updatePayload.endedAt = now;
+          updatePayload.endedReason = "COMPLETED";
 
           await LedgerService.recordOrderCompleted(
             order.id,
@@ -184,6 +193,8 @@ export class OrderStateMachine {
           }
           nextStatus = "REFUNDED";
           updatePayload.completedAt = now;
+          updatePayload.endedAt = now;
+          updatePayload.endedReason = "REFUNDED";
 
           await LedgerService.recordOrderRefundFull(
             order.id,
@@ -203,6 +214,8 @@ export class OrderStateMachine {
           }
           nextStatus = "REFUNDED";
           updatePayload.completedAt = now;
+          updatePayload.endedAt = now;
+          updatePayload.endedReason = "FAILED";
           updatePayload.cancelledReason = "Designer melewati batas waktu pengerjaan dan toleransi 24 jam";
 
           await LedgerService.recordOrderRefundFull(

@@ -37,6 +37,7 @@ interface AuthUser {
   id: string;
   email: string;
   displayName: string;
+  username?: string | null;
   activeRole: "CUSTOMER" | "DESIGNER";
   isCustomer: boolean;
   isDesigner: boolean;
@@ -71,6 +72,13 @@ export function Navbar({
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const unreadChatCount = useUnreadChatCount();
+
+  const designerUploadUrl = user?.username
+    ? `/designer/${user.username}?action=upload`
+    : `/profile?notice=complete_designer_profile`;
+  const designerPortfolioUrl = user?.username
+    ? `/designer/${user.username}?tab=posts`
+    : `/profile?notice=complete_designer_profile`;
 
   // Tutup drawer dan dropdown saat navigasi rute halaman berganti
   useEffect(() => {
@@ -338,7 +346,7 @@ export function Navbar({
                   </Link>
                 ) : user.isDesigner ? (
                   <Link
-                    href="/portfolio"
+                    href={designerUploadUrl}
                     className="hidden sm:inline-flex items-center gap-1.5 justify-center h-9 px-3.5 sm:px-4 bg-secondary text-on-secondary font-bold text-xs sm:text-sm rounded-lg hover:bg-secondary-hover transition-colors touch-target shadow-xs whitespace-nowrap"
                   >
                     <Plus className="w-4 h-4" />
@@ -461,12 +469,20 @@ export function Navbar({
                         {user.isDesigner && (
                           <>
                             <Link
-                              href="/portfolio"
+                              href={designerUploadUrl}
+                              onClick={() => setShowMenu(false)}
+                              className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                            >
+                              <Plus className="w-4 h-4 text-text-muted" />
+                              <span>Upload Karya</span>
+                            </Link>
+                            <Link
+                              href={designerPortfolioUrl}
                               onClick={() => setShowMenu(false)}
                               className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
                             >
                               <Layers className="w-4 h-4 text-text-muted" />
-                              <span>Karya & Portofolio</span>
+                              <span>Portofolio</span>
                             </Link>
                             <Link
                               href="/wallet"
@@ -668,7 +684,7 @@ export function Navbar({
                     </Link>
                   ) : user.isDesigner ? (
                     <Link
-                      href="/portfolio"
+                      href={designerUploadUrl}
                       onClick={() => setIsMobileDrawerOpen(false)}
                       className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-secondary text-on-secondary font-bold text-sm rounded-xl shadow-xs hover:bg-secondary-hover transition-colors touch-target"
                     >
@@ -773,6 +789,24 @@ export function Navbar({
                           </div>
                           <ChevronRight className="w-4 h-4 text-text-muted" />
                         </Link>
+                        {user.isDesigner && (
+                          <Link
+                            href={designerPortfolioUrl}
+                            onClick={() => setIsMobileDrawerOpen(false)}
+                            className={clsx(
+                              "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                              pathname.startsWith("/designer/")
+                                ? "bg-primary-soft text-primary font-bold"
+                                : "text-text hover:bg-background"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Layers className="w-4 h-4" />
+                              <span>Portofolio</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-text-muted" />
+                          </Link>
+                        )}
                         <Link
                           href="/portfolio"
                           onClick={() => setIsMobileDrawerOpen(false)}

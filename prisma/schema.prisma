@@ -187,6 +187,9 @@ model Order {
   deliveredAt      DateTime? @map("delivered_at")
   autoApproveAt    DateTime? @map("auto_approve_at")
   completedAt      DateTime? @map("completed_at")
+  startedAt        DateTime? @map("started_at")
+  endedAt          DateTime? @map("ended_at")
+  endedReason      String?   @map("ended_reason")
   cancelledReason  String?   @map("cancelled_reason")
   createdAt        DateTime  @default(now()) @map("created_at")
 
@@ -239,6 +242,7 @@ model PreviewAsset {
   driveFileId String   @map("drive_file_id")
   width       Int
   height      Int
+  isBroken    Boolean  @default(false) @map("is_broken")
   createdAt   DateTime @default(now()) @map("created_at")
 
   posts         Post[]

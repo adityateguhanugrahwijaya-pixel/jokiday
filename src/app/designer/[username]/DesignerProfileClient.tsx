@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { formatRupiah, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
+import { FeedPreviewImage } from "@/components/feed/FeedPreviewImage";
 import {
   Grid,
   Package,
@@ -76,6 +77,7 @@ export function DesignerProfileClient({
   isLoggedIn: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"posts" | "packages" | "info">("posts");
 
   const [posts, setPosts] = useState<ProfilePost[]>(initialPosts);
@@ -83,6 +85,32 @@ export function DesignerProfileClient({
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(designer.avatarUrl);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // Modal State
+  const [selectedPost, setSelectedPost] = useState<ProfilePost | null>(null);
+  const [isAddPackageOpen, setIsAddPackageOpen] = useState(false);
+  const [isAddPostOpen, setIsAddPostOpen] = useState(false);
+
+  // Tangani parameter URL (?tab=portofolio / ?tab=posts / ?action=upload)
+  useEffect(() => {
+    if (!searchParams) return;
+    const tabParam = searchParams.get("tab")?.toLowerCase();
+    const actionParam = searchParams.get("action")?.toLowerCase();
+    const uploadParam = searchParams.get("upload")?.toLowerCase();
+
+    if (tabParam === "packages" || tabParam === "paket") {
+      setActiveTab("packages");
+    } else if (tabParam === "info" || tabParam === "tentang") {
+      setActiveTab("info");
+    } else if (tabParam === "posts" || tabParam === "portofolio" || tabParam === "karya") {
+      setActiveTab("posts");
+    }
+
+    if (isOwner && (actionParam === "upload" || uploadParam === "true")) {
+      setActiveTab("posts");
+      setIsAddPostOpen(true);
+    }
+  }, [searchParams, isOwner]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,11 +142,6 @@ export function DesignerProfileClient({
       if (avatarInputRef.current) avatarInputRef.current.value = "";
     }
   };
-
-  // Modal State
-  const [selectedPost, setSelectedPost] = useState<ProfilePost | null>(null);
-  const [isAddPackageOpen, setIsAddPackageOpen] = useState(false);
-  const [isAddPostOpen, setIsAddPostOpen] = useState(false);
 
   // State Order Paket
   const [orderingPackageId, setOrderingPackageId] = useState<string | null>(null);
@@ -543,14 +566,15 @@ export function DesignerProfileClient({
                   onClick={() => setSelectedPost(post)}
                   className="relative aspect-square bg-surface border border-border rounded-md overflow-hidden cursor-pointer group"
                 >
-                  <img
+                  <FeedPreviewImage
                     src={post.previewUrl}
                     alt={post.caption}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
+                    category={post.category}
+                    aspectRatio="square"
                   />
 
                   {/* Overlay Instagram saat Hover */}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3 select-none">
+                  <div className="absolute inset-0 z-10 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3 select-none">
                     <span className="self-start text-[10px] font-bold text-white bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded capitalize">
                       {post.category}
                     </span>
@@ -749,10 +773,12 @@ export function DesignerProfileClient({
           <div className="bg-surface border border-border rounded-xl max-w-2xl w-full overflow-hidden shadow-floating flex flex-col md:flex-row max-h-[90vh]">
             {/* Sisi Gambar */}
             <div className="md:w-1/2 bg-black flex items-center justify-center aspect-square md:aspect-auto">
-              <img
+              <FeedPreviewImage
                 src={selectedPost.previewUrl}
                 alt={selectedPost.caption}
-                className="w-full h-full object-contain"
+                category={selectedPost.category}
+                aspectRatio="square"
+                className="w-full h-full"
               />
             </div>
 

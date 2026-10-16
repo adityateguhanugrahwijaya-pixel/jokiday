@@ -16,6 +16,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/format";
+import { FeedPreviewImage } from "@/components/feed/FeedPreviewImage";
 
 export interface DiscoverPost {
   id: string;
@@ -299,16 +300,16 @@ export function DiscoverExperience({
                   className="bg-surface border border-border rounded-xl overflow-hidden flex flex-col group hover:shadow-floating hover:border-primary/50 transition-all"
                 >
                   {/* Thumbnail Gambar */}
-                  <div className="relative aspect-square sm:aspect-[4/3] bg-background flex items-center justify-center select-none overflow-hidden">
-                    <img
+                  <div className="relative group overflow-hidden">
+                    <FeedPreviewImage
                       src={post.previewUrl}
                       alt={post.caption}
-                      draggable={false}
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300 pointer-events-none"
+                      category={post.category}
+                      aspectRatio="4/3"
                     />
 
                     {/* Badge Kategori */}
-                    <div className="absolute top-2.5 left-2.5 bg-surface/90 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-bold text-text uppercase tracking-wider border border-border/50">
+                    <div className="absolute top-2.5 left-2.5 z-10 bg-surface/90 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-bold text-text uppercase tracking-wider border border-border/50">
                       {post.category}
                     </div>
                   </div>

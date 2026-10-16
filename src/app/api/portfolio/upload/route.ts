@@ -5,6 +5,7 @@ import { WatermarkService } from "@/server/media/watermark.service";
 import { handleApiError, ValidationError, NotFoundError, UnauthorizedError, ForbiddenError } from "@/lib/errors";
 import { sanitizeInput } from "@/lib/security";
 import { ImageKitService } from "@/server/storage/imagekit.service";
+import { DriveService } from "@/server/drive/drive.service";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
     // 1. Simpan salinan file lokal di public/uploads/previews secara pasti
     const fileId = crypto.randomUUID();
     const fileName = `wm_${fileId}.jpg`;
+    const localRelPath = `/uploads/previews/${fileName}`;
     try {
       const uploadsDir = path.join(process.cwd(), "public", "uploads", "previews");
       await fs.mkdir(uploadsDir, { recursive: true });
@@ -79,18 +81,41 @@ export async function POST(req: NextRequest) {
       console.warn("[FS] Gagal simpan preview portofolio lokal:", fsErr);
     }
 
-    // Gunakan URL internal /api/previews/${fileId} agar kebal blokir ISP / Internet Positif
-    const previewUrl = `/api/previews/${fileId}`;
-
-    // 2. Upload file preview ber-watermark ke ImageKit CDN sebagai cadangan cloud
+    let cloudPreviewUrl: string | null = null;
+    // 2. Upload file preview ber-watermark ke ImageKit CDN jika tersedia
     try {
-      await ImageKitService.uploadPortfolioPost(
+      const ikResult = await ImageKitService.uploadPortfolioPost(
         designer.id,
         watermarkedBuffer,
         fileName
       );
+      if (ikResult?.url) {
+        cloudPreviewUrl = ikResult.url;
+      }
     } catch (ikErr) {
-      console.warn("[ImageKit] Gagal upload preview portofolio ke CDN:", ikErr);
+      // ImageKit opsional
+    }
+
+    // 3. Upload file asli ke Google Drive jika desainer terhubung
+    let originalDriveFileId = `local_${fileId}`;
+    try {
+      const driveConn = await prisma.driveConnection.findUnique({
+        where: { userId: designer.id },
+      });
+      if (driveConn && driveConn.status === "ACTIVE") {
+        const driveResult = await DriveService.uploadFile({
+          refreshTokenEnc: driveConn.refreshTokenEnc,
+          fileName: file.name || `karya_${fileId}.jpg`,
+          mimeType: file.type || "image/jpeg",
+          streamOrBuffer: inputBuffer,
+          folderId: driveConn.rootFolderId,
+        });
+        if (driveResult?.fileId) {
+          originalDriveFileId = driveResult.fileId;
+        }
+      }
+    } catch (driveErr) {
+      console.warn("[Drive] Gagal upload karya ke Drive desainer:", driveErr);
     }
 
     // Simpan record ke database
@@ -98,7 +123,7 @@ export async function POST(req: NextRequest) {
       const previewAsset = await tx.previewAsset.create({
         data: {
           id: fileId,
-          driveFileId: previewUrl, // URL internal preview yang terlindungi
+          driveFileId: cloudPreviewUrl || localRelPath,
           width,
           height,
         },
@@ -109,7 +134,7 @@ export async function POST(req: NextRequest) {
           designerId: designer.id,
           caption: caption.trim(),
           category,
-          driveFileId: `orig_${fileId}`,
+          driveFileId: originalDriveFileId,
           previewAssetId: previewAsset.id,
         },
         include: {

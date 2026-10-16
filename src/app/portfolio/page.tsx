@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { ShieldCheck, Layers } from "lucide-react";
 import { AuthService } from "@/server/auth/auth.service";
 import { UploadPortfolioModal } from "./UploadPortfolioModal";
+import { FeedPreviewImage } from "@/components/feed/FeedPreviewImage";
 
 export const dynamic = "force-dynamic";
 
@@ -93,12 +94,12 @@ export default async function PortfolioPage() {
                   className="bg-surface border border-border rounded-md overflow-hidden flex flex-col group hover:border-primary/50 transition-colors"
                 >
                   {/* Gambar Karya */}
-                  <div className="relative aspect-square bg-background flex items-center justify-center select-none overflow-hidden group">
-                    <img
+                  <div className="relative group overflow-hidden">
+                    <FeedPreviewImage
                       src={previewUrl}
                       alt={post.caption}
-                      draggable={false}
-                      className="w-full h-full object-cover pointer-events-none"
+                      category={post.category}
+                      aspectRatio="square"
                     />
                   </div>
 
