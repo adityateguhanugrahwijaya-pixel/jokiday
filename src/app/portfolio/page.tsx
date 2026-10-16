@@ -4,7 +4,6 @@ import { AppShell } from "@/components/layout/AppShell";
 import { prisma } from "@/lib/db";
 import { ShieldCheck, Layers } from "lucide-react";
 import { AuthService } from "@/server/auth/auth.service";
-import { UploadPortfolioModal } from "./UploadPortfolioModal";
 import { PortfolioFeedGrid, PortfolioGridPost } from "./PortfolioFeedGrid";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +82,12 @@ export default async function PortfolioPage() {
           </div>
 
           {currentUser?.activeRole === "DESIGNER" && currentUser?.isDesigner ? (
-            <UploadPortfolioModal designerId={currentUser.id} />
+            <Link
+              href={`/designer/${currentUser.username || currentUser.id}?action=upload`}
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-secondary text-on-secondary font-bold text-xs hover:bg-secondary-hover transition-colors touch-target shrink-0 shadow-sm"
+            >
+              <span>Unggah di Profil Desainer</span>
+            </Link>
           ) : currentUser?.activeRole === "CUSTOMER" ? (
             <Link
               href="/briefs/new"

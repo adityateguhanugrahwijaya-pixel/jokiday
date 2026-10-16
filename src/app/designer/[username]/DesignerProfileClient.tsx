@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { PostActionMenu } from "@/components/feed/PostActionMenu";
 import { DeletePostConfirmModal } from "@/components/feed/DeletePostConfirmModal";
+import { UploadFeedModal } from "@/components/feed/UploadFeedModal";
 import { ProductCard, ProductItem } from "@/components/products/ProductCard";
 import { UploadProductModal } from "@/components/products/UploadProductModal";
 import { ProductDetailModal } from "@/components/products/ProductDetailModal";
@@ -268,14 +269,6 @@ export function DesignerProfileClient({
   const [isSubmittingPkg, setIsSubmittingPkg] = useState(false);
   const [pkgError, setPkgError] = useState("");
 
-  // Form State Tambah Post Portofolio
-  const [postCaption, setPostCaption] = useState("");
-  const [postCategory, setPostCategory] = useState(designer.categories[0] || "logo");
-  const [postFile, setPostFile] = useState<File | null>(null);
-  const [postFilePreview, setPostFilePreview] = useState<string | null>(null);
-  const [isSubmittingPost, setIsSubmittingPost] = useState(false);
-  const [postError, setPostError] = useState("");
-
   const handleOrderPackage = async (pkg: ProfilePackage) => {
     if (!isLoggedIn) {
       router.push(`/login?redirect=/designer/${designer.username}`);
@@ -371,54 +364,6 @@ export function DesignerProfileClient({
       setPkgError(err.message);
     } finally {
       setIsSubmittingPkg(false);
-    }
-  };
-
-  const handleCreatePost = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!postFile) {
-      setPostError("Pilih file gambar desain terlebih dahulu");
-      return;
-    }
-
-    setIsSubmittingPost(true);
-    setPostError("");
-
-    try {
-      const fd = new FormData();
-      fd.append("file", postFile);
-      fd.append("caption", postCaption);
-      fd.append("category", postCategory);
-      fd.append("designerId", designer.id);
-
-      const res = await fetch("/api/portfolio/upload", {
-        method: "POST",
-        body: fd,
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Gagal mengunggah karya");
-
-      const createdPost: ProfilePost = {
-        id: data.post.id,
-        caption: data.post.caption,
-        category: data.post.category,
-        previewUrl: data.post.previewAsset?.id
-          ? `/api/previews/${data.post.previewAsset.id}`
-          : data.post.previewAsset?.driveFileId,
-        createdAt: data.post.createdAt,
-      };
-
-      setPosts((prev) => [createdPost, ...prev]);
-      setIsAddPostOpen(false);
-      setPostCaption("");
-      setPostFile(null);
-      setPostFilePreview(null);
-      setActiveTab("posts");
-    } catch (err: any) {
-      setPostError(err.message);
-    } finally {
-      setIsSubmittingPost(false);
     }
   };
 
@@ -1356,105 +1301,30 @@ export function DesignerProfileClient({
         </div>
       )}
 
-      {/* MODAL 2: UNGGAH KARYA PORTOFOLIO (KHUSUS DESAINER) */}
-      {isAddPostOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border border-border rounded-xl max-w-lg w-full p-6 space-y-4 shadow-floating">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-base text-text">Unggah Karya ke Feed</h3>
-              <button
-                type="button"
-                onClick={() => setIsAddPostOpen(false)}
-                className="p-1 rounded text-text-muted hover:text-text"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {postError && (
-              <div className="p-3 bg-danger-soft text-danger text-xs rounded border border-danger/20 flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{postError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleCreatePost} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-text mb-1">
-                  File Gambar Karya
-                </label>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      setPostFile(f);
-                      setPostFilePreview(URL.createObjectURL(f));
-                    }
-                  }}
-                  className="w-full text-xs text-text file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary-soft file:text-primary hover:file:bg-primary/20 cursor-pointer"
-                  required
-                />
-                {postFilePreview && (
-                  <div className="mt-2 aspect-video bg-background border border-border rounded overflow-hidden">
-                    <img
-                      src={postFilePreview}
-                      alt="Pratinjau"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block font-semibold text-text mb-1">
-                  Judul / Deskripsi Singkat Karya
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Identitas Visual Kedai Kopi Senja"
-                  value={postCaption}
-                  onChange={(e) => setPostCaption(e.target.value)}
-                  className="w-full h-10 px-3 bg-background border border-border rounded-md text-text text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-text mb-1">
-                  Kategori Desain
-                </label>
-                <select
-                  value={postCategory}
-                  onChange={(e) => setPostCategory(e.target.value)}
-                  className="w-full h-10 px-3 bg-background border border-border rounded-md text-text text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="logo">Logo & Identitas Visual</option>
-                  <option value="kemasan">Kemasan & Label</option>
-                  <option value="poster">Poster & Banner</option>
-                  <option value="branding">Identitas Brand</option>
-                  <option value="media">Konten Media Sosial</option>
-                  <option value="ilustrasi">Ilustrasi</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddPostOpen(false)}
-                  className="px-4 py-2 rounded-md border border-border text-text-muted hover:text-text font-semibold"
-                >
-                  Batal
-                </button>
-                <Button type="submit" variant="cta" isLoading={isSubmittingPost}>
-                  Unggah Sekarang
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* MODAL 2: UNGGAH KARYA KE FEED */}
+      <UploadFeedModal
+        isOpen={isAddPostOpen}
+        designerId={designer.id}
+        onClose={() => setIsAddPostOpen(false)}
+        onSuccess={(createdPostData) => {
+          const createdPost: ProfilePost = {
+            id: createdPostData.id,
+            caption: createdPostData.caption,
+            category: createdPostData.category,
+            previewUrl: createdPostData.previewAsset?.id
+              ? `/api/previews/${createdPostData.previewAsset.id}`
+              : createdPostData.previewAsset?.driveFileId,
+            createdAt: createdPostData.createdAt,
+          };
+          setPosts((prev) => [createdPost, ...prev]);
+          setActiveTab("posts");
+          setToast({
+            id: crypto.randomUUID(),
+            message: "Karya berhasil diunggah ke feed portofolio publik.",
+            type: "success",
+          });
+        }}
+      />
 
       {/* MODAL 3: TAMBAH PAKET JASA (KHUSUS DESAINER) */}
       {isAddPackageOpen && (
