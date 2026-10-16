@@ -448,6 +448,15 @@ export function Navbar({
                         </Link>
 
                         <Link
+                          href="/purchases"
+                          onClick={() => setShowMenu(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-text hover:bg-background transition-colors"
+                        >
+                          <ShoppingBag className="w-4 h-4 text-text-muted" />
+                          <span>Pembelian Saya</span>
+                        </Link>
+
+                        <Link
                           href="/chat"
                           onClick={() => {
                             setShowMenu(false);
@@ -832,6 +841,20 @@ export function Navbar({
                           <div className="flex items-center gap-2.5">
                             <Clock className="w-4 h-4" />
                             <span>Daftar Order</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                        <Link
+                          href="/purchases"
+                          onClick={() => setIsMobileDrawerOpen(false)}
+                          className={clsx(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors",
+                            pathname.startsWith("/purchases") ? "bg-primary-soft text-primary font-bold" : "text-text hover:bg-background"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>Pembelian Saya</span>
                           </div>
                           <ChevronRight className="w-4 h-4 text-text-muted" />
                         </Link>

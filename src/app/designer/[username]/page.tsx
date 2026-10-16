@@ -41,6 +41,7 @@ export default async function DesignerPage({
       ],
     },
     include: {
+      driveConnection: true,
       designerProfile: {
         include: {
           posts: {
@@ -229,6 +230,58 @@ export default async function DesignerPage({
     };
   });
 
+  // Query Produk Premade (Aset Digital)
+  const rawProducts = await prisma.product.findMany({
+    where: {
+      designerId: designerUser.id,
+      deletedAt: null,
+      ...(isOwner || isAdmin ? {} : { status: "PUBLISHED" }),
+    },
+    include: { previewAsset: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  let purchasedProductIds = new Set<string>();
+  if (session?.userId) {
+    const myPurchases = await prisma.productPurchase.findMany({
+      where: { buyerId: session.userId },
+      select: { productId: true },
+    });
+    purchasedProductIds = new Set(myPurchases.map((p) => p.productId));
+  }
+
+  const mappedProducts = rawProducts.map((p) => ({
+    id: p.id,
+    designerId: p.designerId,
+    title: p.title,
+    description: p.description,
+    category: p.category,
+    price: p.price,
+    status: p.status as "PUBLISHED" | "ARCHIVED" | "HIDDEN",
+    sourceType: p.sourceType as "DRIVE_FILE" | "EXTERNAL_LINK",
+    fileExtension: p.fileExtension,
+    fileSizeBytes: p.fileSizeBytes,
+    downloadCount: p.downloadCount,
+    hasAccess: isOwner || isAdmin || purchasedProductIds.has(p.id),
+    isOwner,
+    hasPurchased: purchasedProductIds.has(p.id),
+    previewUrl: p.previewAsset?.id
+      ? `/api/previews/${p.previewAsset.id}`
+      : p.previewAsset?.driveFileId,
+    designer: {
+      id: designerUser.id,
+      displayName: designerUser.displayName,
+      username: designerUser.username || "",
+      avatarUrl: designerUser.avatarUrl,
+      isVerified: Boolean(designerUser.designerProfile?.isVerified),
+    },
+    createdAt: p.createdAt.toISOString(),
+  }));
+
+  const isDriveConnected = Boolean(
+    designerUser.driveConnection && designerUser.driveConnection.status === "ACTIVE"
+  );
+
   return (
     <AppShell
       role={currentUser?.activeRole as "CUSTOMER" | "DESIGNER" || "CUSTOMER"}
@@ -240,6 +293,8 @@ export default async function DesignerPage({
         posts={mappedPosts}
         archivedPosts={archivedPosts}
         packages={mappedPackages}
+        products={mappedProducts}
+        isDriveConnected={isDriveConnected}
         isOwner={isOwner}
         isAdmin={isAdmin}
         isLoggedIn={Boolean(session)}

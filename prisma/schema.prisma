@@ -33,6 +33,8 @@ model User {
   designerChatThreads ChatThread[]     @relation("DesignerChatThreads")
   pushSubscriptions PushSubscription[]
   passwordResetTokens PasswordResetToken[]
+  productPurchases    ProductPurchase[]
+  productReports      ProductReport[]
 
   @@map("users")
 }
@@ -70,6 +72,7 @@ model DesignerProfile {
   user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   posts    Post[]
   packages ServicePackage[]
+  products Product[]
 
   @@map("designer_profiles")
 }
@@ -253,6 +256,7 @@ model PreviewAsset {
 
   posts         Post[]
   deliveryFiles DeliveryFile[]
+  products      Product[]
 
   @@map("preview_assets")
 }
@@ -320,7 +324,9 @@ model LedgerEntry {
 
 model Payment {
   id          String    @id @default(uuid())
-  orderId     String    @map("order_id")
+  orderId     String?   @map("order_id")
+  productId   String?   @map("product_id")
+  buyerId     String?   @map("buyer_id")
   gatewayRef  String    @map("gateway_ref")
   amount      Int
   balanceUsed Int       @default(0) @map("balance_used")
@@ -329,7 +335,8 @@ model Payment {
   rawWebhook  String?   @map("raw_webhook")
   paidAt      DateTime? @map("paid_at")
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order   Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("payments")
 }
@@ -446,4 +453,74 @@ model PasswordResetToken {
 
   @@index([tokenHash])
   @@map("password_reset_tokens")
+}
+
+model Product {
+  id             String    @id @default(uuid())
+  designerId     String    @map("designer_id")
+  title          String
+  description    String
+  category       String
+  price          Int       @default(0) // 0 = GRATIS
+  status         String    @default("PUBLISHED") // PUBLISHED, ARCHIVED, HIDDEN
+  previewAssetId String    @map("preview_asset_id")
+  sourceType     String    @default("EXTERNAL_LINK") @map("source_type") // DRIVE_FILE, EXTERNAL_LINK
+  driveFileId    String?   @map("drive_file_id")
+  externalUrl    String?   @map("external_url")
+  fileExtension  String?   @map("file_extension") // zip, rar, psd, ai, pdf, canva, etc.
+  fileSizeBytes  Int?      @map("file_size_bytes")
+  downloadCount  Int       @default(0) @map("download_count")
+  archivedAt     DateTime? @map("archived_at")
+  deletedAt      DateTime? @map("deleted_at")
+  hiddenAt       DateTime? @map("hidden_at")
+  hiddenReason   String?   @map("hidden_reason")
+  hiddenBy       String?   @map("hidden_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  designer     DesignerProfile   @relation(fields: [designerId], references: [userId], onDelete: Cascade)
+  previewAsset PreviewAsset      @relation(fields: [previewAssetId], references: [id])
+  purchases    ProductPurchase[]
+  reports      ProductReport[]
+  payments     Payment[]
+
+  @@index([designerId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("products")
+}
+
+model ProductPurchase {
+  id            String   @id @default(uuid())
+  productId     String   @map("product_id")
+  buyerId       String   @map("buyer_id")
+  priceSnapshot Int      @map("price_snapshot")
+  feeSnapshot   Int      @map("fee_snapshot")
+  paymentMethod String   @default("FREE") @map("payment_method") // FREE, BALANCE, QRIS
+  paymentRef    String?  @map("payment_ref")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyer   User    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([buyerId])
+  @@map("product_purchases")
+}
+
+model ProductReport {
+  id         String   @id @default(uuid())
+  productId  String   @map("product_id")
+  reporterId String   @map("reporter_id")
+  reason     String
+  status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  adminNote  String?  @map("admin_note")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product  Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reporter User    @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([reporterId])
+  @@map("product_reports")
 }

@@ -27,9 +27,13 @@ import {
   Loader2,
   Pencil,
   Archive,
+  FileBox,
 } from "lucide-react";
 import { PostActionMenu } from "@/components/feed/PostActionMenu";
 import { DeletePostConfirmModal } from "@/components/feed/DeletePostConfirmModal";
+import { ProductCard, ProductItem } from "@/components/products/ProductCard";
+import { UploadProductModal } from "@/components/products/UploadProductModal";
+import { ProductDetailModal } from "@/components/products/ProductDetailModal";
 import {
   MIN_SERVICE_PACKAGE_PRICE,
   validateServicePackagePrice,
@@ -78,6 +82,8 @@ export function DesignerProfileClient({
   posts: initialPosts,
   archivedPosts: initialArchivedPosts = [],
   packages: initialPackages,
+  products: initialProducts = [],
+  isDriveConnected = false,
   isOwner,
   isAdmin,
   isLoggedIn,
@@ -86,17 +92,20 @@ export function DesignerProfileClient({
   posts: ProfilePost[];
   archivedPosts?: ProfilePost[];
   packages: ProfilePackage[];
+  products?: ProductItem[];
+  isDriveConnected?: boolean;
   isOwner: boolean;
   isAdmin?: boolean;
   isLoggedIn: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"posts" | "archived" | "packages" | "info">("posts");
+  const [activeTab, setActiveTab] = useState<"posts" | "archived" | "products" | "packages" | "info">("posts");
 
   const [posts, setPosts] = useState<ProfilePost[]>(initialPosts);
   const [archivedPosts, setArchivedPosts] = useState<ProfilePost[]>(initialArchivedPosts);
   const [packages, setPackages] = useState<ProfilePackage[]>(initialPackages);
+  const [products, setProducts] = useState<ProductItem[]>(initialProducts);
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(designer.avatarUrl);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -105,8 +114,10 @@ export function DesignerProfileClient({
 
   // Modal State
   const [selectedPost, setSelectedPost] = useState<ProfilePost | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
   const [isAddPackageOpen, setIsAddPackageOpen] = useState(false);
   const [isAddPostOpen, setIsAddPostOpen] = useState(false);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
 
   // State Hapus & Arsip
   const [postToDelete, setPostToDelete] = useState<ProfilePost | null>(null);
@@ -128,14 +139,16 @@ export function DesignerProfileClient({
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // Tangani parameter URL (?tab=portofolio / ?tab=posts / ?tab=archived / ?action=upload)
+  // Tangani parameter URL (?tab=portofolio / ?tab=posts / ?tab=products / ?tab=archived / ?action=upload)
   useEffect(() => {
     if (!searchParams) return;
     const tabParam = searchParams.get("tab")?.toLowerCase();
     const actionParam = searchParams.get("action")?.toLowerCase();
     const uploadParam = searchParams.get("upload")?.toLowerCase();
 
-    if (tabParam === "packages" || tabParam === "paket") {
+    if (tabParam === "products" || tabParam === "produk" || tabParam === "premade") {
+      setActiveTab("products");
+    } else if (tabParam === "packages" || tabParam === "paket") {
       setActiveTab("packages");
     } else if (tabParam === "info" || tabParam === "tentang") {
       setActiveTab("info");
@@ -150,8 +163,62 @@ export function DesignerProfileClient({
     if (isOwner && (actionParam === "upload" || uploadParam === "true")) {
       setActiveTab("posts");
       setIsAddPostOpen(true);
+    } else if (isOwner && (actionParam === "upload-product" || actionParam === "new-product")) {
+      setActiveTab("products");
+      setIsAddProductOpen(true);
     }
   }, [searchParams, isOwner, isAdmin]);
+
+  const handleArchiveProduct = async (product: ProductItem) => {
+    try {
+      const res = await fetch(`/api/products/${product.id}/archive`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal mengarsipkan produk");
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === product.id ? { ...p, status: data.product.status } : p
+        )
+      );
+      setToast({
+        id: crypto.randomUUID(),
+        message: data.message,
+        type: "success",
+      });
+    } catch (err: any) {
+      setToast({
+        id: crypto.randomUUID(),
+        message: err.message,
+        type: "error",
+      });
+    }
+  };
+
+  const handleDeleteProduct = async (product: ProductItem) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus produk "${product.title}"?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/products/${product.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal menghapus produk");
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+      setToast({
+        id: crypto.randomUUID(),
+        message: "Produk premade berhasil dihapus.",
+        type: "success",
+      });
+    } catch (err: any) {
+      setToast({
+        id: crypto.randomUUID(),
+        message: err.message,
+        type: "error",
+      });
+    }
+  };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -705,6 +772,19 @@ export function DesignerProfileClient({
 
         <button
           type="button"
+          onClick={() => setActiveTab("products")}
+          className={`pb-3 inline-flex items-center gap-2 text-xs font-bold tracking-wider uppercase transition-colors border-b-2 ${
+            activeTab === "products"
+              ? "border-primary text-primary"
+              : "border-transparent text-text-muted hover:text-text"
+          }`}
+        >
+          <FileBox className="w-4 h-4" />
+          <span>Produk Premade ({products.length})</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab("packages")}
           className={`pb-3 inline-flex items-center gap-2 text-xs font-bold tracking-wider uppercase transition-colors border-b-2 ${
             activeTab === "packages"
@@ -911,6 +991,68 @@ export function DesignerProfileClient({
                     </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB PRODUK PREMADE: KATALOG DESAIN SIAP PAKAI / ASET DIGITAL */}
+      {activeTab === "products" && (
+        <section className="space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-text">Produk Premade & Aset Digital</h2>
+              <p className="text-xs text-text-muted">
+                Koleksi desain siap pakai, template, font, dan aset visual yang dapat langsung diunduh setelah dibeli.
+              </p>
+            </div>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setIsAddProductOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-colors touch-target shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Produk Premade</span>
+              </button>
+            )}
+          </div>
+
+          {products.length === 0 ? (
+            <div className="bg-surface border border-border rounded-xl p-12 text-center max-w-md mx-auto space-y-3">
+              <div className="w-12 h-12 rounded-full bg-primary-soft text-primary mx-auto flex items-center justify-center">
+                <FileBox className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-base text-text">Belum ada produk premade</h3>
+              <p className="text-xs text-text-muted">
+                {isOwner
+                  ? "Unggah template, desain vektor, atau font siap pakai Anda untuk mendapatkan penghasilan pasif."
+                  : "Desainer ini belum mempublikasikan produk atau aset digital premade."}
+              </p>
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setIsAddProductOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-colors touch-target"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Unggah Produk Pertama</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              {products.map((prod) => (
+                <ProductCard
+                  key={prod.id}
+                  product={prod}
+                  isOwner={isOwner}
+                  isAdmin={isAdmin}
+                  onSelect={(p) => setSelectedProduct(p)}
+                  onArchiveToggle={isOwner || isAdmin ? handleArchiveProduct : undefined}
+                  onDelete={isOwner || isAdmin ? handleDeleteProduct : undefined}
+                />
               ))}
             </div>
           )}
@@ -1508,6 +1650,44 @@ export function DesignerProfileClient({
           </div>
         </div>
       )}
+
+      {/* MODAL UPLOAD PRODUK PREMADE */}
+      <UploadProductModal
+        isOpen={isAddProductOpen}
+        onClose={() => setIsAddProductOpen(false)}
+        onSuccess={(newProd) => {
+          setProducts((prev) => [newProd, ...prev]);
+          setActiveTab("products");
+          setToast({
+            id: crypto.randomUUID(),
+            message: "Produk premade berhasil diterbitkan!",
+            type: "success",
+          });
+        }}
+        isDriveConnected={Boolean(isDriveConnected)}
+      />
+
+      {/* MODAL DETAIL PRODUK PREMADE */}
+      <ProductDetailModal
+        product={selectedProduct}
+        isOpen={Boolean(selectedProduct)}
+        onClose={() => setSelectedProduct(null)}
+        isLoggedIn={isLoggedIn}
+        onProductPurchased={(prodId) => {
+          setProducts((prev) =>
+            prev.map((p) =>
+              p.id === prodId
+                ? {
+                    ...p,
+                    hasPurchased: true,
+                    hasAccess: true,
+                    downloadCount: p.downloadCount + 1,
+                  }
+                : p
+            )
+          );
+        }}
+      />
     </div>
   );
 }

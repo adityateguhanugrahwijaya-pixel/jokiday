@@ -18,6 +18,7 @@ export default async function DesignerDashboardPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
+    include: { driveConnection: true },
   });
 
   if (!user) {
@@ -106,6 +107,37 @@ export default async function DesignerDashboardPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const rawProducts = await prisma.product.findMany({
+    where: { designerId: user.id, deletedAt: null },
+    include: { previewAsset: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const initialProducts = rawProducts.map((p) => ({
+    id: p.id,
+    designerId: p.designerId,
+    title: p.title,
+    description: p.description,
+    category: p.category,
+    price: p.price,
+    status: p.status as "PUBLISHED" | "ARCHIVED" | "HIDDEN",
+    sourceType: p.sourceType as "DRIVE_FILE" | "EXTERNAL_LINK",
+    fileExtension: p.fileExtension,
+    fileSizeBytes: p.fileSizeBytes,
+    downloadCount: p.downloadCount,
+    hasAccess: true,
+    isOwner: true,
+    hasPurchased: false,
+    previewUrl: p.previewAsset?.id
+      ? `/api/previews/${p.previewAsset.id}`
+      : p.previewAsset?.driveFileId,
+    createdAt: p.createdAt.toISOString(),
+  }));
+
+  const isDriveConnected = Boolean(
+    user.driveConnection && user.driveConnection.status === "ACTIVE"
+  );
+
   return (
     <DesignerDashboardView
       displayName={user.displayName}
@@ -115,6 +147,8 @@ export default async function DesignerDashboardPage() {
       awaitingPaymentOrders={awaitingPaymentOrders}
       marketBriefs={sortedMarketBriefs.slice(0, 6)}
       initialPackages={initialPackages}
+      initialProducts={initialProducts}
+      isDriveConnected={isDriveConnected}
     />
   );
 }

@@ -21,8 +21,12 @@ import {
   AlertCircle,
   CheckCircle2,
   Package,
+  FileBox,
 } from "lucide-react";
 import { MIN_SERVICE_PACKAGE_PRICE, validateServicePackagePrice } from "@/lib/constants/packages";
+import { ProductCard, ProductItem } from "@/components/products/ProductCard";
+import { UploadProductModal } from "@/components/products/UploadProductModal";
+import { ProductDetailModal } from "@/components/products/ProductDetailModal";
 
 interface PackageItem {
   id: string;
@@ -45,6 +49,8 @@ interface DesignerDashboardProps {
   awaitingPaymentOrders: any[];
   marketBriefs: any[];
   initialPackages: PackageItem[];
+  initialProducts?: ProductItem[];
+  isDriveConnected?: boolean;
 }
 
 export function DesignerDashboardView({
@@ -55,9 +61,15 @@ export function DesignerDashboardView({
   awaitingPaymentOrders,
   marketBriefs,
   initialPackages,
+  initialProducts = [],
+  isDriveConnected = false,
 }: DesignerDashboardProps) {
   const [packages, setPackages] = useState<PackageItem[]>(initialPackages);
+  const [products, setProducts] = useState<ProductItem[]>(initialProducts);
+  const [activeManagementTab, setActiveManagementTab] = useState<"packages" | "products">("packages");
   const [showPackageModal, setShowPackageModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
 
   // Form State untuk Tambah / Edit Paket
@@ -188,6 +200,35 @@ export function DesignerDashboardView({
     }
   };
 
+  const handleArchiveProduct = async (prod: ProductItem) => {
+    try {
+      const res = await fetch(`/api/products/${prod.id}/archive`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal mengarsipkan produk");
+      setProducts((prev) =>
+        prev.map((p) => (p.id === prod.id ? { ...p, status: data.product.status } : p))
+      );
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteProduct = async (prod: ProductItem) => {
+    if (!confirm(`Hapus produk premade "${prod.title}"?`)) return;
+    try {
+      const res = await fetch(`/api/products/${prod.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Gagal menghapus produk");
+      setProducts((prev) => prev.filter((p) => p.id !== prod.id));
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   return (
     <AppShell role="DESIGNER" displayName={displayName}>
       <div className="space-y-8">
@@ -211,6 +252,16 @@ export function DesignerDashboardView({
                 <ChevronRight className="w-3.5 h-3.5 ml-1" />
               </Link>
             )}
+            <button
+              onClick={() => {
+                setActiveManagementTab("products");
+                setShowProductModal(true);
+              }}
+              className="inline-flex items-center justify-center h-10 px-4 rounded-md bg-surface text-text border border-border font-bold text-xs hover:bg-surface-alt transition-colors shadow-xs"
+            >
+              <FileBox className="w-4 h-4 mr-1.5 text-primary" />
+              <span>Tambah Produk Premade</span>
+            </button>
             <button
               onClick={handleOpenAddModal}
               className="inline-flex items-center justify-center h-10 px-4 rounded-md bg-primary text-white font-bold text-xs hover:bg-primary/90 transition-colors shadow-sm"
@@ -274,113 +325,172 @@ export function DesignerDashboardView({
           </Card>
         </div>
 
-        {/* Section: Manajemen Paket Jasa Desainer */}
+        {/* Section: Manajemen Paket Jasa & Produk Premade Desainer (Sub-Tab) */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-text flex items-center gap-2">
-                <Package className="w-5 h-5 text-primary" />
-                <span>Manajemen Paket Jasa Desain</span>
-              </h2>
-              <p className="text-xs text-text-muted mt-0.5">
-                Paket jasa dengan penetapan harga pasti yang bisa langsung dipesan pelanggan dalam 1 klik.
-              </p>
-            </div>
-            <button
-              onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tambah Paket</span>
-            </button>
-          </div>
-
-          {packages.length === 0 ? (
-            <div className="bg-surface border border-dashed border-border rounded-lg p-8 text-center text-text-muted text-sm space-y-3">
-              <Package className="w-8 h-8 mx-auto text-text-muted" />
-              <p>Anda belum memiliki paket jasa. Buat paket agar pelanggan dapat langsung memesan desain dari profil Anda.</p>
+          <div className="border-b border-border flex items-center justify-between flex-wrap gap-3 pb-3">
+            <div className="flex items-center gap-6">
               <button
-                onClick={handleOpenAddModal}
-                className="inline-flex items-center justify-center h-9 px-4 rounded-md bg-primary text-white font-semibold text-xs hover:bg-primary/90"
+                type="button"
+                onClick={() => setActiveManagementTab("packages")}
+                className={`inline-flex items-center gap-2 pb-1 text-sm font-bold border-b-2 transition-colors ${
+                  activeManagementTab === "packages"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-text-muted hover:text-text"
+                }`}
               >
-                + Buat Paket Jasa Sekarang
+                <Package className="w-4 h-4" />
+                <span>Paket Jasa ({packages.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveManagementTab("products")}
+                className={`inline-flex items-center gap-2 pb-1 text-sm font-bold border-b-2 transition-colors ${
+                  activeManagementTab === "products"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-text-muted hover:text-text"
+                }`}
+              >
+                <FileBox className="w-4 h-4" />
+                <span>Produk Premade ({products.length})</span>
               </button>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {packages.map((pkg) => {
-                let deliverablesList: string[] = [];
-                try {
-                  deliverablesList = JSON.parse(pkg.deliverables || "[]");
-                } catch {
-                  deliverablesList = [];
-                }
 
-                return (
-                  <div
-                    key={pkg.id}
-                    className="bg-surface border border-border rounded-lg p-5 flex flex-col justify-between hover:border-primary/40 transition-colors shadow-subtle space-y-4"
-                  >
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 bg-primary-soft text-primary rounded-full">
-                          {pkg.category}
-                        </span>
-                        <div className="font-money text-lg font-extrabold text-primary">
-                          {formatRupiah(pkg.price)}
+            {activeManagementTab === "packages" ? (
+              <button
+                onClick={handleOpenAddModal}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Paket</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowProductModal(true)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Produk Premade</span>
+              </button>
+            )}
+          </div>
+
+          {activeManagementTab === "packages" ? (
+            packages.length === 0 ? (
+              <div className="bg-surface border border-dashed border-border rounded-lg p-8 text-center text-text-muted text-sm space-y-3">
+                <Package className="w-8 h-8 mx-auto text-text-muted" />
+                <p>Anda belum memiliki paket jasa. Buat paket agar pelanggan dapat langsung memesan desain dari profil Anda.</p>
+                <button
+                  onClick={handleOpenAddModal}
+                  className="inline-flex items-center justify-center h-9 px-4 rounded-md bg-primary text-white font-semibold text-xs hover:bg-primary/90"
+                >
+                  + Buat Paket Jasa Sekarang
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {packages.map((pkg) => {
+                  let deliverablesList: string[] = [];
+                  try {
+                    deliverablesList = JSON.parse(pkg.deliverables || "[]");
+                  } catch {
+                    deliverablesList = [];
+                  }
+
+                  return (
+                    <div
+                      key={pkg.id}
+                      className="bg-surface border border-border rounded-lg p-5 flex flex-col justify-between hover:border-primary/40 transition-colors shadow-subtle space-y-4"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 bg-primary-soft text-primary rounded-full">
+                            {pkg.category}
+                          </span>
+                          <div className="font-money text-lg font-extrabold text-primary">
+                            {formatRupiah(pkg.price)}
+                          </div>
                         </div>
+
+                        <h3 className="font-bold text-base text-text">
+                          {pkg.title}
+                        </h3>
+
+                        <p className="text-xs text-text-muted line-clamp-2">
+                          {pkg.description}
+                        </p>
+
+                        <div className="flex items-center gap-3 text-xs text-text-muted pt-2 border-t border-border">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-primary" />
+                            <span>{pkg.durationDays} hari kerja</span>
+                          </span>
+                          <span>&bull;</span>
+                          <span>{pkg.revisionQuota} kuota revisi</span>
+                        </div>
+
+                        {deliverablesList.length > 0 && (
+                          <ul className="text-[11px] text-text-muted space-y-1 pt-1">
+                            {deliverablesList.slice(0, 3).map((item, idx) => (
+                              <li key={idx} className="flex items-start gap-1.5">
+                                <span className="text-primary font-bold shrink-0">&bull;</span>
+                                <span className="truncate">{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
 
-                      <h3 className="font-bold text-base text-text">
-                        {pkg.title}
-                      </h3>
+                      <div className="flex items-center justify-between pt-3 border-t border-border">
+                        <button
+                          onClick={() => handleDeletePackage(pkg.id)}
+                          className="inline-flex items-center gap-1 text-xs text-danger hover:underline"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Hapus</span>
+                        </button>
 
-                      <p className="text-xs text-text-muted line-clamp-2">
-                        {pkg.description}
-                      </p>
-
-                      <div className="flex items-center gap-3 text-xs text-text-muted pt-2 border-t border-border">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-primary" />
-                          <span>{pkg.durationDays} hari kerja</span>
-                        </span>
-                        <span>&bull;</span>
-                        <span>{pkg.revisionQuota} kuota revisi</span>
+                        <button
+                          onClick={() => handleOpenEditModal(pkg)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-background border border-border text-xs font-semibold text-text hover:bg-neutral-soft"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-primary" />
+                          <span>Edit Paket</span>
+                        </button>
                       </div>
-
-                      {deliverablesList.length > 0 && (
-                        <ul className="text-[11px] text-text-muted space-y-1 pt-1">
-                          {deliverablesList.slice(0, 3).map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5">
-                              <span className="text-primary font-bold shrink-0">&bull;</span>
-                              <span className="truncate">{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
                     </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-border">
-                      <button
-                        onClick={() => handleDeletePackage(pkg.id)}
-                        className="inline-flex items-center gap-1 text-xs text-danger hover:underline"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Hapus</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleOpenEditModal(pkg)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-background border border-border text-xs font-semibold text-text hover:bg-neutral-soft"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-primary" />
-                        <span>Edit Paket</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )
+          ) : (
+            /* Sub-Tab Produk Premade */
+            products.length === 0 ? (
+              <div className="bg-surface border border-dashed border-border rounded-lg p-8 text-center text-text-muted text-sm space-y-3">
+                <FileBox className="w-8 h-8 mx-auto text-text-muted" />
+                <p>Anda belum memiliki produk premade. Terbitkan aset grafis atau template untuk menghasilkan pemasukan pasif.</p>
+                <button
+                  onClick={() => setShowProductModal(true)}
+                  className="inline-flex items-center justify-center h-9 px-4 rounded-md bg-primary text-white font-semibold text-xs hover:bg-primary/90"
+                >
+                  + Unggah Produk Premade Sekarang
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {products.map((prod) => (
+                  <ProductCard
+                    key={prod.id}
+                    product={prod}
+                    isOwner={true}
+                    isAdmin={false}
+                    onSelect={(p) => setSelectedProduct(p)}
+                    onArchiveToggle={handleArchiveProduct}
+                    onDelete={handleDeleteProduct}
+                  />
+                ))}
+              </div>
+            )
           )}
         </div>
 
@@ -692,6 +802,25 @@ export function DesignerDashboardView({
           </div>
         </div>
       )}
+
+      {/* Modal Upload Produk Premade */}
+      <UploadProductModal
+        isOpen={showProductModal}
+        onClose={() => setShowProductModal(false)}
+        onSuccess={(newProd) => {
+          setProducts((prev) => [newProd, ...prev]);
+          setActiveManagementTab("products");
+        }}
+        isDriveConnected={Boolean(isDriveConnected)}
+      />
+
+      {/* Modal Detail Produk Premade */}
+      <ProductDetailModal
+        product={selectedProduct}
+        isOpen={Boolean(selectedProduct)}
+        onClose={() => setSelectedProduct(null)}
+        isLoggedIn={true}
+      />
     </AppShell>
   );
 }

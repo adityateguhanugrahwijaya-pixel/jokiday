@@ -167,6 +167,56 @@ export class DriveService {
   }
 
   /**
+   * Menyiapkan dan mengembalikan folder "produk" di dalam "JokiDay/" di Google Drive desainer
+   */
+  static async getOrCreateProdukFolder(refreshTokenEnc: string): Promise<string> {
+    const refreshToken = decryptToken(refreshTokenEnc);
+    const accessToken = await this.getAccessToken(refreshToken);
+
+    const rootFolderId = await this.ensureFolder(accessToken, "JokiDay");
+    return await this.ensureFolder(accessToken, "produk", rootFolderId);
+  }
+
+  /**
+   * Mengambil file stream dan metadata dari Google Drive desainer untuk diunduh pembeli
+   */
+  static async getFileStream(
+    refreshTokenEnc: string,
+    driveFileId: string
+  ): Promise<{ stream: ReadableStream<Uint8Array>; mimeType: string; fileName: string; sizeBytes?: number }> {
+    const refreshToken = decryptToken(refreshTokenEnc);
+    const accessToken = await this.getAccessToken(refreshToken);
+
+    const metaRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${driveFileId}?fields=id,name,mimeType,size`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!metaRes.ok) {
+      throw new AppError("File tidak ditemukan di Google Drive desainer", "DRIVE_FILE_NOT_FOUND", 404);
+    }
+    const meta = await metaRes.json();
+
+    const downloadRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!downloadRes.ok || !downloadRes.body) {
+      throw new AppError("Gagal mengunduh file dari Google Drive desainer", "DRIVE_DOWNLOAD_FAILED", 502);
+    }
+
+    return {
+      stream: downloadRes.body as ReadableStream<Uint8Array>,
+      mimeType: meta.mimeType || "application/octet-stream",
+      fileName: meta.name || "produk-jokiday.zip",
+      sizeBytes: meta.size ? parseInt(meta.size, 10) : undefined,
+    };
+  }
+
+  /**
    * Mengatur izin akses publik file bukti transfer Google Drive agar dapat dilihat oleh desainer
    */
   static async makeFilePublic(accessToken: string, fileId: string): Promise<void> {

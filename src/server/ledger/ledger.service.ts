@@ -237,6 +237,75 @@ export class LedgerService {
   }
 
   /**
+   * Jurnal instan saat produk premade dibeli:
+   * Debit: REFUND_PAYABLE:{buyerId} (jika saldo) atau GATEWAY_CLEARING (jika QRIS)
+   * Kredit: WALLET_AVAILABLE:{designerId} (designerNet)
+   * Kredit: PLATFORM_REVENUE (fee 5%)
+   */
+  static async recordProductPurchaseCompound(
+    productId: string,
+    buyerId: string,
+    designerId: string,
+    balanceUsed: number,
+    gatewayAmount: number,
+    idempotencyKey: string,
+    txClient = prisma
+  ) {
+    const totalAmount = balanceUsed + gatewayAmount;
+    if (totalAmount <= 0) return null;
+
+    if (balanceUsed > 0) {
+      const currentRefundBalance = await this.getCustomerRefundBalance(buyerId, txClient);
+      if (currentRefundBalance < balanceUsed) {
+        throw new ConflictError("Saldo refund tidak mencukupi untuk pembayaran produk ini");
+      }
+    }
+
+    const { fee, designerNet } = this.calculatePlatformFee(totalAmount);
+    const entries: LedgerEntryItem[] = [];
+
+    if (balanceUsed > 0) {
+      entries.push({
+        account: `REFUND_PAYABLE:${buyerId}`,
+        direction: "DEBIT",
+        amount: balanceUsed,
+        userId: buyerId,
+        reason: `Penggunaan saldo untuk pembelian produk premade`,
+      });
+    }
+
+    if (gatewayAmount > 0) {
+      entries.push({
+        account: "GATEWAY_CLEARING",
+        direction: "DEBIT",
+        amount: gatewayAmount,
+        reason: `Pembayaran QRIS gateway untuk produk premade`,
+      });
+    }
+
+    if (designerNet > 0) {
+      entries.push({
+        account: `WALLET_AVAILABLE:${designerId}`,
+        direction: "CREDIT",
+        amount: designerNet,
+        userId: designerId,
+        reason: `Pendapatan bersih penjualan produk premade`,
+      });
+    }
+
+    if (fee > 0) {
+      entries.push({
+        account: "PLATFORM_REVENUE",
+        direction: "CREDIT",
+        amount: fee,
+        reason: `Fee platform penjualan produk premade`,
+      });
+    }
+
+    return await this.recordTransaction(entries, idempotencyKey, txClient);
+  }
+
+  /**
    * Jurnal saat order selesai disetujui (rilis dana ke designer):
    * Debit: ESCROW:{orderId} (price - fee) -> Kredit: WALLET_AVAILABLE:{designerId}
    * Debit: ESCROW:{orderId} (fee) -> Kredit: PLATFORM_REVENUE

@@ -58,73 +58,144 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true, alreadyProcessed: true });
       }
 
-      // Eksekusi transisi order & jurnal ledger
-      await prisma.$transaction(async (tx) => {
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: "PAID",
-            paidAt: new Date(),
-            rawWebhook: rawBody,
-          },
-        });
-
-        // Catat dana masuk ke Escrow (kombinasi saldo refund dan QRIS)
-        await LedgerService.recordCustomerPaymentCompound(
-          payment.orderId,
-          payment.order.customerId,
-          payment.balanceUsed,
-          payment.amount,
-          `webhook-paid-${chargeId}`,
-          tx as any
-        );
-
-        // Transisi status order ke IN_PROGRESS jika masih AWAITING_PAYMENT
-        if (payment.order.status === "AWAITING_PAYMENT") {
-          await OrderStateMachine.transitionOrder(
-            payment.orderId,
-            "PAYMENT_RECEIVED",
-            { userId: "SYSTEM", role: "SYSTEM" }
-          );
-        }
-      });
-
-      // Kirim notifikasi email ke desainer secara asynchronous tanpa memblokir respons webhook
-      (async () => {
-        try {
-          const fullOrder = await prisma.order.findUnique({
-            where: { id: payment.orderId },
-            include: {
-              designer: { select: { email: true, displayName: true } },
-              customer: { select: { displayName: true } },
-              brief: { select: { title: true } },
+      if (payment.productId) {
+        // Eksekusi pembelian produk premade
+        await prisma.$transaction(async (tx) => {
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: "PAID",
+              paidAt: new Date(),
+              rawWebhook: rawBody,
             },
           });
-          if (fullOrder?.designer?.email) {
-            await EmailService.sendOrderPaidNotification({
-              designerEmail: fullOrder.designer.email,
-              designerName: fullOrder.designer.displayName,
-              customerName: fullOrder.customer.displayName,
-              orderId: fullOrder.id,
-              briefTitle: fullOrder.brief.title,
-              price: fullOrder.price,
-              durationDays: fullOrder.durationDays,
-            });
-          }
 
-          // Kirim In-App dan Web Push Notification (VAPID)
-          await PushNotificationService.notifyUser(payment.order.designerId, {
-            type: "ORDER_PAID",
-            title: "Pesanan Baru Lunas (QRIS)!",
-            body: `Pembayaran untuk pesanan "${fullOrder?.brief.title || "Pesanan"}" telah berhasil diterima. Dana aman di Escrow JokiDay.`,
-            url: `/orders/${payment.orderId}`,
+          const product = await tx.product.findUnique({
+            where: { id: payment.productId! },
+            include: { designer: { include: { user: true } } },
           });
-        } catch (notifErr) {
-          logger.error("Gagal kirim notifikasi pembayaran ke desainer", notifErr);
-        }
-      })();
 
-      logger.info(`Payment successfully processed for order ${payment.orderId}`);
+          if (!product || !payment.buyerId) return;
+
+          // Catat transaksi pembukuan double-entry instan
+          await LedgerService.recordProductPurchaseCompound(
+            product.id,
+            payment.buyerId,
+            product.designerId,
+            payment.balanceUsed,
+            payment.amount,
+            `webhook-prod-paid-${chargeId}`,
+            tx as any
+          );
+
+          const { fee } = LedgerService.calculatePlatformFee(product.price);
+          await tx.productPurchase.create({
+            data: {
+              productId: product.id,
+              buyerId: payment.buyerId,
+              priceSnapshot: product.price,
+              feeSnapshot: fee,
+              paymentMethod: "QRIS",
+              paymentRef: chargeId,
+            },
+          });
+
+          await tx.product.update({
+            where: { id: product.id },
+            data: { downloadCount: { increment: 1 } },
+          });
+        });
+
+        // Kirim notifikasi ke desainer
+        (async () => {
+          try {
+            const product = await prisma.product.findUnique({
+              where: { id: payment.productId! },
+              include: { designer: { include: { user: true } } },
+            });
+            if (product) {
+              await PushNotificationService.notifyUser(product.designerId, {
+                type: "PRODUCT_PURCHASED",
+                title: "Produk Terjual (QRIS)!",
+                body: `Produk "${product.title}" berhasil dibeli lewat QRIS. Saldo telah masuk ke dompetmu.`,
+                url: `/designer/${product.designer.user.username}`,
+              });
+            }
+          } catch (notifErr) {
+            logger.error("Gagal kirim notifikasi pembelian produk ke desainer", notifErr);
+          }
+        })();
+
+        logger.info(`Product purchase successfully processed for product ${payment.productId}`);
+      } else if (payment.orderId && payment.order) {
+        // Eksekusi transisi order & jurnal ledger
+        await prisma.$transaction(async (tx) => {
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: "PAID",
+              paidAt: new Date(),
+              rawWebhook: rawBody,
+            },
+          });
+
+          // Catat dana masuk ke Escrow (kombinasi saldo refund dan QRIS)
+          await LedgerService.recordCustomerPaymentCompound(
+            payment.orderId!,
+            payment.order!.customerId,
+            payment.balanceUsed,
+            payment.amount,
+            `webhook-paid-${chargeId}`,
+            tx as any
+          );
+
+          // Transisi status order ke IN_PROGRESS jika masih AWAITING_PAYMENT
+          if (payment.order!.status === "AWAITING_PAYMENT") {
+            await OrderStateMachine.transitionOrder(
+              payment.orderId!,
+              "PAYMENT_RECEIVED",
+              { userId: "SYSTEM", role: "SYSTEM" }
+            );
+          }
+        });
+
+        // Kirim notifikasi email ke desainer secara asynchronous tanpa memblokir respons webhook
+        (async () => {
+          try {
+            const fullOrder = await prisma.order.findUnique({
+              where: { id: payment.orderId! },
+              include: {
+                designer: { select: { email: true, displayName: true } },
+                customer: { select: { displayName: true } },
+                brief: { select: { title: true } },
+              },
+            });
+            if (fullOrder?.designer?.email) {
+              await EmailService.sendOrderPaidNotification({
+                designerEmail: fullOrder.designer.email,
+                designerName: fullOrder.designer.displayName,
+                customerName: fullOrder.customer.displayName,
+                orderId: fullOrder.id,
+                briefTitle: fullOrder.brief.title,
+                price: fullOrder.price,
+                durationDays: fullOrder.durationDays,
+              });
+            }
+
+            // Kirim In-App dan Web Push Notification (VAPID)
+            await PushNotificationService.notifyUser(payment.order!.designerId, {
+              type: "ORDER_PAID",
+              title: "Pesanan Baru Lunas (QRIS)!",
+              body: `Pembayaran untuk pesanan "${fullOrder?.brief.title || "Pesanan"}" telah berhasil diterima. Dana aman di Escrow JokiDay.`,
+              url: `/orders/${payment.orderId}`,
+            });
+          } catch (notifErr) {
+            logger.error("Gagal kirim notifikasi pembayaran ke desainer", notifErr);
+          }
+        })();
+
+        logger.info(`Payment successfully processed for order ${payment.orderId}`);
+      }
     }
 
     return NextResponse.json({ received: true });
