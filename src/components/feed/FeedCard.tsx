@@ -128,28 +128,28 @@ export function FeedCard<T extends FeedCardPost = FeedCardPost>({
         {/* Baris Rating & Harga Mulai */}
         <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
           <div className="min-w-0">
-            {/* Rating Riil & Pesanan Selesai */}
-            <div className="flex items-center gap-1.5 text-xs">
-              {hasRating ? (
-                <>
-                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
-                  <span className="font-bold text-text">
-                    {(post.designer.ratingAvg ?? 0).toFixed(1)}
+            {/* Rating Riil & Pesanan Selesai (Hanya dirender jika sudah ada ulasan atau pesanan riil) */}
+            {(hasRating || hasOrders) && (
+              <div className="flex items-center gap-1.5 text-xs">
+                {hasRating && (
+                  <>
+                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                    <span className="font-bold text-text">
+                      {(post.designer.ratingAvg ?? 0).toFixed(1)}
+                    </span>
+                  </>
+                )}
+                {hasOrders && (
+                  <span className="text-[10px] text-text-muted truncate">
+                    ({post.designer.completedCount} pesanan)
                   </span>
-                </>
-              ) : (
-                <span className="text-[11px] font-medium text-text-muted">Desainer Baru</span>
-              )}
-              {hasOrders && (
-                <span className="text-[10px] text-text-muted truncate">
-                  ({post.designer.completedCount} pesanan)
-                </span>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Blok "Mulai dari" HANYA jika desainer memiliki paket aktif */}
             {hasStartingPrice && (
-              <div className="mt-1">
+              <div className={hasRating || hasOrders ? "mt-1" : ""}>
                 <span className="text-[10px] text-text-muted block leading-none">Mulai dari</span>
                 <span className="font-money text-sm font-extrabold text-text block mt-0.5">
                   {formatRupiah(post.startingPrice!)}

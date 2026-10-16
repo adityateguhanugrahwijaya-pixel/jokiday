@@ -647,7 +647,7 @@ export function DesignerProfileClient({
                   {designer.ratingCount > 0 ? designer.ratingAvg.toFixed(1) : "-"}
                 </span>
                 <span className="text-text-muted text-xs">
-                  {designer.ratingCount > 0 ? `Rating (${designer.ratingCount})` : "Rating (Baru)"}
+                  {designer.ratingCount > 0 ? `Rating (${designer.ratingCount})` : "Belum ada ulasan"}
                 </span>
               </div>
             </div>

@@ -481,21 +481,24 @@ export function DiscoverExperience({
                             <UserCheck className="w-4 h-4 text-primary shrink-0" />
                           )}
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-text-muted mt-0.5">
-                          {designer.ratingAvg > 0 ? (
-                            <>
-                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
-                              <span className="font-bold text-text">
-                                {designer.ratingAvg.toFixed(1)}
+                        {(designer.ratingAvg > 0 || designer.completedCount > 0) && (
+                          <div className="flex items-center gap-1.5 text-xs text-text-muted mt-0.5">
+                            {designer.ratingAvg > 0 && (
+                              <>
+                                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                                <span className="font-bold text-text">
+                                  {designer.ratingAvg.toFixed(1)}
+                                </span>
+                              </>
+                            )}
+                            {designer.completedCount > 0 && (
+                              <span>
+                                {designer.ratingAvg > 0 ? "• " : ""}
+                                {designer.completedCount} pesanan selesai
                               </span>
-                            </>
-                          ) : (
-                            <span className="font-medium text-text-muted">Desainer Baru</span>
-                          )}
-                          {designer.completedCount > 0 && (
-                            <span>&bull; {designer.completedCount} pesanan selesai</span>
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </Link>
 
