@@ -103,8 +103,8 @@ describe("Feed Preview & Designer Dropdown Navigation Rules", () => {
     });
   });
 
-  describe("WatermarkService (Top-Left Minimalist Translucent Pill)", () => {
-    it("generates a clean watermarked image with top-left pill and proper dimensions", async () => {
+  describe("WatermarkService (Centered Anti-Crop Translucent Pill)", () => {
+    it("generates a clean watermarked image with centered pill and proper dimensions", async () => {
       const { WatermarkService } = await import("@/server/media/watermark.service");
       const sharp = (await import("sharp")).default;
 

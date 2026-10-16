@@ -41,11 +41,13 @@ export interface WatermarkOptions {
 
 export class WatermarkService {
   /**
-   * Menambahkan watermark elegan dan minimalis di area kiri-atas gambar:
-   * - Teks format: JokiDay • @username (aman glyph ASCII)
-   * - Posisi: Kiri dan atas (top-left) dengan jarak proporsional
-   * - Desain pill/kapsul transparan elegan (soft translucent pill)
-   *   dengan stroke halus dan teks kontras lembut (tidak berulang/banyak, tidak mengganggu karya)
+   * Menambahkan watermark elegan dan aman di area tengah (center) gambar:
+   * - Posisi: Tengah vertikal dan horizontal (anti-crop, susah dihapus)
+   * - Teks format: "JokiDay" (bold) + pemisah lingkaran vektor SVG + "@username"
+   * - Menggunakan elemen <circle> native SVG untuk dot pemisah agar 100% bebas dari
+   *   glitch missing-glyph / kotak-kotak (tofu box) di serverless Linux/Vercel
+   * - Desain pill/kapsul transparan elegan (soft translucent dark glass)
+   *   dengan stroke halus dan drop-shadow lembut (melindungi karya tanpa merusak estetika)
    * - Sisi terpanjang di-resize maksimum maxPx (default 1200px)
    */
   static async applyWatermark(
@@ -72,78 +74,132 @@ export class WatermarkService {
     }
 
     const shortSide = Math.min(width, height);
-    // Skala ukuran font proporsional dan nyaman terbaca (~2.8% - 3.2% dari sisi pendek)
-    const fontSize = Math.max(12, Math.min(18, Math.round(shortSide * 0.03)));
+    // Skala ukuran font proporsional dan nyaman terbaca (~3.2% dari sisi pendek)
+    let fontSize = Math.max(12, Math.min(22, Math.round(shortSide * 0.032)));
 
-    // Bersihkan username dari karakter @ di depan jika ada, lalu sanitasi XML
+    // Bersihkan username dari karakter @ di depan jika ada, sanitasi ke karakter ASCII aman
     const rawUsername = options.username.trim().replace(/^@+/, "");
-    const safeUsername = escapeXml(rawUsername || "designer");
-    const textLabel = `JokiDay • @${safeUsername}`;
+    const safeUsername = escapeXml(rawUsername.replace(/[^\w.-]/g, "") || "designer");
 
-    // Posisi di bagian kiri dan atas dengan jarak aman (padding)
-    const posX = Math.max(14, Math.round(width * 0.03));
-    const posY = Math.max(14, Math.round(height * 0.03));
+    // Hitung proporsi teks dan komponen
+    let brandWidth = Math.round(fontSize * 3.8);
+    let dotGap = Math.round(fontSize * 0.65);
+    let dotRadius = Math.max(2, Math.round(fontSize * 0.14));
+    let userWidth = Math.round(fontSize * (0.85 + safeUsername.length * 0.52));
+    let padX = Math.round(fontSize * 1.0);
+    let padY = Math.round(fontSize * 0.5);
 
-    // Dimensi pill transparan elegan
-    const charWidth = fontSize * 0.58;
-    const textWidth = Math.ceil(textLabel.length * charWidth);
-    const padX = Math.round(fontSize * 0.75);
-    const padY = Math.round(fontSize * 0.4);
-    const pillWidth = textWidth + padX * 2;
+    let totalNeededWidth = brandWidth + dotGap * 2 + userWidth + padX * 2;
+    // Jika lebar pill melebihi lebar gambar (misal di gambar portrait sempit), kecilkan fontSize
+    if (totalNeededWidth > width * 0.88) {
+      const scale = (width * 0.88) / totalNeededWidth;
+      fontSize = Math.max(10, Math.floor(fontSize * scale));
+      brandWidth = Math.round(fontSize * 3.8);
+      dotGap = Math.round(fontSize * 0.65);
+      dotRadius = Math.max(2, Math.round(fontSize * 0.14));
+      userWidth = Math.round(fontSize * (0.85 + safeUsername.length * 0.52));
+      padX = Math.round(fontSize * 1.0);
+      padY = Math.round(fontSize * 0.5);
+      totalNeededWidth = brandWidth + dotGap * 2 + userWidth + padX * 2;
+    }
+
+    const pillWidth = totalNeededWidth;
     const pillHeight = fontSize + padY * 2;
     const pillRadius = Math.round(pillHeight / 2);
 
+    // Posisi di area tengah gambar (center)
+    const posX = Math.round((width - pillWidth) / 2);
+    const posY = Math.round((height - pillHeight) / 2);
+
+    const brandX = posX + padX;
+    const dotX = brandX + brandWidth + dotGap;
+    const dotY = posY + Math.round(pillHeight / 2);
+    const userX = dotX + dotGap;
+    const textBaselineY = posY + padY + Math.round(fontSize * 0.78);
+
     const fontBase64 = getEmbeddedFontBase64();
+
+    const fontCss = fontBase64
+      ? `@font-face {
+          font-family: 'JokiDayWatermarkFont';
+          src: url('data:font/ttf;base64,${fontBase64}');
+          font-weight: 700;
+          font-style: normal;
+        }
+        .wm-brand {
+          font-family: 'JokiDayWatermarkFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
+          font-size: ${fontSize}px;
+          font-weight: 700;
+          letter-spacing: 0.35px;
+        }
+        .wm-user {
+          font-family: 'JokiDayWatermarkFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
+          font-size: ${fontSize}px;
+          font-weight: 500;
+          letter-spacing: 0.2px;
+        }`
+      : `.wm-brand {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
+          font-size: ${fontSize}px;
+          font-weight: 700;
+          letter-spacing: 0.35px;
+        }
+        .wm-user {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
+          font-size: ${fontSize}px;
+          font-weight: 500;
+          letter-spacing: 0.2px;
+        }`;
 
     const svgOverlay = Buffer.from(`
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          ${
-            fontBase64
-              ? `<style>
-                  @font-face {
-                    font-family: 'JokiDayWatermarkFont';
-                    src: url('data:font/ttf;base64,${fontBase64}');
-                    font-weight: 600;
-                    font-style: normal;
-                  }
-                  .wm-txt {
-                    font-family: 'JokiDayWatermarkFont', Arial, 'Segoe UI', Helvetica, sans-serif;
-                    font-size: ${fontSize}px;
-                    font-weight: 600;
-                    letter-spacing: 0.25px;
-                  }
-                </style>`
-              : `<style>
-                  .wm-txt {
-                    font-family: Arial, 'Segoe UI', Helvetica, sans-serif;
-                    font-size: ${fontSize}px;
-                    font-weight: 600;
-                    letter-spacing: 0.25px;
-                  }
-                </style>`
-          }
+          <style>
+            ${fontCss}
+          </style>
+          <filter id="wm-shadow" x="-10%" y="-20%" width="120%" height="140%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3.5" flood-color="#000000" flood-opacity="0.35"/>
+          </filter>
         </defs>
-        <!-- Pill transparan lembut di area kiri dan atas -->
-        <rect
-          x="${posX}"
-          y="${posY}"
-          width="${pillWidth}"
-          height="${pillHeight}"
-          rx="${pillRadius}"
-          fill="#000000"
-          fill-opacity="0.32"
-          stroke="#FFFFFF"
-          stroke-opacity="0.22"
-          stroke-width="1"
-        />
-        <text
-          x="${posX + padX}"
-          y="${posY + padY + Math.round(fontSize * 0.82)}"
-          class="wm-txt"
-          fill="#FFFFFF"
-          fill-opacity="0.85"
-        >${textLabel}</text>
+        <g filter="url(#wm-shadow)">
+          <!-- Kapsul transparan elegan di tengah gambar (anti-crop) -->
+          <rect
+            x="${posX}"
+            y="${posY}"
+            width="${pillWidth}"
+            height="${pillHeight}"
+            rx="${pillRadius}"
+            fill="#000000"
+            fill-opacity="0.45"
+            stroke="#FFFFFF"
+            stroke-opacity="0.26"
+            stroke-width="1.2"
+          />
+          <!-- Label Brand JokiDay (bold) -->
+          <text
+            x="${brandX}"
+            y="${textBaselineY}"
+            class="wm-brand"
+            fill="#FFFFFF"
+            fill-opacity="0.95"
+          >JokiDay</text>
+          <!-- Pemisah titik vektor SVG native (anti kotak-kotak / tofu box) -->
+          <circle
+            cx="${dotX}"
+            cy="${dotY}"
+            r="${dotRadius}"
+            fill="#FFFFFF"
+            fill-opacity="0.75"
+          />
+          <!-- Username desainer -->
+          <text
+            x="${userX}"
+            y="${textBaselineY}"
+            class="wm-user"
+            fill="#FFFFFF"
+            fill-opacity="0.88"
+          >@${safeUsername}</text>
+        </g>
       </svg>
     `);
 
