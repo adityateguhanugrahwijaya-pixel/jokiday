@@ -166,7 +166,7 @@ export default function TermsPage() {
             </h2>
             <ul className="list-disc pl-5 space-y-1.5 text-text-muted">
               <li><strong>Google Drive Desainer:</strong> File master hasil kerja diunggah dan disimpan langsung di Google Drive desainer. Server JokiDay hanya memproses sementara untuk membakar watermark proteksi.</li>
-              <li><strong>Pratinjau Ber-watermark:</strong> Pelanggan hanya dapat melihat pratinjau berpola watermark diagonal sebelum pesanan disetujui. File master asli hanya dapat diunduh setelah pesanan berstatus Selesai (COMPLETED).</li>
+              <li><strong>Pratinjau Ber-watermark:</strong> Pelanggan hanya dapat melihat pratinjau ber-watermark proteksi JokiDay sebelum pesanan disetujui. File master asli hanya dapat diunduh setelah pesanan berstatus Selesai (COMPLETED).</li>
               <li><strong>Kuota Revisi:</strong> Pelanggan berhak meminta revisi sesuai kuota kontrak. Permintaan revisi harus jelas dan berpatokan pada brief awal.</li>
               <li><strong>Persetujuan Otomatis (3 Hari):</strong> Jika pelanggan tidak memberikan tanggapan atau revisi dalam waktu 3x24 jam sejak pengiriman hasil karya, sistem secara otomatis menyatakan pesanan selesai dan dana escrow diteruskan ke desainer.</li>
             </ul>

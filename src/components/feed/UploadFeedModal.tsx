@@ -221,7 +221,7 @@ export function UploadFeedModal({
           <div className="p-3 bg-surface-alt border border-border rounded-lg text-[11px] text-text-muted flex items-start gap-2.5">
             <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <span className="font-semibold text-text">Proteksi Otomatis:</span> Gambar pratinjau publik akan otomatis diberi watermark proteksi <em>JokiDay • @username</em> di sudut kiri atas sebelum ditampilkan ke pembeli.
+              <span className="font-semibold text-text">Proteksi Otomatis:</span> Gambar pratinjau publik akan otomatis diberi watermark proteksi <em>JokiDay • @username</em> di bagian tengah gambar sebelum ditampilkan ke pembeli.
             </p>
           </div>
 
