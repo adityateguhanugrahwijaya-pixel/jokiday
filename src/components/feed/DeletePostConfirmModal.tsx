@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, ShieldCheck, X, Loader2 } from "lucide-react";
+import { AlertTriangle, HardDrive, X, Loader2 } from "lucide-react";
 
 interface DeletePostConfirmModalProps {
   isOpen: boolean;
@@ -68,9 +68,9 @@ export function DeletePostConfirmModal({
           )}
 
           <div className="p-3 bg-surface-alt border border-border rounded-lg flex items-start gap-2 text-text-muted">
-            <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+            <HardDrive className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <p className="text-[11px] leading-relaxed">
-              <span className="font-semibold text-text">File Google Drive Tetap Aman:</span> Tindakan ini tidak menghapus file asli di Google Drive Anda.
+              <span className="font-semibold text-text">Pembersihan Google Drive:</span> Berkas gambar postingan ini di folder Google Drive Anda akan otomatis ikut dihapus agar penyimpanan Drive Anda tidak menumpuk (bebas clutter).
             </p>
           </div>
         </div>

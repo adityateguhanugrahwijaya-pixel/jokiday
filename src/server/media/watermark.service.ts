@@ -41,12 +41,11 @@ export interface WatermarkOptions {
 
 export class WatermarkService {
   /**
-   * Menambahkan watermark diagonal simpel dan elegan ke dalam gambar sesuai DESIGN.md:
+   * Menambahkan watermark elegan dan minimalis di area kiri-atas gambar:
    * - Teks format: JokiDay • @username (aman glyph ASCII)
-   * - Sudut diagonal -28 derajat
-   * - Pola bersilang lega & minimalis (tidak terlalu banyak/padat, tidak menutupi keindahan karya)
-   * - Opasitas lembut & halus (~20% putih, ~16% bayangan gelap) agar tidak terlalu mencolok/visible
-   *   namun tetap efektif mencegah screenshot tanpa izin
+   * - Posisi: Kiri dan atas (top-left) dengan jarak proporsional
+   * - Desain pill/kapsul transparan elegan (soft translucent pill)
+   *   dengan stroke halus dan teks kontras lembut (tidak berulang/banyak, tidak mengganggu karya)
    * - Sisi terpanjang di-resize maksimum maxPx (default 1200px)
    */
   static async applyWatermark(
@@ -73,21 +72,26 @@ export class WatermarkService {
     }
 
     const shortSide = Math.min(width, height);
-    // Skala ukuran font proporsional dan tidak berlebihan (~3.6% dari sisi pendek)
-    const fontSize = Math.max(14, Math.round(shortSide * 0.036));
+    // Skala ukuran font proporsional dan nyaman terbaca (~2.8% - 3.2% dari sisi pendek)
+    const fontSize = Math.max(12, Math.min(18, Math.round(shortSide * 0.03)));
 
     // Bersihkan username dari karakter @ di depan jika ada, lalu sanitasi XML
     const rawUsername = options.username.trim().replace(/^@+/, "");
     const safeUsername = escapeXml(rawUsername || "designer");
     const textLabel = `JokiDay • @${safeUsername}`;
 
-    // Kalkulasi dimensi teks dan spasi renggang yang bersih (clean & simple)
-    const charWidth = fontSize * 0.62;
+    // Posisi di bagian kiri dan atas dengan jarak aman (padding)
+    const posX = Math.max(14, Math.round(width * 0.03));
+    const posY = Math.max(14, Math.round(height * 0.03));
+
+    // Dimensi pill transparan elegan
+    const charWidth = fontSize * 0.58;
     const textWidth = Math.ceil(textLabel.length * charWidth);
-    const horizontalGap = Math.max(90, Math.round(fontSize * 4.5));
-    const tileWidth = textWidth + horizontalGap;
-    const rowHeight = Math.max(95, Math.round(fontSize * 4.0));
-    const tileHeight = rowHeight * 2;
+    const padX = Math.round(fontSize * 0.75);
+    const padY = Math.round(fontSize * 0.4);
+    const pillWidth = textWidth + padX * 2;
+    const pillHeight = fontSize + padY * 2;
+    const pillRadius = Math.round(pillHeight / 2);
 
     const fontBase64 = getEmbeddedFontBase64();
 
@@ -107,7 +111,7 @@ export class WatermarkService {
                     font-family: 'JokiDayWatermarkFont', Arial, 'Segoe UI', Helvetica, sans-serif;
                     font-size: ${fontSize}px;
                     font-weight: 600;
-                    letter-spacing: 0.3px;
+                    letter-spacing: 0.25px;
                   }
                 </style>`
               : `<style>
@@ -115,29 +119,31 @@ export class WatermarkService {
                     font-family: Arial, 'Segoe UI', Helvetica, sans-serif;
                     font-size: ${fontSize}px;
                     font-weight: 600;
-                    letter-spacing: 0.3px;
+                    letter-spacing: 0.25px;
                   }
                 </style>`
           }
-          <pattern id="wm" width="${tileWidth}" height="${tileHeight}" patternUnits="userSpaceOnUse" patternTransform="rotate(-28)">
-            <!-- Baris 1: Bayangan halus + teks putih lembut -->
-            <text x="1" y="${rowHeight * 0.72 + 1}" class="wm-txt" fill="#000000" fill-opacity="0.16">
-              ${textLabel}
-            </text>
-            <text x="0" y="${rowHeight * 0.72}" class="wm-txt" fill="#FFFFFF" fill-opacity="0.20">
-              ${textLabel}
-            </text>
-
-            <!-- Baris 2 (staggered offset) -->
-            <text x="${tileWidth / 2 + 1}" y="${rowHeight * 1.72 + 1}" class="wm-txt" fill="#000000" fill-opacity="0.16">
-              ${textLabel}
-            </text>
-            <text x="${tileWidth / 2}" y="${rowHeight * 1.72}" class="wm-txt" fill="#FFFFFF" fill-opacity="0.20">
-              ${textLabel}
-            </text>
-          </pattern>
         </defs>
-        <rect width="${width}" height="${height}" fill="url(#wm)" />
+        <!-- Pill transparan lembut di area kiri dan atas -->
+        <rect
+          x="${posX}"
+          y="${posY}"
+          width="${pillWidth}"
+          height="${pillHeight}"
+          rx="${pillRadius}"
+          fill="#000000"
+          fill-opacity="0.32"
+          stroke="#FFFFFF"
+          stroke-opacity="0.22"
+          stroke-width="1"
+        />
+        <text
+          x="${posX + padX}"
+          y="${posY + padY + Math.round(fontSize * 0.82)}"
+          class="wm-txt"
+          fill="#FFFFFF"
+          fill-opacity="0.85"
+        >${textLabel}</text>
       </svg>
     `);
 

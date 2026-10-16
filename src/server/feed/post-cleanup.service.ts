@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { DriveService } from "@/server/drive/drive.service";
 
 export interface CleanupResult {
   retentionDays: number;
@@ -33,7 +34,7 @@ export class PostCleanupService {
    * Menjalankan pembersihan berkala untuk post berstatus DELETED yang masa retensinya telah lewat.
    * - Menghapus baris post dan previewAsset terkait dari DB
    * - Membersihkan cache file lokal di server
-   * - TIDAK menyentuh Google Drive desainer (aman 100%)
+   * - Memastikan berkas Google Drive terkait telah dibersihkan
    */
   static async cleanupOldDeletedPosts(dryRun = false): Promise<CleanupResult> {
     const retentionDays = await this.getRetentionDays();
@@ -68,6 +69,28 @@ export class PostCleanupService {
 
     for (const post of candidates) {
       try {
+        // Bersihkan file Google Drive jika belum terhapus
+        const isRealDriveFile =
+          post.driveFileId &&
+          !post.driveFileId.startsWith("orig_") &&
+          !post.driveFileId.startsWith("local_") &&
+          !post.driveFileId.startsWith("mock-") &&
+          !post.driveFileId.startsWith("/") &&
+          !post.driveFileId.startsWith("http");
+
+        if (isRealDriveFile) {
+          try {
+            const driveConn = await prisma.driveConnection.findUnique({
+              where: { userId: post.designerId },
+            });
+            if (driveConn && driveConn.status === "ACTIVE") {
+              await DriveService.deleteFile(driveConn.refreshTokenEnc, post.driveFileId);
+            }
+          } catch {
+            // File mungkin sudah dihapus sebelumnya
+          }
+        }
+
         // Hapus cache preview lokal jika ada
         if (post.previewAsset?.driveFileId?.startsWith("/uploads/previews/")) {
           const fileName = path.basename(post.previewAsset.driveFileId);

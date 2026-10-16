@@ -542,7 +542,7 @@ export function DesignerProfileClient({
 
       setToast({
         id: crypto.randomUUID(),
-        message: "Karya berhasil dihapus dari tampilan.",
+        message: data.message || "Karya berhasil dihapus dari tampilan.",
         type: "success",
       });
     } catch (err: any) {

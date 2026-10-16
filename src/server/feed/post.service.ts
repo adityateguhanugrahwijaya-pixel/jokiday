@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/db";
+import fs from "node:fs";
+import path from "node:path";
+import { DriveService } from "@/server/drive/drive.service";
 import {
   NotFoundError,
   ForbiddenError,
@@ -167,7 +170,7 @@ export class PostService {
 
   /**
    * Menghapus karya desainer menggunakan Soft Delete (deletedAt).
-   * File di Google Drive tidak dihapus otomatis.
+   * Khusus karya feed, file asli di Google Drive desainer ikut dihapus agar tidak clutter.
    * Hanya pemilik karya atau admin yang dapat menghapus.
    * Operasi idempoten.
    */
@@ -195,7 +198,7 @@ export class PostService {
         success: true,
         alreadyDeleted: true,
         message: "Karya ini sudah dihapus.",
-        driveFilesRetained: true,
+        driveFilesRetained: false,
       };
     }
 
@@ -210,6 +213,53 @@ export class PostService {
     const relatedBriefsCount = await prisma.brief.count({
       where: { sourcePostId: postId },
     });
+
+    // 1. Hapus file asli di Google Drive desainer jika terhubung
+    let driveFileDeleted = false;
+    const isRealDriveFile =
+      Boolean(post.driveFileId) &&
+      !post.driveFileId.startsWith("orig_") &&
+      !post.driveFileId.startsWith("local_") &&
+      !post.driveFileId.startsWith("mock-") &&
+      !post.driveFileId.startsWith("/") &&
+      !post.driveFileId.startsWith("http");
+
+    if (isRealDriveFile) {
+      try {
+        const driveConn = await prisma.driveConnection.findUnique({
+          where: { userId: post.designerId },
+        });
+
+        if (driveConn && driveConn.status === "ACTIVE") {
+          await DriveService.deleteFile(driveConn.refreshTokenEnc, post.driveFileId);
+          driveFileDeleted = true;
+        }
+      } catch (driveErr) {
+        console.warn(`[PostService] Gagal menghapus file Google Drive (${post.driveFileId}):`, driveErr);
+      }
+    }
+
+    // 2. Bersihkan file cache preview lokal jika ada
+    try {
+      const uploadsDir = path.join(process.cwd(), "public", "uploads", "previews");
+      const possibleFilenames = [
+        `wm_${post.previewAssetId}.jpg`,
+        `${post.previewAssetId}.jpg`,
+        post.previewAssetId,
+      ];
+      for (const fn of possibleFilenames) {
+        const filePath = path.join(uploadsDir, fn);
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch {
+          // Abaikan jika sudah tidak ada
+        }
+      }
+    } catch (fsErr) {
+      console.warn("[PostService] Gagal membersihkan preview lokal:", fsErr);
+    }
 
     const now = new Date();
     const updatedPost = await prisma.post.update({
@@ -242,8 +292,11 @@ export class PostService {
       alreadyDeleted: false,
       post: updatedPost,
       relatedBriefsCount,
-      driveFilesRetained: true,
-      message: "Karya berhasil dihapus dari tampilan. File asli di Google Drive Anda tetap aman.",
+      driveFileDeleted,
+      driveFilesRetained: false,
+      message: driveFileDeleted
+        ? "Karya dan file aslinya di Google Drive berhasil dihapus."
+        : "Karya berhasil dihapus dari tampilan.",
     };
   }
 

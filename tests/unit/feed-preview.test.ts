@@ -102,4 +102,65 @@ describe("Feed Preview & Designer Dropdown Navigation Rules", () => {
       expect(sanitizePreviewId("uploads/previews/file.jpg")).toBe("file.jpg");
     });
   });
+
+  describe("WatermarkService (Top-Left Minimalist Translucent Pill)", () => {
+    it("generates a clean watermarked image with top-left pill and proper dimensions", async () => {
+      const { WatermarkService } = await import("@/server/media/watermark.service");
+      const sharp = (await import("sharp")).default;
+
+      // Create a test 600x400 PNG buffer
+      const testInput = await sharp({
+        create: {
+          width: 600,
+          height: 400,
+          channels: 3,
+          background: { r: 240, g: 240, b: 240 },
+        },
+      })
+        .jpeg()
+        .toBuffer();
+
+      const result = await WatermarkService.applyWatermark(testInput, {
+        username: "budi.designer",
+        maxPx: 1200,
+      });
+
+      expect(result.buffer).toBeInstanceOf(Buffer);
+      expect(result.buffer.length).toBeGreaterThan(0);
+      expect(result.mimeType).toBe("image/jpeg");
+      expect(result.width).toBe(600);
+      expect(result.height).toBe(400);
+
+      // Verify resulting image metadata
+      const meta = await sharp(result.buffer).metadata();
+      expect(meta.format).toBe("jpeg");
+      expect(meta.width).toBe(600);
+      expect(meta.height).toBe(400);
+    });
+
+    it("resizes images exceeding maxPx preserving aspect ratio", async () => {
+      const { WatermarkService } = await import("@/server/media/watermark.service");
+      const sharp = (await import("sharp")).default;
+
+      // Create a 2000x1000 input
+      const largeInput = await sharp({
+        create: {
+          width: 2000,
+          height: 1000,
+          channels: 3,
+          background: { r: 50, g: 50, b: 50 },
+        },
+      })
+        .jpeg()
+        .toBuffer();
+
+      const result = await WatermarkService.applyWatermark(largeInput, {
+        username: "pro_artist",
+        maxPx: 1000,
+      });
+
+      expect(result.width).toBe(1000);
+      expect(result.height).toBe(500);
+    });
+  });
 });

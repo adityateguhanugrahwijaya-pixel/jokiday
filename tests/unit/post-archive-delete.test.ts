@@ -1,8 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PostService } from "@/server/feed/post.service";
 import { PostCleanupService } from "@/server/feed/post-cleanup.service";
+import { DriveService } from "@/server/drive/drive.service";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, UnauthorizedError } from "@/lib/errors";
+
+vi.mock("@/server/drive/drive.service", () => ({
+  DriveService: {
+    deleteFile: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 vi.mock("@/lib/db", () => {
   return {
@@ -25,6 +32,9 @@ vi.mock("@/lib/db", () => {
       },
       previewAsset: {
         delete: vi.fn(),
+      },
+      driveConnection: {
+        findUnique: vi.fn(),
       },
     },
   };
@@ -182,9 +192,14 @@ describe("Feed Archive & Soft Delete Feature", () => {
   });
 
   describe("PostService.deletePost (Soft Delete)", () => {
-    it("soft deletes a post and retains Google Drive file without hard deletion", async () => {
+    it("soft deletes a post and deletes original file from Google Drive to avoid clutter", async () => {
       vi.mocked(prisma.post.findUnique).mockResolvedValue(mockPostPublished as any);
       vi.mocked(prisma.brief.count).mockResolvedValue(0);
+      vi.mocked(prisma.driveConnection.findUnique).mockResolvedValue({
+        userId: designerId,
+        status: "ACTIVE",
+        refreshTokenEnc: "enc_token_123",
+      } as any);
       vi.mocked(prisma.post.update).mockResolvedValue({
         ...mockPostPublished,
         status: "DELETED",
@@ -194,7 +209,9 @@ describe("Feed Archive & Soft Delete Feature", () => {
       const result = await PostService.deletePost(postId, { userId: designerId });
 
       expect(result.success).toBe(true);
-      expect(result.driveFilesRetained).toBe(true);
+      expect(result.driveFileDeleted).toBe(true);
+      expect(result.driveFilesRetained).toBe(false);
+      expect(DriveService.deleteFile).toHaveBeenCalledWith("enc_token_123", "drive-file-123");
       expect(prisma.post.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: postId },
@@ -206,6 +223,25 @@ describe("Feed Archive & Soft Delete Feature", () => {
       );
       // Prisma delete must NOT be called for soft delete
       expect(prisma.post.delete).not.toHaveBeenCalled();
+    });
+
+    it("handles post deletion gracefully if Drive file is local or Drive connection not active", async () => {
+      vi.mocked(prisma.post.findUnique).mockResolvedValue({
+        ...mockPostPublished,
+        driveFileId: "local_asset-123",
+      } as any);
+      vi.mocked(prisma.brief.count).mockResolvedValue(0);
+      vi.mocked(prisma.post.update).mockResolvedValue({
+        ...mockPostPublished,
+        status: "DELETED",
+        deletedAt: new Date(),
+      } as any);
+
+      const result = await PostService.deletePost(postId, { userId: designerId });
+
+      expect(result.success).toBe(true);
+      expect(result.driveFileDeleted).toBe(false);
+      expect(DriveService.deleteFile).not.toHaveBeenCalled();
     });
 
     it("reports related briefs count when post is referenced in customer orders", async () => {
