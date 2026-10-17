@@ -1,29 +1,5 @@
 import sharp from "sharp";
-import fs from "node:fs";
-import path from "node:path";
-
-let cachedFontBase64: string | null = null;
-
-function getEmbeddedFontBase64(): string {
-  if (cachedFontBase64) return cachedFontBase64;
-  try {
-    const fontPath = path.join(
-      process.cwd(),
-      "src",
-      "server",
-      "media",
-      "assets",
-      "noto-sans.ttf"
-    );
-    if (fs.existsSync(fontPath)) {
-      cachedFontBase64 = fs.readFileSync(fontPath).toString("base64");
-      return cachedFontBase64;
-    }
-  } catch (err) {
-    console.warn("[WatermarkService] Gagal memuat font lokal:", err);
-  }
-  return "";
-}
+import { NOTO_SANS_FONT_BASE64 } from "./assets/watermark-font";
 
 function escapeXml(str: string): string {
   return str
@@ -117,39 +93,38 @@ export class WatermarkService {
     const userX = dotX + dotGap;
     const textBaselineY = posY + padY + Math.round(fontSize * 0.78);
 
-    const fontBase64 = getEmbeddedFontBase64();
-
-    const fontCss = fontBase64
-      ? `@font-face {
-          font-family: 'JokiDayWatermarkFont';
-          src: url('data:font/ttf;base64,${fontBase64}');
-          font-weight: 700;
-          font-style: normal;
-        }
-        .wm-brand {
-          font-family: 'JokiDayWatermarkFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
-          font-size: ${fontSize}px;
-          font-weight: 700;
-          letter-spacing: 0.35px;
-        }
-        .wm-user {
-          font-family: 'JokiDayWatermarkFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
-          font-size: ${fontSize}px;
-          font-weight: 500;
-          letter-spacing: 0.2px;
-        }`
-      : `.wm-brand {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
-          font-size: ${fontSize}px;
-          font-weight: 700;
-          letter-spacing: 0.35px;
-        }
-        .wm-user {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
-          font-size: ${fontSize}px;
-          font-weight: 500;
-          letter-spacing: 0.2px;
-        }`;
+    const fontCss = `
+      @font-face {
+        font-family: 'JokiDayWatermarkFont';
+        src: url('data:font/truetype;charset=utf-8;base64,${NOTO_SANS_FONT_BASE64}') format('truetype');
+        font-weight: 400 800;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'JokiDayWatermarkFont';
+        src: url('data:font/truetype;charset=utf-8;base64,${NOTO_SANS_FONT_BASE64}') format('truetype');
+        font-weight: 700;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'JokiDayWatermarkFont';
+        src: url('data:font/truetype;charset=utf-8;base64,${NOTO_SANS_FONT_BASE64}') format('truetype');
+        font-weight: 500;
+        font-style: normal;
+      }
+      .wm-brand {
+        font-family: 'JokiDayWatermarkFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
+        font-size: ${fontSize}px;
+        font-weight: 700;
+        letter-spacing: 0.35px;
+      }
+      .wm-user {
+        font-family: 'JokiDayWatermarkFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
+        font-size: ${fontSize}px;
+        font-weight: 500;
+        letter-spacing: 0.2px;
+      }
+    `;
 
     const svgOverlay = Buffer.from(`
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
