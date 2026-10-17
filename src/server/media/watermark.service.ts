@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { NOTO_SANS_FONT_BASE64 } from "./assets/watermark-font";
+import { renderVectorText } from "./assets/vector-font";
 
 function escapeXml(str: string): string {
   return str
@@ -18,13 +18,10 @@ export interface WatermarkOptions {
 export class WatermarkService {
   /**
    * Menambahkan watermark elegan dan aman di area tengah (center) gambar:
-   * - Posisi: Tengah vertikal dan horizontal (anti-crop, susah dihapus)
-   * - Teks format: "JokiDay" (bold) + pemisah lingkaran vektor SVG + "@username"
-   * - Menggunakan elemen <circle> native SVG untuk dot pemisah agar 100% bebas dari
-   *   glitch missing-glyph / kotak-kotak (tofu box) di serverless Linux/Vercel
-   * - Desain pill/kapsul transparan elegan (soft translucent dark glass)
-   *   dengan stroke halus dan drop-shadow lembut (melindungi karya tanpa merusak estetika)
-   * - Sisi terpanjang di-resize maksimum maxPx (default 1200px)
+   * - 100% Vector Path SVG murni (bebas ketergantungan font OS, bebas glitch tofu box [] di Vercel/Linux)
+   * - Posisi: Tengah kanvas (anti-crop / susah dihapus)
+   * - Elemen: "JokiDay" + bulatan vektor native SVG + "@username"
+   * - Desain: Kapsul transparan elegan (soft translucent dark glass) bergaris halus dengan drop-shadow lembut
    */
   static async applyWatermark(
     inputBuffer: Buffer,
@@ -50,33 +47,37 @@ export class WatermarkService {
     }
 
     const shortSide = Math.min(width, height);
-    // Skala ukuran font proporsional dan nyaman terbaca (~3.2% dari sisi pendek)
-    let fontSize = Math.max(12, Math.min(22, Math.round(shortSide * 0.032)));
+    // Skala ukuran font proporsional (~3.2% dari sisi pendek, antara 13px - 22px)
+    let fontSize = Math.max(13, Math.min(22, Math.round(shortSide * 0.032)));
 
-    // Bersihkan username dari karakter @ di depan jika ada, sanitasi ke karakter ASCII aman
+    // Sanitasi username ke karakter standar ASCII aman
     const rawUsername = options.username.trim().replace(/^@+/, "");
-    const safeUsername = escapeXml(rawUsername.replace(/[^\w.-]/g, "") || "designer");
+    const safeUsername = rawUsername.replace(/[^\w.-]/g, "") || "designer";
 
-    // Hitung proporsi teks dan komponen
-    let brandWidth = Math.round(fontSize * 3.8);
+    // Render vektor untuk teks
+    let brandVector = renderVectorText("JokiDay", fontSize);
+    let userVector = renderVectorText(`@${safeUsername}`, fontSize);
+
     let dotGap = Math.round(fontSize * 0.65);
-    let dotRadius = Math.max(2, Math.round(fontSize * 0.14));
-    let userWidth = Math.round(fontSize * (0.85 + safeUsername.length * 0.52));
+    let dotRadius = Math.max(2, Math.round(fontSize * 0.16));
     let padX = Math.round(fontSize * 1.0);
-    let padY = Math.round(fontSize * 0.5);
+    let padY = Math.round(fontSize * 0.55);
 
-    let totalNeededWidth = brandWidth + dotGap * 2 + userWidth + padX * 2;
-    // Jika lebar pill melebihi lebar gambar (misal di gambar portrait sempit), kecilkan fontSize
+    let contentWidth = brandVector.width + dotGap * 2 + userVector.width;
+    let totalNeededWidth = contentWidth + padX * 2;
+
+    // Jika gambar berformat portrait sempit, sesuaikan ukuran secara dinamis
     if (totalNeededWidth > width * 0.88) {
       const scale = (width * 0.88) / totalNeededWidth;
-      fontSize = Math.max(10, Math.floor(fontSize * scale));
-      brandWidth = Math.round(fontSize * 3.8);
+      fontSize = Math.max(11, Math.floor(fontSize * scale));
+      brandVector = renderVectorText("JokiDay", fontSize);
+      userVector = renderVectorText(`@${safeUsername}`, fontSize);
       dotGap = Math.round(fontSize * 0.65);
-      dotRadius = Math.max(2, Math.round(fontSize * 0.14));
-      userWidth = Math.round(fontSize * (0.85 + safeUsername.length * 0.52));
+      dotRadius = Math.max(2, Math.round(fontSize * 0.16));
       padX = Math.round(fontSize * 1.0);
-      padY = Math.round(fontSize * 0.5);
-      totalNeededWidth = brandWidth + dotGap * 2 + userWidth + padX * 2;
+      padY = Math.round(fontSize * 0.55);
+      contentWidth = brandVector.width + dotGap * 2 + userVector.width;
+      totalNeededWidth = contentWidth + padX * 2;
     }
 
     const pillWidth = totalNeededWidth;
@@ -88,50 +89,14 @@ export class WatermarkService {
     const posY = Math.round((height - pillHeight) / 2);
 
     const brandX = posX + padX;
-    const dotX = brandX + brandWidth + dotGap;
+    const dotX = brandX + brandVector.width + dotGap;
     const dotY = posY + Math.round(pillHeight / 2);
     const userX = dotX + dotGap;
-    const textBaselineY = posY + padY + Math.round(fontSize * 0.78);
-
-    const fontCss = `
-      @font-face {
-        font-family: 'JokiDayWatermarkFont';
-        src: url('data:font/truetype;charset=utf-8;base64,${NOTO_SANS_FONT_BASE64}') format('truetype');
-        font-weight: 400 800;
-        font-style: normal;
-      }
-      @font-face {
-        font-family: 'JokiDayWatermarkFont';
-        src: url('data:font/truetype;charset=utf-8;base64,${NOTO_SANS_FONT_BASE64}') format('truetype');
-        font-weight: 700;
-        font-style: normal;
-      }
-      @font-face {
-        font-family: 'JokiDayWatermarkFont';
-        src: url('data:font/truetype;charset=utf-8;base64,${NOTO_SANS_FONT_BASE64}') format('truetype');
-        font-weight: 500;
-        font-style: normal;
-      }
-      .wm-brand {
-        font-family: 'JokiDayWatermarkFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
-        font-size: ${fontSize}px;
-        font-weight: 700;
-        letter-spacing: 0.35px;
-      }
-      .wm-user {
-        font-family: 'JokiDayWatermarkFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', Helvetica, Arial, sans-serif;
-        font-size: ${fontSize}px;
-        font-weight: 500;
-        letter-spacing: 0.2px;
-      }
-    `;
+    const baselineY = posY + padY + Math.round(fontSize * 0.76);
 
     const svgOverlay = Buffer.from(`
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <style>
-            ${fontCss}
-          </style>
           <filter id="wm-shadow" x="-10%" y="-20%" width="120%" height="140%">
             <feDropShadow dx="0" dy="2" stdDeviation="3.5" flood-color="#000000" flood-opacity="0.35"/>
           </filter>
@@ -150,15 +115,11 @@ export class WatermarkService {
             stroke-opacity="0.26"
             stroke-width="1.2"
           />
-          <!-- Label Brand JokiDay (bold) -->
-          <text
-            x="${brandX}"
-            y="${textBaselineY}"
-            class="wm-brand"
-            fill="#FFFFFF"
-            fill-opacity="0.95"
-          >JokiDay</text>
-          <!-- Pemisah titik vektor SVG native (anti kotak-kotak / tofu box) -->
+          <!-- Brand JokiDay (Pure vector paths - 100% no tofu) -->
+          <g transform="translate(${brandX}, ${baselineY})" fill="#FFFFFF" fill-opacity="0.95">
+            ${brandVector.svg}
+          </g>
+          <!-- Pemisah titik vektor SVG native (anti kotak-kotak) -->
           <circle
             cx="${dotX}"
             cy="${dotY}"
@@ -166,14 +127,10 @@ export class WatermarkService {
             fill="#FFFFFF"
             fill-opacity="0.75"
           />
-          <!-- Username desainer -->
-          <text
-            x="${userX}"
-            y="${textBaselineY}"
-            class="wm-user"
-            fill="#FFFFFF"
-            fill-opacity="0.88"
-          >@${safeUsername}</text>
+          <!-- Username desainer (Pure vector paths - 100% no tofu) -->
+          <g transform="translate(${userX}, ${baselineY})" fill="#FFFFFF" fill-opacity="0.88">
+            ${userVector.svg}
+          </g>
         </g>
       </svg>
     `);
