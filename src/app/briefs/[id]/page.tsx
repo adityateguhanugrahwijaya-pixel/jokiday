@@ -8,6 +8,8 @@ import { AuthService } from "@/server/auth/auth.service";
 import { formatDate } from "@/lib/format";
 import { ArrowLeft, Clock, FileCheck } from "lucide-react";
 import { BriefDetailClient } from "./BriefDetailClient";
+import { CustomerReputationCard } from "@/components/reviews/CustomerReputationCard";
+import { ReviewService } from "@/server/reviews/review.service";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,21 @@ export default async function BriefDetailPage({ params }: { params: { id: string
 
   const isVerifiedDesigner = Boolean(currentUser?.isDesigner && currentUser?.designerProfile?.isVerified);
   const currentDesignerId = isVerifiedDesigner ? (currentUser?.id || "") : "";
+
+  let customerReputation = null;
+  if (
+    currentUser?.activeRole === "DESIGNER" &&
+    currentUser.id !== brief.customerId
+  ) {
+    customerReputation = await ReviewService.getCustomerReputationForDesigner(
+      brief.customerId,
+      {
+        userId: currentUser.id,
+        activeRole: currentUser.activeRole,
+        isAdmin: currentUser.isAdmin,
+      }
+    );
+  }
 
   return (
     <AppShell
@@ -100,6 +117,11 @@ export default async function BriefDetailPage({ params }: { params: { id: string
             </span>
           </div>
         </div>
+
+        {/* Reputasi Pelanggan Khusus untuk Desainer Lain */}
+        {customerReputation && (
+          <CustomerReputationCard reputation={customerReputation} />
+        )}
 
         {/* Client Interactive Area (Daftar Penawaran & Form Kirim Penawaran) */}
         <BriefDetailClient

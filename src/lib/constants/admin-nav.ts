@@ -1,7 +1,7 @@
-import { Layers, UserPlus, Wallet, Clock, LucideIcon } from "lucide-react";
+import { Layers, UserPlus, Wallet, Clock, Star, LucideIcon } from "lucide-react";
 
 export interface AdminNavItem {
-  id: "dashboard" | "invites" | "withdrawals" | "orders";
+  id: "dashboard" | "invites" | "withdrawals" | "orders" | "reviews";
   label: string;
   href: string;
   icon: LucideIcon;
@@ -60,6 +60,16 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     description:
       "Pantau seluruh transaksi pesanan antara pelanggan dan desainer di seluruh platform JokiDay.",
   },
+  {
+    id: "reviews",
+    label: "Moderasi Ulasan",
+    href: "/admin/reviews",
+    icon: Star,
+    pageTitle: "Moderasi Ulasan",
+    browserTitle: "Moderasi Ulasan - JokiDay",
+    description:
+      "Tinjau ulasan publik dan privat dua arah, tangani laporan pelanggaran, serta sembunyikan atau pulihkan ulasan.",
+  },
 ];
 
 export function getAdminNavItemByHref(pathname: string): AdminNavItem | undefined {
@@ -71,6 +81,9 @@ export function getAdminNavItemByHref(pathname: string): AdminNavItem | undefine
   }
   if (pathname.startsWith("/admin/withdrawals")) {
     return ADMIN_NAV_ITEMS.find((item) => item.id === "withdrawals");
+  }
+  if (pathname.startsWith("/admin/reviews")) {
+    return ADMIN_NAV_ITEMS.find((item) => item.id === "reviews");
   }
   if (pathname.startsWith("/orders")) {
     return ADMIN_NAV_ITEMS.find((item) => item.id === "orders");

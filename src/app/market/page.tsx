@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { prisma } from "@/lib/db";
 import { AuthService } from "@/server/auth/auth.service";
 import { formatRupiah, formatDate } from "@/lib/format";
-import { PlusCircle, Clock, FileText, ChevronRight, Sparkles } from "lucide-react";
+import { PlusCircle, Clock, FileText, ChevronRight, Sparkles, Star } from "lucide-react";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -208,9 +208,22 @@ export default async function MarketPage() {
                   </div>
 
                   <div className="pt-4 mt-4 border-t border-border flex items-center justify-between">
-                    <span className="text-xs text-text-muted truncate max-w-[140px]">
-                      Oleh {b.customer.displayName}
-                    </span>
+                    <div className="flex items-center gap-1.5 truncate max-w-[170px]">
+                      <span className="text-xs text-text-muted truncate">
+                        Oleh {b.customer.displayName}
+                      </span>
+                      {currentUser?.activeRole === "DESIGNER" &&
+                        currentUser.id !== b.customerId &&
+                        b.customer.customerRatingCount > 0 && (
+                          <span
+                            title={`Rating Pemesan dari ${b.customer.customerRatingCount} desainer`}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 text-[10px] font-bold shrink-0"
+                          >
+                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" />
+                            <span>{b.customer.customerRatingAvg.toFixed(1)}</span>
+                          </span>
+                        )}
+                    </div>
 
                     {isMyDirect ? (
                       <Link

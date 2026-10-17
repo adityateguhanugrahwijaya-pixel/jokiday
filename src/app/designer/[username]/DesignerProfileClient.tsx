@@ -41,6 +41,10 @@ import {
   validateServicePackagePrice,
   getLowestActivePackagePrice,
 } from "@/lib/constants/packages";
+import {
+  PublicDesignerReviewsList,
+  PublicReviewItem,
+} from "@/components/reviews/PublicDesignerReviewsList";
 
 export interface ProfilePost {
   id: string;
@@ -85,6 +89,7 @@ export function DesignerProfileClient({
   archivedPosts: initialArchivedPosts = [],
   packages: initialPackages,
   products: initialProducts = [],
+  reviews: initialReviews = [],
   isDriveConnected = false,
   isOwner,
   isAdmin,
@@ -95,6 +100,7 @@ export function DesignerProfileClient({
   archivedPosts?: ProfilePost[];
   packages: ProfilePackage[];
   products?: ProductItem[];
+  reviews?: PublicReviewItem[];
   isDriveConnected?: boolean;
   isOwner: boolean;
   isAdmin?: boolean;
@@ -102,7 +108,10 @@ export function DesignerProfileClient({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"posts" | "archived" | "products" | "packages" | "info">("posts");
+  const [activeTab, setActiveTab] = useState<
+    "posts" | "archived" | "products" | "packages" | "reviews" | "info"
+  >("posts");
+  const [reviews, setReviews] = useState<PublicReviewItem[]>(initialReviews);
 
   const [posts, setPosts] = useState<ProfilePost[]>(initialPosts);
   const [archivedPosts, setArchivedPosts] = useState<ProfilePost[]>(initialArchivedPosts);
@@ -657,10 +666,18 @@ export function DesignerProfileClient({
               <div className="flex items-center gap-1">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                 <span className="font-extrabold text-text">
-                  {designer.ratingCount > 0 ? designer.ratingAvg.toFixed(1) : "-"}
+                  {designer.ratingCount >= 3
+                    ? designer.ratingAvg.toFixed(1)
+                    : designer.ratingCount > 0
+                    ? "Baru"
+                    : "-"}
                 </span>
                 <span className="text-text-muted text-xs">
-                  {designer.ratingCount > 0 ? `Rating (${designer.ratingCount})` : "Belum ada ulasan"}
+                  {designer.ratingCount >= 3
+                    ? `Rating (${designer.ratingCount})`
+                    : designer.ratingCount > 0
+                    ? `(${designer.ratingCount} ulasan)`
+                    : "Belum ada ulasan"}
                 </span>
               </div>
             </div>
@@ -740,6 +757,19 @@ export function DesignerProfileClient({
         >
           <Package className="w-4 h-4" />
           <span>Paket Jasa ({packages.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("reviews")}
+          className={`pb-3 inline-flex items-center gap-2 text-xs font-bold tracking-wider uppercase transition-colors border-b-2 ${
+            activeTab === "reviews"
+              ? "border-primary text-primary"
+              : "border-transparent text-text-muted hover:text-text"
+          }`}
+        >
+          <Star className="w-4 h-4" />
+          <span>Ulasan ({reviews.length})</span>
         </button>
 
         <button
@@ -1136,6 +1166,17 @@ export function DesignerProfileClient({
             </div>
           )}
         </section>
+      )}
+
+      {/* TAB: ULASAN PELANGGAN */}
+      {activeTab === "reviews" && (
+        <PublicDesignerReviewsList
+          designerId={designer.id}
+          isOwner={isOwner}
+          reviews={reviews}
+          totalReviews={designer.ratingCount}
+          ratingAvg={designer.ratingAvg}
+        />
       )}
 
       {/* TAB 3: TENTANG DESAINER */}

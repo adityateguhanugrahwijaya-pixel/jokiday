@@ -21,6 +21,9 @@ model User {
   activeRole    String    @default("CUSTOMER") @map("active_role") // CUSTOMER | DESIGNER
   createdAt     DateTime  @default(now()) @map("created_at")
 
+  customerRatingAvg   Float   @default(0.0) @map("customer_rating_avg")
+  customerRatingCount Int     @default(0) @map("customer_rating_count")
+
   driveConnection  DriveConnection?
   designerProfile  DesignerProfile?
   briefs           Brief[]          @relation("CustomerBriefs")
@@ -35,6 +38,9 @@ model User {
   passwordResetTokens PasswordResetToken[]
   productPurchases    ProductPurchase[]
   productReports      ProductReport[]
+  reviewsGiven        Review[]         @relation("ReviewsGiven")
+  reviewsReceived     Review[]         @relation("ReviewsReceived")
+  reviewReports       ReviewReport[]
 
   @@map("users")
 }
@@ -362,18 +368,47 @@ model Withdrawal {
 }
 
 model Review {
+  id            String    @id @default(uuid())
+  orderId       String    @map("order_id")
+  reviewerId    String    @map("reviewer_id")
+  revieweeId    String    @map("reviewee_id")
+  direction     String    @default("CUSTOMER_TO_DESIGNER") // CUSTOMER_TO_DESIGNER | DESIGNER_TO_CUSTOMER
+  rating        Int
+  comment       String?
+  status        String    @default("VISIBLE") // VISIBLE | HIDDEN
+  hiddenReason  String?   @map("hidden_reason")
+  hiddenBy      String?   @map("hidden_by")
+  designerReply String?   @map("designer_reply")
+  designerRepliedAt DateTime? @map("designer_replied_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  order    Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reviewer User           @relation("ReviewsGiven", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee User           @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
+  reports  ReviewReport[]
+
+  @@unique([orderId, direction])
+  @@index([revieweeId, direction, status])
+  @@index([reviewerId])
+  @@map("reviews")
+}
+
+model ReviewReport {
   id         String   @id @default(uuid())
-  orderId    String   @map("order_id")
-  reviewerId String   @map("reviewer_id")
-  revieweeId String   @map("reviewee_id")
-  rating     Int
-  comment    String
+  reviewId   String   @map("review_id")
+  reporterId String   @map("reporter_id")
+  reason     String
+  status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  adminNote  String?  @map("admin_note")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reporter User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
-  @@unique([orderId, reviewerId])
-  @@map("reviews")
+  @@index([reviewId])
+  @@index([reporterId])
+  @@map("review_reports")
 }
 
 model Notification {

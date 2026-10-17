@@ -22,6 +22,8 @@ import {
 import { AuthService } from "@/server/auth/auth.service";
 import { redirect } from "next/navigation";
 import { OrderActionButtons } from "./OrderActionButtons";
+import { OrderReviewSection } from "@/components/reviews/OrderReviewSection";
+import { ReviewService } from "@/server/reviews/review.service";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +74,18 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const contract = JSON.parse(order.contractSnapshot || "{}");
   const deliverables = JSON.parse(order.deliverables || "[]");
   const latestRevision = order.revisionRequests?.[0] || null;
+
+  let customerReputation = null;
+  if (isDesigner && session && order.customerId) {
+    customerReputation = await ReviewService.getCustomerReputationForDesigner(
+      order.customerId,
+      {
+        userId: session.userId,
+        activeRole: session.activeRole,
+        isAdmin: session.isAdmin,
+      }
+    );
+  }
 
   // Stepper tahap order
   const steps = [
@@ -343,6 +357,16 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 </div>
               )}
             </div>
+
+            {/* SEKSI PENILAIAN DUA ARAH (ORDER COMPLETED) */}
+            {order.status === "COMPLETED" && (
+              <OrderReviewSection
+                orderId={order.id}
+                orderStatus={order.status}
+                viewerRole={viewerRole}
+                initialCustomerReputation={customerReputation}
+              />
+            )}
           </div>
 
           {/* Kolom Kanan: Ringkasan Kontrak & Aksi (Sticky di Desktop) */}

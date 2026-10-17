@@ -11,6 +11,7 @@ import {
   DesignerProfileData,
 } from "./DesignerProfileClient";
 import { resolvePreviewUrl } from "@/lib/media";
+import { ReviewService } from "@/server/reviews/review.service";
 
 export const dynamic = "force-dynamic";
 
@@ -119,15 +120,24 @@ export default async function DesignerPage({
   });
 
   const reviews = await prisma.review.findMany({
-    where: { revieweeId: designerUser.id },
+    where: {
+      revieweeId: designerUser.id,
+      direction: "CUSTOMER_TO_DESIGNER",
+      status: "VISIBLE",
+    },
     select: { rating: true },
   });
 
   const realRatingCount = reviews.length;
   const realRatingAvg =
     realRatingCount > 0
-      ? reviews.reduce((acc, r) => acc + r.rating, 0) / realRatingCount
-      : 0;
+      ? Number((reviews.reduce((acc, r) => acc + r.rating, 0) / realRatingCount).toFixed(2))
+      : 0.0;
+
+  const publicReviewsData = await ReviewService.getPublicDesignerReviews(
+    designerUser.id,
+    { limit: 30 }
+  );
 
   // Sinkronkan data ke designerProfile jika ada pembaruan
   if (
@@ -291,6 +301,7 @@ export default async function DesignerPage({
         archivedPosts={archivedPosts}
         packages={mappedPackages}
         products={mappedProducts}
+        reviews={publicReviewsData.reviews}
         isDriveConnected={isDriveConnected}
         isOwner={isOwner}
         isAdmin={isAdmin}
