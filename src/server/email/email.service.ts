@@ -201,7 +201,7 @@ export class EmailService {
           </a>
         </div>
         <p style="font-size: 12px; color: #64748b;">
-          Tautan ini berlaku hingga: <strong>${new Date(data.expiresAt).toLocaleDateString("id-ID", { dateStyle: "long" })}</strong>
+          Tautan ini berlaku hingga: <strong>${new Date(data.expiresAt).toLocaleDateString("id-ID", { dateStyle: "long", timeZone: "Asia/Jayapura" })} WIT</strong>
         </p>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
         <p style="font-size: 11px; color: #94a3b8; margin: 0;">

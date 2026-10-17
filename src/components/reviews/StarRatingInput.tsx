@@ -50,46 +50,48 @@ export function StarRatingInput({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div
-        className="flex items-center gap-1.5"
+        className="flex flex-wrap items-center gap-2"
         role="radiogroup"
         aria-label="Pilih nilai bintang ulasan"
       >
-        {[1, 2, 3, 4, 5].map((star) => {
-          const isFilled = star <= currentVal;
+        <div className="flex items-center gap-1 shrink-0">
+          {[1, 2, 3, 4, 5].map((star) => {
+            const isFilled = star <= currentVal;
 
-          return (
-            <button
-              key={star}
-              type="button"
-              role="radio"
-              aria-checked={value === star}
-              aria-label={`${star} Bintang - ${RATING_DESCRIPTIONS[star]}`}
-              disabled={disabled}
-              onClick={() => onChange(star)}
-              onMouseEnter={() => !disabled && setHoverValue(star)}
-              onMouseLeave={() => !disabled && setHoverValue(null)}
-              onKeyDown={(e) => handleKeyDown(e, star)}
-              className={`p-1.5 rounded-md transition-all focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                disabled
-                  ? "cursor-not-allowed opacity-60"
-                  : "cursor-pointer hover:scale-110 active:scale-95"
-              }`}
-            >
-              <Star
-                className={`${starSizes[size]} transition-colors ${
-                  isFilled
-                    ? "fill-amber-400 text-amber-500"
-                    : "fill-transparent text-text-muted/40 hover:text-amber-300"
+            return (
+              <button
+                key={star}
+                type="button"
+                role="radio"
+                aria-checked={value === star}
+                aria-label={`${star} Bintang - ${RATING_DESCRIPTIONS[star]}`}
+                disabled={disabled}
+                onClick={() => onChange(star)}
+                onMouseEnter={() => !disabled && setHoverValue(star)}
+                onMouseLeave={() => !disabled && setHoverValue(null)}
+                onKeyDown={(e) => handleKeyDown(e, star)}
+                className={`p-1.5 rounded-md transition-all focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                  disabled
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer hover:scale-110 active:scale-95"
                 }`}
-              />
-            </button>
-          );
-        })}
+              >
+                <Star
+                  className={`${starSizes[size]} transition-colors ${
+                    isFilled
+                      ? "fill-amber-400 text-amber-500"
+                      : "fill-transparent text-text-muted/40 hover:text-amber-300"
+                  }`}
+                />
+              </button>
+            );
+          })}
+        </div>
 
         {currentVal > 0 && (
-          <span className="ml-2.5 text-xs font-semibold text-text">
+          <span className="text-xs font-semibold text-text">
             {currentVal} / 5 ({RATING_DESCRIPTIONS[currentVal]})
           </span>
         )}

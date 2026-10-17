@@ -38,7 +38,14 @@ export default async function OrderDetailPage({ params }: { params: { id: string
     include: {
       brief: true,
       designer: true,
-      customer: true,
+      customer: {
+        select: {
+          id: true,
+          displayName: true,
+          username: true,
+          avatarUrl: true,
+        },
+      },
       deliveries: {
         include: {
           deliveryFiles: {

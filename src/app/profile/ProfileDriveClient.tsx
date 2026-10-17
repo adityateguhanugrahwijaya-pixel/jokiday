@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Cloud, ShieldCheck, AlertCircle, Unlink, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { formatDate } from "@/lib/format";
 
 interface ProfileDriveClientProps {
   connection: {
@@ -105,7 +106,7 @@ export function ProfileDriveClient({ connection }: ProfileDriveClientProps) {
               </p>
               {connection?.connectedAt && (
                 <p className="text-[11px] text-text-muted font-mono">
-                  Tersambung sejak: {new Date(connection.connectedAt).toLocaleDateString("id-ID", { dateStyle: "long" })}
+                  Tersambung sejak: {formatDate(connection.connectedAt)}
                 </p>
               )}
             </div>

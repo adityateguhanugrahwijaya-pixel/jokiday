@@ -81,6 +81,7 @@ function formatChatTime(isoString: string) {
   try {
     const d = new Date(isoString);
     return d.toLocaleTimeString("id-ID", {
+      timeZone: "Asia/Jayapura",
       hour: "2-digit",
       minute: "2-digit",
     });

@@ -73,6 +73,20 @@ export default async function MarketPage() {
     (b) => b.mode === "DIRECT" && b.targetDesignerId === currentUser?.id && b.status === "OPEN"
   ).length;
 
+  // Sanitasi data customer: sembunyikan customerRating jika pemanggil bukan desainer atau pemanggil adalah pemilik brief itu sendiri
+  const displayBriefs = sortedBriefs.map((b) => {
+    const isAllowedToSee =
+      currentUser?.activeRole === "DESIGNER" && currentUser.id !== b.customerId;
+    if (!isAllowedToSee) {
+      const { customerRatingAvg, customerRatingCount, ...safeCustomer } = b.customer as any;
+      return {
+        ...b,
+        customer: safeCustomer,
+      };
+    }
+    return b;
+  });
+
   return (
     <AppShell
       role={currentUser?.activeRole as "CUSTOMER" | "DESIGNER" || "CUSTOMER"}
@@ -120,7 +134,7 @@ export default async function MarketPage() {
         )}
 
         {/* Daftar Brief */}
-        {sortedBriefs.length === 0 ? (
+        {displayBriefs.length === 0 ? (
           <div className="bg-surface border border-border rounded-lg p-12 text-center max-w-lg mx-auto space-y-4">
             <div className="w-12 h-12 rounded-full bg-primary-soft text-primary mx-auto flex items-center justify-center">
               <FileText className="w-6 h-6" />
@@ -144,7 +158,7 @@ export default async function MarketPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedBriefs.map((b) => {
+            {displayBriefs.map((b) => {
               const isMyDirect = b.mode === "DIRECT" && b.targetDesignerId === currentUser?.id;
               const isMyCustomerBrief = b.customerId === currentUser?.id;
               const targetDesigner = b.targetDesignerId ? targetDesignerMap.get(b.targetDesignerId) : null;

@@ -26,7 +26,14 @@ export default async function BriefDetailPage({ params }: { params: { id: string
   const brief = await prisma.brief.findUnique({
     where: { id: params.id },
     include: {
-      customer: true,
+      customer: {
+        select: {
+          id: true,
+          displayName: true,
+          username: true,
+          avatarUrl: true,
+        },
+      },
       offers: {
         include: { designer: true },
         orderBy: { createdAt: "desc" },

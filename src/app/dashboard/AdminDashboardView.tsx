@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
 import { OrderStatusBadge } from "@/components/ui/Badge";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, formatDate } from "@/lib/format";
 import {
   ShieldCheck,
   Users,
@@ -608,7 +608,7 @@ export function AdminDashboardView({
                         {inv.status}
                       </span>
                       <p className="text-[10px] text-text-muted mt-1">
-                        {new Date(inv.createdAt).toLocaleDateString("id-ID")}
+                        {formatDate(inv.createdAt)}
                       </p>
                     </div>
                   </div>

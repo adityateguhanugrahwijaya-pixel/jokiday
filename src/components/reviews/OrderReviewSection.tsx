@@ -45,7 +45,7 @@ export function OrderReviewSection({
 
   // Form states
   const [isEditing, setIsEditing] = useState(false);
-  const [rating, setRating] = useState(5);
+  const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
 
   const isCompleted = orderStatus === "COMPLETED";
@@ -69,6 +69,9 @@ export function OrderReviewSection({
         if (myReview) {
           setRating(myReview.rating);
           setComment(myReview.comment || "");
+        } else {
+          setRating(0);
+          setComment("");
         }
       }
     } catch (err) {
@@ -92,7 +95,7 @@ export function OrderReviewSection({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rating < 1 || rating > 5) {
-      setErrorMsg("Harap pilih nilai bintang (1 sampai 5)");
+      setErrorMsg("Silakan pilih nilai bintang (1 sampai 5) terlebih dahulu sebelum mengirim penilaian.");
       return;
     }
 
@@ -273,6 +276,11 @@ export function OrderReviewSection({
                 disabled={submitting}
                 size="md"
               />
+              {rating === 0 && (
+                <p className="text-[11px] text-text-muted">
+                  Pilih 1 sampai 5 bintang untuk menilai.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -310,6 +318,9 @@ export function OrderReviewSection({
                     if (currentReview) {
                       setRating(currentReview.rating);
                       setComment(currentReview.comment || "");
+                    } else {
+                      setRating(0);
+                      setComment("");
                     }
                   }}
                 >
@@ -320,6 +331,7 @@ export function OrderReviewSection({
                 type="submit"
                 variant="primary"
                 size="sm"
+                disabled={submitting || rating < 1}
                 isLoading={submitting}
                 className="flex items-center gap-1.5"
               >
